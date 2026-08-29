@@ -1,16 +1,18 @@
 # MediKiosk — Backend Dockerfile
 # Multi-stage build: installs Tesseract OCR + Python deps cleanly
 
-FROM python:3.11-slim
+FROM python:3.11-bookworm
 
 # Install system dependencies (Tesseract + language packs, curl for healthcheck)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Split into multiple RUN commands to prevent 'runc process is already dead' errors on Railway build nodes
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-eng \
     tesseract-ocr-hin \
     libgl1 \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+    curl
+RUN rm -rf /var/lib/apt/lists/*
 
 # Set work directory
 WORKDIR /app
