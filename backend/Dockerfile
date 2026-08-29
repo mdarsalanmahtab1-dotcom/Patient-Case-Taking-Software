@@ -18,11 +18,11 @@ RUN rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Install Python dependencies first (layer cache efficiency)
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy all backend source files
-COPY . .
+COPY backend/ .
 
 # Expose the port Railway will route to
 EXPOSE 8000
