@@ -208,11 +208,12 @@ def extract_document_entities(ocr_text: str, doc_type: str = "prescription") -> 
     system_prompt = """Extract structured clinical entities from this medical document text.
 
 Output a JSON object with:
-- "medications": [{name, dose, frequency}]
-- "diagnoses": [str]
-- "lab_results": [{test, result, unit, reference_range, status}]
-- "procedures": [str]
+- "medications": [{"name": str, "dose": str, "frequency": str, "date": str}]
+- "diagnoses": [{"name": str, "date": str}]
+- "lab_results": [{"test": str, "result": str, "unit": str, "reference_range": str, "status": str, "date": str}]
+- "procedures": [{"name": str, "date": str}]
 
+Extract the dates associated with these events to help build a chronological timeline. If no specific date is present for an entity, but a general document date is, use the document date.
 Only extract what is clearly present. Mark uncertain extractions."""
 
     try:
@@ -231,13 +232,63 @@ def _mock_doc_extract(ocr_text: str) -> dict:
     """Mock document extraction for demos without LLM."""
     return {
         "medications": [
-            {"name": "Paracetamol", "dose": "500 mg", "frequency": "Twice a day"},
-            {"name": "Amlodipine", "dose": "5 mg", "frequency": "Once daily"},
+            {"name": "Paracetamol", "dose": "500 mg", "frequency": "Twice a day", "date": "2023-10-01"},
+            {"name": "Amlodipine", "dose": "5 mg", "frequency": "Once daily", "date": "2023-10-01"},
         ],
-        "diagnoses": ["Hypertension"],
+        "diagnoses": [{"name": "Hypertension", "date": "2023-01-15"}],
         "lab_results": [
-            {"test": "Hemoglobin", "result": "13.2", "unit": "g/dL", "reference_range": "13.0-17.0", "status": "Normal"},
-            {"test": "WBC Count", "result": "8200", "unit": "/μL", "reference_range": "4000-11000", "status": "Normal"},
+            {"test": "Hemoglobin", "result": "13.2", "unit": "g/dL", "reference_range": "13.0-17.0", "status": "Normal", "date": "2023-09-28"},
+            {"test": "WBC Count", "result": "8200", "unit": "/μL", "reference_range": "4000-11000", "status": "Normal", "date": "2023-09-28"},
         ],
         "procedures": [],
     }
+
+def extract_document_entities_vlm(image_bytes: bytes, mime_type: str = "image/jpeg", doc_type: str = "prescription") -> dict:
+    """Extract clinical entities directly from an image using the VLM."""
+    client = _get_client()
+    if client is None:
+        return _mock_doc_extract_vlm()
+
+    system_prompt = """You are a clinical document extraction VLM. 
+Read the provided document image and extract structured clinical entities.
+
+Critically, you must also provide a "vlm_confidence" score (0 to 100) based on the image's legibility and your confidence in extracting the text. If the image is blurry, cropped, or unreadable, give a low score (e.g., < 50).
+
+Output a JSON object with:
+- "vlm_confidence": int
+- "ocr_text": "The full raw text you read from the image as a single string"
+- "medications": [{"name": str, "dose": str, "frequency": str, "date": str}]
+- "diagnoses": [{"name": str, "date": str}]
+- "lab_results": [{"test": str, "result": str, "unit": str, "reference_range": str, "status": str, "date": str}]
+- "procedures": [{"name": str, "date": str}]
+
+Extract the dates associated with these events to help build a chronological timeline. If no specific date is present for an entity, but a general document date is, use the document date.
+Only extract what is clearly present."""
+
+    try:
+        model_name = "gemini-2.5-flash"
+        t0 = time.time()
+        
+        image_part = genai_types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+        
+        response = client.models.generate_content(
+            model=model_name,
+            contents=[f"Document type: {doc_type}", image_part],
+            config=genai_types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json",
+                temperature=0.1,
+            ),
+        )
+        elapsed = time.time() - t0
+        logger.info(f"VLM extraction took {elapsed:.2f}s (model={model_name})")
+        return json.loads(response.text)
+    except Exception as e:
+        logger.error(f"VLM extract_document_entities_vlm failed: {e}")
+        return _mock_doc_extract_vlm()
+
+def _mock_doc_extract_vlm() -> dict:
+    mock_data = _mock_doc_extract("")
+    mock_data["vlm_confidence"] = 85
+    mock_data["ocr_text"] = "[Mock VLM extraction of image]"
+    return mock_data

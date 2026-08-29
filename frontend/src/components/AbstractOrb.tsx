@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 
-export type OrbState = 'idle' | 'listening' | 'processing' | 'success' | 'alert';
+export type OrbState = 'idle' | 'listening' | 'processing' | 'speaking' | 'success' | 'alert';
 
 interface AbstractOrbProps {
   interactionState: OrbState;
@@ -61,6 +61,17 @@ export function AbstractOrb({ interactionState, className = '' }: AbstractOrbPro
       boxShadow: ["0px 0px 20px rgba(239, 68, 68, 0.6)", "0px 0px 50px rgba(239, 68, 68, 0.9)", "0px 0px 20px rgba(239, 68, 68, 0.6)"],
       transition: {
         duration: 0.8,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }
+    },
+    speaking: {
+      scale: [1, 1.08, 1, 1.06, 1],
+      borderRadius: "50%",
+      background: "linear-gradient(135deg, #f59e0b, #fbbf24)",
+      boxShadow: ["0px 0px 20px rgba(245, 158, 11, 0.5)", "0px 0px 35px rgba(245, 158, 11, 0.8)", "0px 0px 20px rgba(245, 158, 11, 0.5)"],
+      transition: {
+        duration: 1.2,
         repeat: Infinity,
         ease: "easeInOut"
       }

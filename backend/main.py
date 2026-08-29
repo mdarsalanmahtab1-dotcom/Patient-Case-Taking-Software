@@ -18,6 +18,7 @@ Endpoints:
 from __future__ import annotations
 import json
 import logging
+import os
 import time
 import asyncio
 from contextlib import asynccontextmanager
@@ -57,14 +58,26 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow the Vite dev server
+# CORS — lock down to the production Vercel frontend in prod, or all origins in dev
+_allowed_origin = os.environ.get("ALLOWED_ORIGIN", "*")
+_origins = [_allowed_origin] if _allowed_origin != "*" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Health Check (Railway / load balancer probe)
+# ──────────────────────────────────────────────────────────────────────
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "version": "2.0.0"}
 
 
 # ──────────────────────────────────────────────────────────────────────

@@ -65,7 +65,7 @@ class DocumentExtraction(BaseModel):
     doc_id: str
     doc_type: str = "unknown"
     ocr_path: str = "printed"
-    entities: list[dict] = Field(default_factory=list)
+    entities: dict = Field(default_factory=dict)
 
 
 class Contradiction(BaseModel):
@@ -207,3 +207,50 @@ class PatientRecord(BaseModel):
             })
 
         return groups
+
+    def build_chronological_timeline(self) -> list[dict]:
+        """
+        Builds a unified, chronological timeline of patient history by extracting
+        dates from document entities and the current conversation state.
+        """
+        timeline = []
+        
+        # 1. Add document extractions
+        for doc in self.document_extractions:
+            entities = doc.entities
+            if isinstance(entities, dict):
+                for category, items in entities.items():
+                    if isinstance(items, list):
+                        for item in items:
+                            if isinstance(item, dict):
+                                date = item.get("date", "Unknown Date")
+                                name = item.get("name") or item.get("test") or "Unknown Entity"
+                                details = ", ".join(f"{k}: {v}" for k, v in item.items() if k not in ["name", "test", "date"] and v)
+                                timeline.append({
+                                    "date": date,
+                                    "source": f"Document ({doc.doc_type})",
+                                    "category": category,
+                                    "event": name,
+                                    "details": details
+                                })
+        
+        # 2. Add current encounter information
+        current_date = "Current Encounter"
+        for field_id, entry in self.filled_state.items():
+            if isinstance(entry, dict) and entry.get("value"):
+                timeline.append({
+                    "date": current_date,
+                    "source": "Conversation",
+                    "category": "Current Interview",
+                    "event": field_id.replace("_", " ").title(),
+                    "details": str(entry["value"])
+                })
+                
+        # Sort timeline
+        def sort_key(item):
+            d = item["date"]
+            if d == "Current Encounter": return "9999-99-99" # Conceptually newest
+            if d == "Unknown Date" or not d: return "0000-00-00" # Conceptually oldest
+            return str(d)
+            
+        return sorted(timeline, key=sort_key)

@@ -28,7 +28,7 @@ except ImportError:
 import llm_client
 
 # Confidence threshold for the cascade (§7)
-CONFIDENCE_THRESHOLD = 60  # Tesseract confidence percentage
+CONFIDENCE_THRESHOLD = 70  # Tesseract confidence percentage
 
 
 def process_document(image_bytes: bytes, filename: str = "document.jpg") -> dict:
@@ -74,20 +74,42 @@ def process_document(image_bytes: bytes, filename: str = "document.jpg") -> dict
         # ── Step 2: Confidence gate ──
         if mean_confidence >= CONFIDENCE_THRESHOLD:
             ocr_path = "printed"
+            logger.info(f"OCR confidence {mean_confidence:.1f}% >= threshold — using Tesseract text")
+            # ── Step 3: NER extraction via LLM ──
+            entities = llm_client.extract_document_entities(ocr_text, "prescription")
+            
+            return {
+                "doc_id": doc_id,
+                "ocr_text": ocr_text.strip(),
+                "ocr_confidence": round(mean_confidence, 1),
+                "ocr_path": ocr_path,
+                "entities": entities,
+            }
         else:
-            ocr_path = "needs_review"
-            logger.info(f"OCR confidence {mean_confidence:.1f}% below threshold — flagging for review")
+            logger.info(f"OCR confidence {mean_confidence:.1f}% below threshold ({CONFIDENCE_THRESHOLD}%) — initiating VLM cascade")
+            
+            # ── Step 3b: VLM Extraction (Pass 2) ──
+            vlm_result = llm_client.extract_document_entities_vlm(image_bytes, doc_type="prescription")
+            
+            vlm_confidence = vlm_result.get("vlm_confidence", 0)
+            ocr_text_vlm = vlm_result.get("ocr_text", "[No text extracted by VLM]")
+            
+            # Extract entities (everything except the metadata)
+            entities = {k: v for k, v in vlm_result.items() if k not in ["vlm_confidence", "ocr_text"]}
 
-        # ── Step 3: NER extraction via LLM ──
-        entities = llm_client.extract_document_entities(ocr_text, "prescription")
-
-        return {
-            "doc_id": doc_id,
-            "ocr_text": ocr_text.strip(),
-            "ocr_confidence": round(mean_confidence, 1),
-            "ocr_path": ocr_path,
-            "entities": entities,
-        }
+            if vlm_confidence >= 60:
+                ocr_path = "vlm"
+            else:
+                ocr_path = "needs_review"
+                logger.info(f"VLM confidence {vlm_confidence}% below threshold (60%) — flagging for manual review")
+            
+            return {
+                "doc_id": doc_id,
+                "ocr_text": ocr_text_vlm.strip(),
+                "ocr_confidence": vlm_confidence,
+                "ocr_path": ocr_path,
+                "entities": entities,
+            }
 
     except Exception as e:
         logger.error(f"OCR pipeline error: {e}")
