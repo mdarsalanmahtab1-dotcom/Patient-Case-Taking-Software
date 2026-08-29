@@ -1,7 +1,7 @@
 # MediKiosk — Backend Dockerfile
 # Multi-stage build: installs Tesseract OCR + Python deps cleanly
 
-FROM python:3.11-bookworm
+FROM python:3.11-bullseye
 
 # Install system dependencies (Tesseract + language packs, curl for healthcheck)
 # Split into multiple RUN commands to prevent 'runc process is already dead' errors on Railway build nodes
