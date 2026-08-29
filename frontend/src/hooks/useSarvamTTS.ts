@@ -22,8 +22,13 @@ export function useSarvamTTS(): UseSarvamTTSReturn {
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const stop = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = '';
@@ -42,6 +47,9 @@ export function useSarvamTTS(): UseSarvamTTSReturn {
     setError(null);
 
     try {
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       const formData = new FormData();
       formData.append('text', text);
       formData.append('language', language || 'hi-IN');
@@ -49,6 +57,7 @@ export function useSarvamTTS(): UseSarvamTTSReturn {
       const response = await fetch(`${BACKEND_URL}/api/tts`, {
         method: 'POST',
         body: formData,
+        signal: abortController.signal,
       });
 
       if (!response.ok) {
@@ -74,7 +83,11 @@ export function useSarvamTTS(): UseSarvamTTSReturn {
       };
 
       await audio.play();
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log('TTS request aborted');
+        return;
+      }
       const msg = err instanceof Error ? err.message : 'TTS request failed';
       setError(msg);
       setIsSpeaking(false);

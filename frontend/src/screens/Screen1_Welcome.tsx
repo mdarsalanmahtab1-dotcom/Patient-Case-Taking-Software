@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Globe, Volume2 } from 'lucide-react';
 import { AbstractOrb } from '../components/AbstractOrb';
 import { useSarvamTTS } from '../hooks/useSarvamTTS';
@@ -41,8 +41,14 @@ export function Screen1_Welcome({ onStart, isConnected }: Props) {
   const [clinicMode, setClinicMode] = useState('allopathic');
   const { speak, isSpeaking } = useSarvamTTS();
 
-  // Auto-greet in selected language when language changes
+  const isFirstRender = useRef(true);
+
+  // Auto-greet in selected language when language changes (but not on initial mount)
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     const greeting = GREETINGS[selectedLang] || GREETINGS['en-IN'];
     speak(greeting, selectedLang);
   // eslint-disable-next-line react-hooks/exhaustive-deps
