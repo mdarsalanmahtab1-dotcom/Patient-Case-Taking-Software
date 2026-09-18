@@ -1,5 +1,5 @@
-"""
-MediKiosk v4 — Simplified Macro-FSM
+﻿"""
+SwasthyaSync v4 — Simplified Macro-FSM
 
 Simplified for the dynamic schema-driven architecture.
 The old per-section states (HPI, PMH, PSH, etc.) are collapsed into

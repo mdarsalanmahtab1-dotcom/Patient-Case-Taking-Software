@@ -1,5 +1,5 @@
 /**
- * MediKiosk — Sarvam AI Speech-to-Text Hook (Fixed & Optimized)
+ * SwasthyaSync — Sarvam AI Speech-to-Text Hook (Fixed & Optimized)
  *
  * Fixes:
  *  1. Touch+mouse double-fire — preventDefault on touch events stops the
@@ -13,6 +13,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { getApiBaseUrl } from '../config';
 
 export interface STTResult {
   transcript: string;
@@ -30,7 +31,7 @@ interface UseSarvamSTTReturn {
   audioLevel: number; // 0-1, for visualizing mic input
 }
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_HTTP_URL || 'http://localhost:8000';
+const BACKEND_URL = getApiBaseUrl();
 const MIN_RECORDING_MS = 500; // Don't send audio shorter than this
 
 export function useSarvamSTT(

@@ -1,4 +1,4 @@
-MEDIKIOSK  ·  SYSTEM ARCHITECTURE V2
+﻿MEDIKIOSK  ·  SYSTEM ARCHITECTURE V2
 The Conversational
 History-Taking Engine
 A revised, implementation-grade architecture for Module
@@ -57,7 +57,7 @@ Revised build sequence
 Appendix
 A
 Claim-by-claim critique of the v1 research draft
-MediKiosk — Conversational History-Taking Engine · 2 / 19
+SwasthyaSync — Conversational History-Taking Engine · 2 / 19
 1 Design philosophy
 The instinctive way to build "an AI that talks to the patient and takes a history" is one large
 LLM conversation loop: feed it the transcript so far, ask it to decide what to say next. This
@@ -121,7 +121,7 @@ guarded LLM I/O
 The "state" here is the
 entire accumulated set
 of answers, not a
-MediKiosk — Conversational History-Taking Engine · 3 / 19
+SwasthyaSync — Conversational History-Taking Engine · 3 / 19
 do we fill slots from natural
 speech?
 discrete position —
@@ -135,7 +135,7 @@ right, and it's the piece the prior draft never actually specified (it drew "Sta
 one box in a diagram with no state list). The nuance is that the FSM should stop at the
 macro level — trying to push it down into question-by-question branching within a section
 is where it breaks.
-MediKiosk — Conversational History-Taking Engine · 4 / 19
+SwasthyaSync — Conversational History-Taking Engine · 4 / 19
 2 The macro-FSM — Macleod-derived section
 states
 Macleod's Clinical Examination — the standard reference for how a structured history is
@@ -189,7 +189,7 @@ branching modeled here — that's deliberately
 pushed down to §3/§4. This is the difference
 between a maintainable FSM and the
 combinatorial one that breaks.
-MediKiosk — Conversational History-Taking Engine · 5 / 19
+SwasthyaSync — Conversational History-Taking Engine · 5 / 19
 3 The meso layer — complaint-driven templates
 inside HPI
 When the macro-FSM enters HPI , it hands off to a template selector. The chief complaint
@@ -245,7 +245,7 @@ of a fixed, small category list. This is a narrow, well-bounded LLM task (classi
 closed set, not open generation) and is exactly the kind of thing that should be unit-tested
 against a labeled vignette set before launch, the same way adaptive symptom-checkers
 are validated against standardized vignette batteries before release.
-MediKiosk — Conversational History-Taking Engine · 6 / 19
+SwasthyaSync — Conversational History-Taking Engine · 6 / 19
 4 The micro layer — the actual dynamic-
 questioning mechanism
 This is the piece you flagged as the real problem, so here is the turn-by-turn mechanics in
@@ -296,7 +296,7 @@ not a policy statement:
   "spoken_text": "...",
   "ack_of_prior_answer": "..."          // optional, max 1 sentence
 }
-MediKiosk — Conversational History-Taking Engine · 7 / 19
+SwasthyaSync — Conversational History-Taking Engine · 7 / 19
 // Patient utterance → LLM   (extraction request, step 7)
 {
   "action": "extract_slots",
@@ -329,7 +329,7 @@ clarifying question (same schema as above, with action: "clarify" ), never a dia
 advisory statement. The raw mention is always preserved verbatim in a clinician_note
 field on the patient record (§8) regardless of whether it's resolved, so nothing volunteered
 by the patient is ever silently dropped.
-MediKiosk — Conversational History-Taking Engine · 8 / 19
+SwasthyaSync — Conversational History-Taking Engine · 8 / 19
 5 Runtime integration — wiring STT, TTS, the
 LLM, and the FSM together
 Four moving parts, four different latency/placement requirements. The mistake to avoid is
@@ -397,7 +397,7 @@ Indic Parler-TTS run on your own GPU server, so the "no data leaves the network"
 becomes literally true; Bhashini becomes a fallback for languages you haven't self-hosted
 • 
 • 
-MediKiosk — Conversational History-Taking Engine · 9 / 19
+SwasthyaSync — Conversational History-Taking Engine · 9 / 19
 yet. More infrastructure to own, but a cleaner compliance story for a first government-
 hospital deployment.
 Recommend B for the pilot, A as the scale-out fallback once you have a signed data-
@@ -430,7 +430,7 @@ not something to assume. Streaming partial ASR results into the extraction step 
 finishes speaking, and streaming TTS audio out before the full sentence is synthesized, is what gets
 overlapped-stage latency down; running each stage sequentially and waiting for full completion at
 each step is the most common way teams accidentally build a system that feels laggy.
-MediKiosk — Conversational History-Taking Engine · 10 / 19
+SwasthyaSync — Conversational History-Taking Engine · 10 / 19
 6 AYUSH mode as a gated configuration
 Your requirement — available only for AYUSH clinics — should not be implemented as a
 button the patient can tap. Ayurvedic constitutional assessment is only clinically
@@ -475,7 +475,7 @@ behind physician sign-off on the intake protocol — not a default.
 1. 
 2. 
 3. 
-MediKiosk — Conversational History-Taking Engine · 11 / 19
+SwasthyaSync — Conversational History-Taking Engine · 11 / 19
    ✗ Nadi (pulse)        — requires a physician's finger on the patient's wrist
    ✗ Jihva (tongue)      — requires direct visual examination by the physician
    ✗ Sparsha (touch)     — requires physician palpation
@@ -496,7 +496,7 @@ ten as its own sub-template inside the composite state, using the exact same slo
 mechanism from §4 — this is not a new engine, it's the micro layer applied to a different,
 larger template registry, populated with an Ayurvedic physician's input rather than a
 symptom-branching one.
-MediKiosk — Conversational History-Taking Engine · 12 / 19
+SwasthyaSync — Conversational History-Taking Engine · 12 / 19
 7 Document extraction — what to keep, what to
 simplify
 v1's instinct on OCR architecture is directionally correct and worth keeping: route printed
@@ -535,7 +535,7 @@ Quick printed-text pass (Tesseract 5 + medical dictionary) — fast, cheap
                                                                      verification
 Escalate to the full parallel ensemble later, once you have real volume and can justify the
 added infrastructure cost with measured accuracy gains — not as the MVP default.
-MediKiosk — Conversational History-Taking Engine · 13 / 19
+SwasthyaSync — Conversational History-Taking Engine · 13 / 19
 Merging into one record
 Document extractions and conversational slots write into the same patient record (§8) with
 a provenance tag on every value. This is what makes v1's contradiction-flagging idea
@@ -543,7 +543,7 @@ a provenance tag on every value. This is what makes v1's contradiction-flagging 
 it should be extended one step further: contradictions are surfaced to the physician as a
 flagged diff on the consultation screen, never silently auto-resolved by the LLM. The LLM
 does not get to decide which source is "true."
-MediKiosk — Conversational History-Taking Engine · 14 / 19
+SwasthyaSync — Conversational History-Taking Engine · 14 / 19
 8 The unified patient-record schema
 One object, written to by the macro-FSM, the meso/micro layers, the document pipeline,
 and read by the summary generator (Module C). Every value carries its own provenance
@@ -592,7 +592,7 @@ and §7's OCR merge all consistent with each other.
   "red_flags": [],                          // populated by the safety watchdog, §9
   "clinician_notes": []                     // unrecognized_mention text from §4, verbatim
 }
-MediKiosk — Conversational History-Taking Engine · 15 / 19
+SwasthyaSync — Conversational History-Taking Engine · 15 / 19
 9 Red-flag architecture — making the three
 layers actually agree
 v1's "rule-based + ML + LLM triple layer" is the right shape but doesn't specify what
@@ -649,7 +649,7 @@ is a false positive that a triage nurse dismisses in ten seconds, not a false ne
 delays care. This is also why the rule layer, not the LLM, has to be the thing standing
 between a patient having a cardiac event and getting flagged — an LLM call failing or being
 slow should never be a single point of failure for that decision.
-MediKiosk — Conversational History-Taking Engine · 16 / 19
+SwasthyaSync — Conversational History-Taking Engine · 16 / 19
 10 Revised build sequence
 v1's four-phase, twelve-month plan is reasonable in scope but sequences voice, AYUSH,
 and OCR complexity in alongside the core dialogue logic before that logic has been
@@ -704,7 +704,7 @@ refine" phase
 Full ABDM production gateway,
 multilingual expansion, scale-out
 Unchanged from v1
-MediKiosk — Conversational History-Taking Engine · 17 / 19
+SwasthyaSync — Conversational History-Taking Engine · 17 / 19
 A Appendix — claim-by-claim critique of the v1
 draft
 Claim in v1
@@ -805,7 +805,7 @@ Rasa targets open-domain
 chatbot intent/slot-filling; it's a
 Build the macro-FSM and meso-
 templates as a lightweight custom
-MediKiosk — Conversational History-Taking Engine · 18 / 19
+SwasthyaSync — Conversational History-Taking Engine · 18 / 19
 Dialogue manager tech:
 "Python + Rasa / Custom
 State Machine"
@@ -830,4 +830,4 @@ ensemble once volume justifies it.
 This document is a design reference to guide implementation planning. It has not been reviewed by a clinician, a
 DPDP/legal counsel, or an ABDM-certification body, and none of the specific performance figures, timelines, or
 vendor claims in it should be treated as validated until confirmed against primary sources or your own pilot data.
-MediKiosk — Conversational History-Taking Engine · 19 / 19
+SwasthyaSync — Conversational History-Taking Engine · 19 / 19

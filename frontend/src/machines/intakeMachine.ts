@@ -1,4 +1,4 @@
-import { setup, assign } from 'xstate';
+﻿import { setup, assign } from 'xstate';
 
 export interface IntakeContext {
   clinic_mode: 'allopathic' | 'ayush';
@@ -36,7 +36,7 @@ export const intakeMachine = setup({
     isAyushMode: ({ context }) => context.clinic_mode === 'ayush',
   },
 }).createMachine({
-  id: 'medikiosk-intake',
+  id: 'swasthyasync-intake',
   initial: 'INIT',
   context: {
     clinic_mode: 'allopathic',

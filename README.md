@@ -1,4 +1,4 @@
-# MediKiosk — Patient Case Taking Software
+﻿# SwasthyaSync — Patient Case Taking Software
 
 AI-powered multilingual patient history-taking kiosk for Indian healthcare settings.
 
@@ -32,7 +32,7 @@ Patient_case_taking_software/
 │   └── package.json
 │
 ├── docs/                    # Reference documents
-│   ├── MediKiosk_Architecture_v2.pdf
+│   ├── SwasthyaSync_Architecture_v2.pdf
 │   ├── Problem Statement.txt
 │   ├── Abstact_orb.txt      # Orb design notes
 │   └── *.png                # UI inspiration mockups

@@ -1,5 +1,5 @@
-"""
-MediKiosk — Sarvam AI Client (Optimized)
+﻿"""
+SwasthyaSync — Sarvam AI Client (Optimized)
 
 Changes from original:
   - Uses a persistent httpx.Client with connection pooling (no new connection per call)

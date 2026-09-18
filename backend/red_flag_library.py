@@ -1,5 +1,5 @@
 """
-MediKiosk v4 — Red-Flag Reference Library
+SwasthyaSync v4 — Red-Flag Reference Library
 
 A curated, complaint-category-indexed library of:
   1. Must-ask red-flag fields (injected into Stage 1 schema generation as grounding)
@@ -105,10 +105,21 @@ MUST_ASK_FIELDS: dict[str, list[dict]] = {
         {"id": "night_sweats", "question_intent": "Night sweats (TB/malignancy screen)", "type": "string", "priority": "high", "red_flag": True, "category": "red_flag_check"},
         {"id": "fever_present", "question_intent": "Presence of fever", "type": "string", "priority": "high", "red_flag": False, "category": "HPI"},
     ],
+    "eye": [
+        {"id": "vision_change_onset", "question_intent": "When did the vision change start and was it sudden or gradual", "type": "string", "priority": "critical", "red_flag": True, "fork_eligible": False, "category": "HPI"},
+        {"id": "which_eye_affected", "question_intent": "Which eye is affected — one eye, both, or alternating", "type": "string", "priority": "critical", "red_flag": False, "fork_eligible": True, "category": "HPI"},
+        {"id": "peripheral_tunnel_vision", "question_intent": "Any loss of side vision, tunnel vision, or bumping into things", "type": "string", "priority": "critical", "red_flag": True, "fork_eligible": True, "category": "HPI"},
+        {"id": "night_vision_difficulty", "question_intent": "Difficulty seeing in dim light or at night (nyctalopia)", "type": "string", "priority": "critical", "red_flag": False, "fork_eligible": True, "category": "HPI"},
+        {"id": "eye_pain_redness", "question_intent": "Eye pain, redness, or discharge", "type": "string", "priority": "high", "red_flag": True, "fork_eligible": False, "category": "red_flag_check"},
+        {"id": "corneal_signs", "question_intent": "Dry eyes, gritty feeling, or white spots on the eye (Bitot spots / xerophthalmia signs)", "type": "string", "priority": "critical", "red_flag": True, "fork_eligible": True, "category": "red_flag_check"},
+        {"id": "family_eye_disease", "question_intent": "Family history of eye disease (glaucoma, retinitis pigmentosa, macular degeneration)", "type": "string", "priority": "high", "red_flag": False, "fork_eligible": True, "category": "FH"},
+        {"id": "current_eye_medications", "question_intent": "Any current eye drops, vitamin A supplements, or retinoid medications", "type": "string", "priority": "high", "red_flag": False, "fork_eligible": True, "category": "DH"},
+        {"id": "sudden_vision_loss", "question_intent": "Sudden complete vision loss in one or both eyes", "type": "string", "priority": "critical", "red_flag": True, "fork_eligible": False, "category": "red_flag_check"},
+    ],
 }
 
 # Also cover less common categories with general fallback
-for _cat in ["gynecological", "psychiatric", "ent", "eye"]:
+for _cat in ["gynecological", "psychiatric", "ent"]:
     if _cat not in MUST_ASK_FIELDS:
         MUST_ASK_FIELDS[_cat] = list(MUST_ASK_FIELDS["general"])
 
@@ -216,6 +227,18 @@ SAFETY_RULES: list[dict] = [
         "id": "URINARY_RETENTION",
         "description": "Acute urinary retention — unable to pass urine",
         "check": lambda fs: _has(fs, "urinary_retention", ["yes", "cannot", "unable", "nahi"]),
+    },
+    {
+        "id": "CORNEAL_KERATOMALACIA_RISK",
+        "description": "Possible corneal involvement / keratomalacia — night blindness + dry eyes + fever suggests acute vitamin A deficiency decompensation. Urgent ophthalmology referral recommended.",
+        "check": lambda fs: (
+            _has(fs, "night_vision_difficulty", ["yes", "difficulty", "cannot see", "haan", "nahi dikh"])
+            and _has(fs, "corneal_signs", ["dry", "gritty", "spots", "white", "sookha", "yes", "haan"])
+            and (
+                _has(fs, "fever_present", ["yes", "haan", "bukhar"]) or
+                _has(fs, "associated_fever", ["yes", "haan"])
+            )
+        ),
     },
 ]
 

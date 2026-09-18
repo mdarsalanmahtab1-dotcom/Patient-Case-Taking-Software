@@ -1,5 +1,5 @@
 """
-MediKiosk v4 — Dynamic Schema Generator (Stage 1)
+SwasthyaSync v4 — Dynamic Schema Generator (Stage 1)
 
 Called ONCE per encounter, immediately after chief complaint + demographics.
 Uses a heavy model (Gemini 3.6 Flash) to generate a complaint-specific
@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────────────
 # Stage 1 Model — heavier model called once per encounter
 # ──────────────────────────────────────────────────────────────────────
-SCHEMA_MODEL_PRIMARY = "gemini-3.6-flash"
-SCHEMA_MODEL_FALLBACK = "gemini-3.5-flash-lite"
+SCHEMA_MODEL_PRIMARY = "gemini-3.5-flash-lite"
+SCHEMA_MODEL_FALLBACK = "gemini-3.6-flash"
 
 # Language names for demographic context
 LANGUAGE_NAMES = {
@@ -44,15 +44,20 @@ def _build_schema_generation_prompt(
     patient_sex: str,
     category: str,
     safety_floor_text: str,
+    doctor_custom_instructions: str | None = None,
 ) -> tuple[str, str]:
     """Build the system and user prompts for schema generation."""
 
     age_str = f"{patient_age} years old" if patient_age else "age unknown"
     sex_str = patient_sex or "unknown sex"
+    
+    doctor_instruction_text = ""
+    if doctor_custom_instructions:
+        doctor_instruction_text = f"\n\nCRITICAL DOCTOR INSTRUCTIONS:\nThe attending physician for this patient has provided the following custom intake instructions: \"{doctor_custom_instructions}\"\nYou MUST adjust your generated JSON schema to explicitly include fields that capture this specific information."
 
     system_prompt = f"""You are a senior clinical consultant designing a structured patient interview schema.
 
-Your task: Given a patient's chief complaint and demographics, generate a detailed, complaint-specific JSON schema of fields that a medical interviewer should collect. This schema should mirror what an actual physician would ask based on the Macleod's Clinical Examination framework.
+Your task: Given a patient's chief complaint and demographics, generate a detailed, complaint-specific JSON schema of fields that a medical interviewer should collect. This schema should mirror what an actual physician would ask based on the Macleod's Clinical Examination framework.{doctor_instruction_text}
 
 CRITICAL RULES:
 1. The schema must be HIGHLY SPECIFIC to the chief complaint. Do NOT include generic screening questions that are irrelevant (e.g., do NOT ask about family diabetes history for an isolated ankle sprain).
@@ -67,8 +72,12 @@ CRITICAL RULES:
 3. Each field should have a clear, natural question_intent (what we want to learn).
 4. Assign priority: "critical" (must ask), "high" (should ask), "medium" (nice to have), "optional" (if time permits).
 5. Mark red_flag: true for any field where a positive answer indicates a medical emergency.
-6. Use conditional_on for fields that only matter given a previous answer (format: "field_id:value").
-7. Generate 15-30 fields total — enough for a thorough but not exhausting interview.
+6. Mark fork_eligible: true for fields where a POSITIVE/AFFIRMATIVE answer would need 1-2 targeted follow-up sub-questions. Examples:
+   - "Do you have vision changes?" → if YES, fork: "Which eye?" + "When did it start?"
+   - "Any previous surgeries?" → if YES, fork: "What surgery?" + "When?"
+   Most fields should be fork_eligible: false. Only tag 3-5 fields max per schema.
+7. Use conditional_on for fields that only matter given a previous answer (format: "field_id:value").
+8. Generate 15-30 fields total — enough for a thorough but not exhausting interview.
 
 The following fields are MANDATORY red-flag safety requirements for this complaint category. They MUST appear in your schema:
 {safety_floor_text}
@@ -83,6 +92,7 @@ Output ONLY a JSON object with this exact structure:
       "type": "string",
       "priority": "critical|high|medium|optional",
       "red_flag": true/false,
+      "fork_eligible": true/false,
       "category": "HPI|PMH|DH|FH|SH|ROS|red_flag_check",
       "conditional_on": null
     }}
@@ -96,6 +106,7 @@ Complaint Category: {category}
 Generate the clinical interview schema for this specific patient and complaint. Remember:
 - Be complaint-specific, not generic
 - Include the mandatory safety floor fields listed in your instructions
+{"- CRITICAL: You MUST include specific fields to capture the doctor's custom intake instructions." if doctor_custom_instructions else ""}
 - Order fields by clinical priority (most important first within each category)"""
 
     return system_prompt, user_prompt
@@ -106,6 +117,7 @@ def generate_schema(
     patient_age: int | None,
     patient_sex: str,
     category: str,
+    doctor_custom_instructions: str | None = None,
 ) -> dict:
     """
     Generate a complaint-specific clinical interview schema.
@@ -117,7 +129,7 @@ def generate_schema(
     """
     safety_floor_text = get_safety_floor_as_text(category)
     system_prompt, user_prompt = _build_schema_generation_prompt(
-        chief_complaint, patient_age, patient_sex, category, safety_floor_text,
+        chief_complaint, patient_age, patient_sex, category, safety_floor_text, doctor_custom_instructions
     )
 
     t0 = time.time()
@@ -163,6 +175,8 @@ def _call_model_for_schema(model: str, system_prompt: str, user_prompt: str) -> 
                 system_instruction=system_prompt,
                 response_mime_type="application/json",
                 temperature=0.3,
+                max_output_tokens=2048,
+                automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(disable=True),
             ),
         )
         result = json.loads(response.text)
@@ -189,13 +203,13 @@ def _build_static_fallback(chief_complaint: str, category: str) -> dict:
     
     # Add some universal baseline fields
     baseline = [
-        {"id": "symptom_onset", "question_intent": "When did the problem start", "type": "string", "priority": "critical", "red_flag": False, "category": "HPI", "conditional_on": None},
-        {"id": "symptom_duration", "question_intent": "How long has it been going on", "type": "string", "priority": "critical", "red_flag": False, "category": "HPI", "conditional_on": None},
-        {"id": "symptom_severity_impact", "question_intent": "How much does it affect daily life", "type": "string", "priority": "high", "red_flag": False, "category": "HPI", "conditional_on": None},
-        {"id": "prior_episodes", "question_intent": "Has this happened before", "type": "string", "priority": "high", "red_flag": False, "category": "HPI", "conditional_on": None},
-        {"id": "current_medications", "question_intent": "Any medications currently being taken", "type": "string", "priority": "high", "red_flag": False, "category": "DH", "conditional_on": None},
-        {"id": "known_allergies", "question_intent": "Any known drug or food allergies", "type": "string", "priority": "high", "red_flag": False, "category": "DH", "conditional_on": None},
-        {"id": "chronic_conditions", "question_intent": "Any existing chronic health conditions (diabetes, hypertension, etc)", "type": "string", "priority": "medium", "red_flag": False, "category": "PMH", "conditional_on": None},
+        {"id": "symptom_onset", "question_intent": "When did the problem start", "type": "string", "priority": "critical", "red_flag": False, "fork_eligible": False, "category": "HPI", "conditional_on": None},
+        {"id": "symptom_duration", "question_intent": "How long has it been going on", "type": "string", "priority": "critical", "red_flag": False, "fork_eligible": False, "category": "HPI", "conditional_on": None},
+        {"id": "symptom_severity_impact", "question_intent": "How much does it affect daily life", "type": "string", "priority": "high", "red_flag": False, "fork_eligible": False, "category": "HPI", "conditional_on": None},
+        {"id": "prior_episodes", "question_intent": "Has this happened before", "type": "string", "priority": "high", "red_flag": False, "fork_eligible": True, "category": "HPI", "conditional_on": None},
+        {"id": "current_medications", "question_intent": "Any medications currently being taken", "type": "string", "priority": "high", "red_flag": False, "fork_eligible": False, "category": "DH", "conditional_on": None},
+        {"id": "known_allergies", "question_intent": "Any known drug or food allergies", "type": "string", "priority": "high", "red_flag": False, "fork_eligible": True, "category": "DH", "conditional_on": None},
+        {"id": "chronic_conditions", "question_intent": "Any existing chronic health conditions (diabetes, hypertension, etc)", "type": "string", "priority": "medium", "red_flag": False, "fork_eligible": False, "category": "PMH", "conditional_on": None},
     ]
 
     # Merge baseline + safety floor, avoiding duplicates
@@ -230,6 +244,7 @@ def _validate_schema(schema: dict, chief_complaint: str) -> dict:
         f.setdefault("type", "string")
         f.setdefault("priority", "medium")
         f.setdefault("red_flag", False)
+        f.setdefault("fork_eligible", False)
         f.setdefault("category", "HPI")
         f.setdefault("conditional_on", None)
 

@@ -1,65 +1,85 @@
-import { Info } from 'lucide-react';
-import { AbstractOrb } from '../components/AbstractOrb';
-import type { OrbState } from '../components/AbstractOrb';
-import type { RedFlag } from '../hooks/useConversation';
+import { LiquidButton } from '../components/ui/button';
+import { useEffect, useState } from 'react';
+import { ShieldAlert, Clock } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface Props {
-  redFlags: RedFlag[];
-  orbState: OrbState;
-  onClearFlag: () => void;
+  onResume: () => void;
+  onNewPatient: () => void;
 }
 
-export function Screen7_TriageAlert({ redFlags, onClearFlag }: Props) {
-  const primaryFlag = redFlags[0];
+export function Screen7_TriageAlert({ onResume, onNewPatient }: Props) {
+  const [secondsLeft, setSecondsLeft] = useState(10);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          onResume();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [onResume]);
 
   return (
-    <div className="flex flex-col flex-1 items-center p-6 sm:p-10 text-center bg-red-50/30">
-      <div className="mb-4 text-sm font-bold tracking-widest text-red-600 uppercase bg-red-100 px-6 py-2 rounded-full border border-red-200">
-        Emergency / Red-Flag Triage Alert
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 1.05 }}
+      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      className="flex flex-col flex-1 items-center justify-center p-6 sm:p-12 text-center relative overflow-hidden bg-red-50/60 w-full h-full"
+    >
+      {/* Controlled ambient background pulse */}
+      <motion.div 
+        animate={{ opacity: [0.08, 0.2, 0.08] }}
+        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-300/40 via-red-100/20 to-transparent pointer-events-none" 
+      />
+
+      <div className="relative z-10 w-24 h-24 sm:w-32 sm:h-32 bg-red-100/80 rounded-full flex items-center justify-center mb-8 shadow-card">
+        <motion.div
+          animate={{ scale: [1, 1.08, 1], opacity: [0.4, 0.2, 0.4] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute inset-0 bg-red-300 rounded-full"
+        />
+        <ShieldAlert className="w-12 h-12 sm:w-16 sm:h-16 text-red-600 relative z-10" />
       </div>
 
-      <div className="my-10">
-        <AbstractOrb interactionState="alert" />
-      </div>
-
-      <h2 className="text-2xl font-bold text-red-600 mb-4">This could be a serious symptom.</h2>
-      <p className="text-gray-800 text-lg mb-8 max-w-md">
-        Please contact the triage nurse immediately.
+      <h2 className="relative z-10 text-3xl sm:text-5xl font-extrabold text-red-700 mb-4 sm:mb-6 tracking-tight max-w-2xl leading-tight">
+        Priority Assistance Required
+      </h2>
+      
+      <p className="relative z-10 text-base sm:text-xl text-red-900/80 font-medium mb-6 max-w-2xl bg-white/70 backdrop-blur-md p-6 rounded-3xl shadow-card border border-red-100/80 leading-relaxed">
+        Based on your symptoms, we are moving you to the 
+        <strong className="text-red-700 ml-1.5 font-extrabold">Priority Triage Queue</strong>. 
+        A nurse has been alerted and will attend to you immediately.
       </p>
 
-      {primaryFlag && (
-        <div className="bg-white border border-red-100 shadow-sm rounded-xl p-6 w-full max-w-md mb-6">
-          <p className="text-gray-500 text-sm mb-2">Detected concern:</p>
-          <p className="text-red-600 font-bold text-lg">{primaryFlag.description}</p>
-          <p className="text-xs text-gray-400 mt-2 font-mono">Rule: {primaryFlag.rule_id}</p>
-        </div>
-      )}
-
-      {redFlags.length > 1 && (
-        <div className="space-y-2 w-full max-w-md mb-6">
-          {redFlags.slice(1).map((flag, i) => (
-            <div key={i} className="bg-white border border-red-50 rounded-lg p-3 text-left">
-              <p className="text-sm text-red-600 font-medium">{flag.description}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <button className="w-full max-w-md bg-red-600 hover:bg-red-700 text-white rounded-xl py-4 font-bold shadow-lg shadow-red-200 transition-all text-lg mb-8">
-        Call Triage Nurse
-      </button>
-
-      <div className="flex items-start gap-3 text-left text-blue-800 bg-blue-50 p-4 rounded-xl max-w-md">
-        <Info className="w-5 h-5 flex-shrink-0 mt-0.5 text-blue-600" />
-        <p className="text-sm">A staff member has been notified. Please wait for assistance.</p>
+      {/* Auto-resume countdown pill */}
+      <div className="relative z-10 mb-8 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 border border-red-200/60 shadow-2xs text-xs font-bold text-red-700">
+        <Clock className="w-3.5 h-3.5 text-red-500 animate-pulse" />
+        <span>Auto-resuming in <span className="font-mono text-sm">{secondsLeft}s</span></span>
       </div>
 
-      <button
-        onClick={onClearFlag}
-        className="mt-10 text-xs text-gray-400 underline"
-      >
-        [Dev] Clear Flag & Resume
-      </button>
-    </div>
+      <div className="relative z-10 flex flex-col sm:flex-row gap-4">
+        <LiquidButton
+          onClick={onResume}
+          className="group overflow-hidden bg-white text-red-700 border border-red-200/80 px-8 sm:px-10 py-4 sm:py-5 rounded-full font-bold shadow-card hover:shadow-card-hover hover:bg-red-50/50 transition-[transform,background-color,box-shadow] duration-150 active:scale-[0.97] text-base sm:text-lg flex items-center justify-center gap-3 cursor-pointer"
+        >
+          <span className="relative z-10">I Understand, Continue</span>
+        </LiquidButton>
+        <LiquidButton
+          onClick={onNewPatient}
+          className="group overflow-hidden bg-red-600 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-full font-bold shadow-card-hover hover:bg-red-700 transition-[transform,background-color,box-shadow] duration-150 active:scale-[0.97] text-base sm:text-lg flex items-center justify-center gap-3 cursor-pointer shadow-red-600/20"
+        >
+          <span className="relative z-10">Start New Patient</span>
+        </LiquidButton>
+      </div>
+    </motion.div>
   );
 }
+

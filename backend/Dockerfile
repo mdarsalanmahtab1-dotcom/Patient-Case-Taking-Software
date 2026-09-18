@@ -1,32 +1,15 @@
-# MediKiosk — Backend Dockerfile
-# Multi-stage build: installs Tesseract OCR + Python deps cleanly
+FROM python:3.11-slim
 
-FROM python:3.11-bullseye
-
-# Install system dependencies (Tesseract + language packs, curl for healthcheck)
-# Split into multiple RUN commands to prevent 'runc process is already dead' errors on Railway build nodes
-RUN apt-get update
-RUN apt-get install -y --no-install-recommends \
-    tesseract-ocr \
-    tesseract-ocr-eng \
-    tesseract-ocr-hin \
-    libgl1 \
-    curl
-RUN rm -rf /var/lib/apt/lists/*
-
-# Set work directory
 WORKDIR /app
 
-# Install Python dependencies first (layer cache efficiency)
-COPY backend/requirements.txt .
+# Install system dependencies if required for build
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all backend source files
-COPY backend/ .
-
-# Expose the port Railway will route to
+COPY . .
 EXPOSE 8000
-
-# Start with uvicorn — single worker is fine for WebSockets
-# Railway injects PORT env var; we fall back to 8000
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --log-level info"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

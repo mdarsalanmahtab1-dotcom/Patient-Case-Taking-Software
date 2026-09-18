@@ -1,5 +1,5 @@
-"""
-MediKiosk — Meso-Layer Template Registry (Architecture v2, §3)
+﻿"""
+SwasthyaSync — Meso-Layer Template Registry (Architecture v2, §3)
 
 Maps chief-complaint categories to ordered slot templates.
 Also provides section-specific templates for PMH, PSH, Drug/Allergy,

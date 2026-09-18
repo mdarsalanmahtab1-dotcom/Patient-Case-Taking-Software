@@ -1,5 +1,5 @@
-"""
-MediKiosk — Safety Watchdog (Architecture v2, §9)
+﻿"""
+SwasthyaSync — Safety Watchdog (Architecture v2, §9)
 
 Three-layer red-flag architecture with strict authority order:
   1. Rule-based (SOLE gate for REDFLAG_INTERRUPT — deterministic, auditable)

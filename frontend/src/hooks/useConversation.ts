@@ -1,5 +1,5 @@
 /**
- * MediKiosk — WebSocket Conversation Hook
+ * SwasthyaSync — WebSocket Conversation Hook
  *
  * Manages the WebSocket lifecycle to the backend Dialogue Manager.
  * The server pushes UI instructions, the client renders them.
@@ -7,7 +7,9 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+// Routing is now handled in App.tsx
 import type { OrbState } from '../components/AbstractOrb';
+import { getWsUrl } from '../config';
 
 // Types matching the backend's UI instruction format
 export interface UIOption {
@@ -54,6 +56,7 @@ export interface UIInstruction {
 
   // Summary/Complete fields
   patient_record?: any;
+  patient_name?: string;
 }
 
 interface UseConversationReturn {
@@ -61,16 +64,16 @@ interface UseConversationReturn {
   orbState: OrbState;
   isConnected: boolean;
   isProcessing: boolean;
-  startSession: (clinicMode?: string, language?: string, demographics?: { name?: string; age?: number | null; sex?: string }) => void;
+  startSession: (clinicMode?: string, language?: string, demographics?: { name?: string; age?: number | null; sex?: string; weight?: number | null; height?: string | null; vitals?: string | null }, patientId?: string, sessionId?: string, previousHistory?: any) => void;
+  resumeSession: (sessionId: string) => void;
   sendInput: (inputType: string, value: string) => void;
   sendRedflag: () => void;
   clearRedflag: () => void;
   getRecord: () => void;
 }
 
-const WS_URL = 'ws://localhost:8000/ws/session';
-
 export function useConversation(): UseConversationReturn {
+
   const [ui, setUi] = useState<UIInstruction | null>(null);
   const [orbState, setOrbState] = useState<OrbState>('idle');
   const [isConnected, setIsConnected] = useState(false);
@@ -81,11 +84,17 @@ export function useConversation(): UseConversationReturn {
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    const ws = new WebSocket(WS_URL);
+    let targetWsUrl = getWsUrl();
+    const storedSession = localStorage.getItem('kiosk_session_id');
+    if (storedSession) {
+      targetWsUrl += `?session_id=${storedSession}`;
+    }
+    console.log('[WS] Connecting to:', targetWsUrl);
+    const ws = new WebSocket(targetWsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('[WS] Connected to MediKiosk backend');
+      console.log('[WS] Connected to SwasthyaSync backend');
       setIsConnected(true);
     };
 
@@ -100,9 +109,21 @@ export function useConversation(): UseConversationReturn {
         }
 
         if (msg.type === 'ui') {
-          setUi(msg as UIInstruction);
+          const uiMsg = msg as UIInstruction;
+          setUi(uiMsg);
           setOrbState((msg.orb_state as OrbState) || 'idle');
           setIsProcessing(false);
+          
+          if (uiMsg.session_id) {
+            localStorage.setItem('kiosk_session_id', uiMsg.session_id);
+          }
+
+          if (uiMsg.screen === 'complete') {
+            localStorage.removeItem('kiosk_session_id');
+          }
+          
+          // Routing is handled in App.tsx RouteSynchronizer
+          
           return;
         }
 
@@ -114,6 +135,9 @@ export function useConversation(): UseConversationReturn {
         if (msg.type === 'error') {
           console.error('[WS] Server error:', msg.message);
           setIsProcessing(false);
+          if (msg.message === 'Session not found or expired') {
+            localStorage.removeItem('kiosk_session_id');
+          }
           return;
         }
       } catch (e) {
@@ -149,7 +173,14 @@ export function useConversation(): UseConversationReturn {
     }
   }, []);
 
-  const startSession = useCallback((clinicMode = 'allopathic', language = 'en-IN', demographics?: { name?: string; age?: number | null; sex?: string }) => {
+  const startSession = useCallback((
+    clinicMode = 'allopathic', 
+    language = 'en-IN', 
+    demographics?: { name?: string; age?: number | null; sex?: string; weight?: number | null; height?: string | null; vitals?: string | null },
+    patientId?: string,
+    sessionId?: string,
+    previousHistory?: any
+  ) => {
     send({
       type: 'start',
       clinic_mode: clinicMode,
@@ -157,6 +188,19 @@ export function useConversation(): UseConversationReturn {
       patient_name: demographics?.name || '',
       patient_age: demographics?.age || null,
       patient_sex: demographics?.sex || '',
+      patient_weight: demographics?.weight || null,
+      patient_height: demographics?.height || null,
+      patient_vitals: demographics?.vitals || null,
+      patient_id: patientId,
+      session_id: sessionId,
+      previous_history: previousHistory
+    });
+  }, [send]);
+
+  const resumeSession = useCallback((sessionId: string) => {
+    send({
+      type: 'resume',
+      session_id: sessionId
     });
   }, [send]);
 
@@ -167,8 +211,10 @@ export function useConversation(): UseConversationReturn {
   }, [send]);
 
   const sendRedflag = useCallback(() => {
-    send({ type: 'redflag' });
-  }, [send]);
+    if (ui) {
+      send({ type: 'redflag' });
+    }
+  }, [send, ui]);
 
   const clearRedflag = useCallback(() => {
     send({ type: 'clear_redflag' });
@@ -184,6 +230,7 @@ export function useConversation(): UseConversationReturn {
     isConnected,
     isProcessing,
     startSession,
+    resumeSession,
     sendInput,
     sendRedflag,
     clearRedflag,

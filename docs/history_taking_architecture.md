@@ -1,6 +1,6 @@
-# MediKiosk v3: History-Taking Architecture Overview
+﻿# SwasthyaSync v3: History-Taking Architecture Overview
 
-This document provides a detailed overview of the core architecture used for the conversational history-taking module in the MediKiosk application. It explains the interplay between the State Machine (FSM), the LLM context engine, state management, and the logic driving the dynamic generation of questions.
+This document provides a detailed overview of the core architecture used for the conversational history-taking module in the SwasthyaSync application. It explains the interplay between the State Machine (FSM), the LLM context engine, state management, and the logic driving the dynamic generation of questions.
 
 ---
 

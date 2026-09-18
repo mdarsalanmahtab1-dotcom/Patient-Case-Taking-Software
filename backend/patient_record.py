@@ -1,5 +1,5 @@
 """
-MediKiosk v4 — Unified Patient Record Schema
+SwasthyaSync v4 — Unified Patient Record Schema
 
 Evolved for the dynamic schema-driven architecture:
   - Demographics (name, age, sex) collected at start
@@ -65,7 +65,7 @@ class DocumentExtraction(BaseModel):
     doc_id: str
     doc_type: str = "unknown"
     ocr_path: str = "printed"
-    entities: dict = Field(default_factory=dict)
+    entities: list[dict] = Field(default_factory=list)
 
 
 class Contradiction(BaseModel):
@@ -85,6 +85,7 @@ class RedFlagEntry(BaseModel):
 class PatientRecord(BaseModel):
     """The backbone schema — v4 with dynamic schema-driven interview."""
     session_id: str = Field(default_factory=lambda: f"sess_{uuid.uuid4().hex[:8]}")
+    patient_id: Optional[str] = None
     clinic_mode: str = "allopathic"
     macro_state: str = "INIT"
     language: str = "en-IN"
@@ -100,6 +101,7 @@ class PatientRecord(BaseModel):
 
     # ── Dynamic schema (Stage 1 output) ──
     dynamic_schema: Optional[dict] = None  # The generated schema for this encounter
+    doctor_custom_instructions: Optional[str] = None  # Custom prompt additive for the selected doctor
 
     # ── Filled state (Stage 2 source of truth) ──
     filled_state: dict[str, dict] = Field(default_factory=dict)
@@ -123,9 +125,13 @@ class PatientRecord(BaseModel):
     # ── Document intelligence ──
     document_extractions: list[DocumentExtraction] = Field(default_factory=list)
     contradictions: list[Contradiction] = Field(default_factory=list)
+    unverifiable_values: list[str] = Field(default_factory=list)
 
     # ── Safety ──
     red_flags: list[RedFlagEntry] = Field(default_factory=list)
+
+    # ── Longitudinal context (follow-up visits) ──
+    previous_history: Optional[dict] = None  # Populated for returning patients
 
     # ── Notes ──
     clinician_notes: list[str] = Field(default_factory=list)
@@ -203,54 +209,8 @@ class PatientRecord(BaseModel):
                 "field_id": field_id,
                 "question_intent": intent,
                 "value": entry["value"],
+                "verbatim": entry.get("verbatim"),
                 "confidence": entry.get("confidence", 0.0),
             })
 
         return groups
-
-    def build_chronological_timeline(self) -> list[dict]:
-        """
-        Builds a unified, chronological timeline of patient history by extracting
-        dates from document entities and the current conversation state.
-        """
-        timeline = []
-        
-        # 1. Add document extractions
-        for doc in self.document_extractions:
-            entities = doc.entities
-            if isinstance(entities, dict):
-                for category, items in entities.items():
-                    if isinstance(items, list):
-                        for item in items:
-                            if isinstance(item, dict):
-                                date = item.get("date", "Unknown Date")
-                                name = item.get("name") or item.get("test") or "Unknown Entity"
-                                details = ", ".join(f"{k}: {v}" for k, v in item.items() if k not in ["name", "test", "date"] and v)
-                                timeline.append({
-                                    "date": date,
-                                    "source": f"Document ({doc.doc_type})",
-                                    "category": category,
-                                    "event": name,
-                                    "details": details
-                                })
-        
-        # 2. Add current encounter information
-        current_date = "Current Encounter"
-        for field_id, entry in self.filled_state.items():
-            if isinstance(entry, dict) and entry.get("value"):
-                timeline.append({
-                    "date": current_date,
-                    "source": "Conversation",
-                    "category": "Current Interview",
-                    "event": field_id.replace("_", " ").title(),
-                    "details": str(entry["value"])
-                })
-                
-        # Sort timeline
-        def sort_key(item):
-            d = item["date"]
-            if d == "Current Encounter": return "9999-99-99" # Conceptually newest
-            if d == "Unknown Date" or not d: return "0000-00-00" # Conceptually oldest
-            return str(d)
-            
-        return sorted(timeline, key=sort_key)

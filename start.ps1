@@ -1,7 +1,7 @@
-# MediKiosk — Quick Start Script
+﻿# SwasthyaSync — Quick Start Script
 # Run both backend and frontend in separate windows
 
-Write-Host "Starting MediKiosk..." -ForegroundColor Cyan
+Write-Host "Starting SwasthyaSync..." -ForegroundColor Cyan
 
 # Start backend
 Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
@@ -25,7 +25,7 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
 "@
 
 Write-Host ""
-Write-Host "MediKiosk starting up!" -ForegroundColor Green
+Write-Host "SwasthyaSync starting up!" -ForegroundColor Green
 Write-Host "   Backend:  http://localhost:8000" -ForegroundColor White
 Write-Host "   Frontend: http://localhost:5173" -ForegroundColor White
 Write-Host "   API Docs: http://localhost:8000/docs" -ForegroundColor White

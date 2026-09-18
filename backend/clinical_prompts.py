@@ -1,5 +1,5 @@
-"""
-MediKiosk v3 — Clinical Prompts (replaces meso_templates.py)
+﻿"""
+SwasthyaSync v3 — Clinical Prompts (replaces meso_templates.py)
 
 Rich, medically-grounded system prompts for each section of the
 clinical interview. These guide the LLM's reasoning about what to
