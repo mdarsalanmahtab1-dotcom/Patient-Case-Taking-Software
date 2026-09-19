@@ -1,8 +1,13 @@
 {
   "rewrites": [
     {
+      "source": "/api/:match*",
+      "destination": "https://swasthyasync-backend.onrender.com/api/:match*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
 }
+

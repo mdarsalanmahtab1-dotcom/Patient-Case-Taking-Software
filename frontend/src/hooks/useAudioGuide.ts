@@ -13,7 +13,17 @@ const TTS_LANG_MAP: Record<string, string> = {
 const MAX_PLAYS_PER_KEY = 5;
 
 export function useAudioGuide() {
-  const { language, setLanguage, uiLang, setUiLang, isMuted, setIsMuted } = useAudioGuideContext();
+  const {
+    language,
+    setLanguage,
+    uiLang,
+    setUiLang,
+    isMuted,
+    setIsMuted,
+    stopAllAudio,
+    registerAudioElement,
+    registerAbortController,
+  } = useAudioGuideContext();
   const { speak: sarvamSpeak, stop: sarvamStop, isSpeaking } = useSarvamTTS();
   const lastSpokenKeyRef = useRef<string | null>(null);
   const playCountRef = useRef<Record<string, number>>({});
@@ -22,26 +32,21 @@ export function useAudioGuide() {
   useEffect(() => {
     if (isMuted) {
       sarvamStop();
-      // Also kill browser-native speechSynthesis (fallback TTS)
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      stopAllAudio();
     }
-  }, [isMuted, sarvamStop]);
+  }, [isMuted, sarvamStop, stopAllAudio]);
 
   // ── Stop active audio when UI language changes ──
   useEffect(() => {
     sarvamStop();
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-  }, [uiLang, sarvamStop]);
+    stopAllAudio();
+  }, [uiLang, sarvamStop, stopAllAudio]);
 
   const speak = useCallback(
     (
       key: TranslationKey,
       dynamicReplacements?: Record<string, string>,
-      loopCount: number = 4,
+      loopCount: number = 1,
       force: boolean = false
     ) => {
       if (isMuted) return;
@@ -87,12 +92,28 @@ export function useAudioGuide() {
   const stop = useCallback(() => {
     lastSpokenKeyRef.current = null;
     sarvamStop();
-  }, [sarvamStop]);
+    stopAllAudio();
+  }, [sarvamStop, stopAllAudio]);
 
   /** Call when navigating to a new page/step to reset play counts */
   const resetPlayCount = useCallback(() => {
     playCountRef.current = {};
   }, []);
 
-  return { speak, stop, isSpeaking, resetPlayCount, language, setLanguage, uiLang, setUiLang, isMuted, setIsMuted };
+  return {
+    speak,
+    stop,
+    stopAllAudio,
+    isSpeaking,
+    resetPlayCount,
+    language,
+    setLanguage,
+    uiLang,
+    setUiLang,
+    isMuted,
+    setIsMuted,
+    registerAudioElement,
+    registerAbortController,
+  };
 }
+

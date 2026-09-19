@@ -37,7 +37,7 @@ class PDFEngine:
                     html_content, res_queue = task
                     try:
                         page = self.browser.new_page()
-                        page.set_content(html_content, wait_until="networkidle")
+                        page.set_content(html_content, wait_until="domcontentloaded")
                         pdf_bytes = page.pdf(
                             format="A4",
                             print_background=True,
@@ -114,6 +114,20 @@ async def generate_summary_pdf(session_id: str, context: dict) -> str:
              if b64:
                  compressed_images.append(b64)
         context["uploaded_images"] = compressed_images
+
+    # Auto-inject Ayurvedic summary for AYUSH / integrative clinic mode
+    raw_mode = str(context.get("clinic_mode", "allopathic")).lower().strip()
+    is_ayush = "ayush" in raw_mode or "ayur" in raw_mode or raw_mode == "integrative"
+    if is_ayush and "ayush_summary" not in context:
+        try:
+            from ayush_templates import calculate_prakriti
+            filled_state = context.get("filled_state", {})
+            cc = context.get("ai_summary", {}).get("chief_complaint", "")
+            if not cc and isinstance(context.get("ai_summary"), dict):
+                cc = context.get("ai_summary", {}).get("clinical_narrative", "")
+            context["ayush_summary"] = calculate_prakriti(filled_state, cc)
+        except Exception as e:
+            logger.error(f"Error computing ayush_summary for PDF: {e}")
 
     html_content = template.render(**context)
     

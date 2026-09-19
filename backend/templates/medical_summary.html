@@ -3,8 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <title>OP Casesheet - {{ patient.token }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .justify-between { justify-content: space-between; }
+        .space-y-5 > * + * { margin-top: 1.25rem; }
+        .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+
         :root {
             --navy: #0f172a;
             --navy-2: #1e293b;
@@ -319,6 +324,47 @@
                         {% endif %}
                     </div>
                 </div>
+
+                <!-- Ayurvedic Assessment (Prakriti & Vikriti) — Rendered ONLY for AYUSH / Integrative mode -->
+                {% if clinic_mode in ['ayush', 'integrative'] or ayush_summary %}
+                <div class="section-row" style="background-color: #f8fafc; border-left: 3.5px solid #059669; padding: 7px 10px; border-radius: 0 4px 4px 0; margin-bottom: 8px;">
+                    <div class="section-label" style="color: #065f46; font-weight: 800; text-transform: uppercase; font-size: 10px; letter-spacing: .03em;">Ayurvedic Assessment</div>
+                    <div class="section-body clinical-text">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                            <span style="font-weight: 800; font-size: 12px; color: #0f172a;">
+                                {{ ayush_summary.dominant_dosha | default('Vataja Prakriti (Vata Dominant)') }}
+                            </span>
+                            <span style="background: #059669; color: #ffffff; padding: 2px 7px; border-radius: 3px; font-weight: 800; font-size: 9px; letter-spacing: .05em;">
+                                {{ ayush_summary.namaste_code | default('AYU-PRA-01') }}
+                            </span>
+                        </div>
+                        <div style="font-size: 10px; color: #475569; margin-bottom: 5px;">
+                            <strong>Doshic Distribution (CCRAS Scale):</strong>
+                            Vata {{ ayush_summary.dosha_percentages.vata | default(50) }}% &middot;
+                            Pitta {{ ayush_summary.dosha_percentages.pitta | default(30) }}% &middot;
+                            Kapha {{ ayush_summary.dosha_percentages.kapha | default(20) }}%
+                            {% if ayush_summary.vikriti and ayush_summary.vikriti.ayurvedic_name %}
+                            &nbsp;|&nbsp; <strong>Vikriti Indication:</strong> {{ ayush_summary.vikriti.ayurvedic_name }} (NAMC: {{ ayush_summary.vikriti.namc_code }})
+                            {% endif %}
+                        </div>
+                        {% if ayush_summary.pathya_apathya %}
+                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 8px; font-size: 9.5px; line-height: 1.45;">
+                            <div style="color: #047857; margin-bottom: 3px;">
+                                <strong>&#10003; Pathya (Diet & Lifestyle Advisory):</strong>
+                                {{ ayush_summary.pathya_apathya.pathya_diet }} {{ ayush_summary.pathya_apathya.pathya_lifestyle }}
+                            </div>
+                            <div style="color: #b91c1c;">
+                                <strong>&#10007; Apathya (Items to Restrict):</strong>
+                                {{ ayush_summary.pathya_apathya.apathya_avoid }}
+                            </div>
+                        </div>
+                        {% endif %}
+                        <div style="font-size: 8px; color: #94a3b8; margin-top: 3px; font-style: italic;">
+                            CCRAS Standardized Prakriti Determination &bull; Advisory note for attending physician. Not a definitive prescription.
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
 
                 <!-- General Exam -->
                 <div class="section-row">

@@ -12,9 +12,10 @@ interface LayoutProps {
   children: ReactNode;
   isConnected?: boolean;
   isKioskInterview?: boolean;
+  clinicMode?: string;
 }
 
-export function Layout({ children, isConnected = true, isKioskInterview = false }: LayoutProps) {
+export function Layout({ children, isConnected = true, isKioskInterview = false, clinicMode }: LayoutProps) {
   const scrollRef = useRef<HTMLElement>(null);
   const prefersReducedMotion = useReducedMotion();
   const { uiLang, setUiLang, isMuted, setIsMuted, setLanguage } = useAudioGuideContext();
@@ -68,9 +69,16 @@ export function Layout({ children, isConnected = true, isKioskInterview = false 
             <span className="text-slate-900 font-extrabold tracking-tight">SwasthyaSync v2.0</span>
           </div>
           {isKioskInterview && (
-            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
-              Clinical Intake
-            </span>
+            clinicMode === 'ayush' ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-800 border border-emerald-300 shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>🌿 Ministry of AYUSH · CCRAS Validated Protocol</span>
+              </span>
+            ) : (
+              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
+                Clinical Intake
+              </span>
+            )
           )}
         </div>
 
@@ -277,7 +285,7 @@ export function Layout({ children, isConnected = true, isKioskInterview = false 
 
         <main 
           ref={scrollRef}
-          className={`flex-1 relative ${isKioskInterview ? 'overflow-hidden flex flex-col p-0 m-0' : 'overflow-y-auto overflow-x-hidden pt-24 sm:pt-28'}`}
+          className={`flex-1 relative ${isKioskInterview ? 'overflow-hidden flex flex-col p-0 m-0' : 'overflow-y-auto overflow-x-hidden pt-16 sm:pt-20'}`}
           tabIndex={-1}
         >
           <motion.div

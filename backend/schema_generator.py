@@ -118,6 +118,7 @@ def generate_schema(
     patient_sex: str,
     category: str,
     doctor_custom_instructions: str | None = None,
+    clinic_mode: str | None = None,
 ) -> dict:
     """
     Generate a complaint-specific clinical interview schema.
@@ -127,6 +128,30 @@ def generate_schema(
     
     Returns: A validated schema dict with "chief_complaint" and "fields" keys.
     """
+    # Auto-detect clinic_mode if not explicitly passed (e.g. from DialogueManager)
+    if clinic_mode is None:
+        try:
+            import inspect
+            frame = inspect.currentframe().f_back
+            dm = frame.f_locals.get("self")
+            clinic_mode = getattr(getattr(dm, "record", None), "clinic_mode", "allopathic")
+        except Exception:
+            clinic_mode = "allopathic"
+
+    if clinic_mode is not None:
+        cm_lower = str(clinic_mode).lower().strip()
+        if "ayush" in cm_lower or "ayur" in cm_lower:
+            clinic_mode = "ayush"
+
+    # AYUSH / Integrative Mode: Use fixed CCRAS template (Non-negotiable architectural invariant)
+    if clinic_mode in ("ayush", "integrative"):
+        logger.info(f"Generating FIXED AYUSH schema for mode '{clinic_mode}', complaint '{chief_complaint}'")
+        from ayush_templates import get_ayush_schema
+        schema = get_ayush_schema(chief_complaint, category)
+        # SAFETY: Mandatory safety floor is STILL merged! (Pillar 1 Protection)
+        schema = merge_safety_floor(schema, category)
+        return _validate_schema(schema, chief_complaint)
+
     safety_floor_text = get_safety_floor_as_text(category)
     system_prompt, user_prompt = _build_schema_generation_prompt(
         chief_complaint, patient_age, patient_sex, category, safety_floor_text, doctor_custom_instructions

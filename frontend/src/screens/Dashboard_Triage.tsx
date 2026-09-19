@@ -194,7 +194,11 @@ export default function Dashboard_Triage() {
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-slate-400 font-normal">Arrived:</span> 
-                          {new Date(item.created_at + 'Z').toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          {(() => {
+                            if (!item.created_at) return '--:--';
+                            const d = new Date(item.created_at);
+                            return isNaN(d.getTime()) ? '--:--' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                          })()}
                         </div>
                       </div>
                     </div>

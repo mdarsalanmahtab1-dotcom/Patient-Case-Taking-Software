@@ -1,12 +1,13 @@
 import { LiquidButton } from '../components/ui/button';
 import { useTranslation } from '../hooks/useTranslation';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Phone, Users, UserPlus, Building2, ArrowRight, User, Calendar, Activity,
   MapPin, Globe, Shield, ShieldCheck, CheckCircle2, Fingerprint, Smartphone,
   BadgeCheck, RefreshCw, ArrowLeft, ChevronRight, AlertCircle, Loader2, UserCircle,
-  Mic, FileSearch, HeartPulse, Ticket, Volume2, VolumeX
+  Mic, FileSearch, HeartPulse, Ticket, Volume2, VolumeX, Sparkles,
+  Stethoscope, Scan, Languages
 } from 'lucide-react';
 import { getApiBaseUrl } from '../config';
 import { OtpInput } from '../components/OtpInput';
@@ -60,6 +61,7 @@ interface AbdmProfile {
 }
 
 type Step =
+  | 'WELCOME_LANGUAGE'
   | 'CONSENT'
   | 'LANDING'
   | 'ABHA_IDENTIFY'
@@ -70,6 +72,112 @@ type Step =
   | 'SELECT_MEMBER'
   | 'REGISTER'
   | 'DEPARTMENT';
+
+// ── Welcome Screen Configurations ─────────────────────────────────────
+interface WelcomeLangItem {
+  id: 'en' | 'hi' | 'bn';
+  ttsLang: 'en-IN' | 'hi-IN' | 'bn-IN';
+  label: string;
+  native: string;
+  sub: string;
+  badge: string;
+  accent: string;
+  borderActive: string;
+  welcomePrompt: string;
+}
+
+const KIOSK_LANGUAGES: WelcomeLangItem[] = [
+  {
+    id: 'en',
+    ttsLang: 'en-IN',
+    label: 'English',
+    native: 'English',
+    sub: 'Touch to proceed in English',
+    badge: 'Standard',
+    accent: 'from-blue-600 to-indigo-600',
+    borderActive: 'border-blue-500 ring-4 ring-blue-500/20 shadow-blue-500/20',
+    welcomePrompt: 'Welcome to SwasthyaSync. Please touch your preferred language on the screen to begin your clinical check-in.',
+  },
+  {
+    id: 'hi',
+    ttsLang: 'hi-IN',
+    label: 'Hindi',
+    native: 'हिन्दी',
+    sub: 'हिन्दी में जारी रखने के लिए स्पर्श करें',
+    badge: 'राष्ट्रीय',
+    accent: 'from-emerald-600 to-teal-600',
+    borderActive: 'border-emerald-500 ring-4 ring-emerald-500/20 shadow-emerald-500/20',
+    welcomePrompt: 'स्वास्थ्यसिंक में आपका स्वागत है। अपनी स्वास्थ्य जांच और टोकन प्राप्त करने के लिए कृपया स्क्रीन पर अपनी भाषा चुनें।',
+  },
+  {
+    id: 'bn',
+    ttsLang: 'bn-IN',
+    label: 'Bengali',
+    native: 'বাংলা',
+    sub: 'বাংলা ভাষায় শুরু করতে স্পর্শ করুন',
+    badge: 'আঞ্চলিক',
+    accent: 'from-amber-600 to-orange-600',
+    borderActive: 'border-amber-500 ring-4 ring-amber-500/20 shadow-amber-500/20',
+    welcomePrompt: 'স্বাস্থ্যসিঙ্কে আপনাকে স্বাগতম। আপনার স্বাস্থ্য পরীক্ষা শুরু করতে অনুগ্রহ করে স্ক্রিনে আপনার ভাষা নির্বাচন করুন।',
+  },
+];
+
+const SYSTEM_FEATURES = [
+  {
+    icon: <Mic className="w-5 h-5 text-blue-600" />,
+    iconBg: "bg-blue-50 border-blue-200/60",
+    badge: "10+ Dialects",
+    badgeColor: "bg-blue-50 text-blue-700 border-blue-200/50",
+    title: "Multilingual Voice AI Intake",
+    desc: "Patients converse naturally in Hindi, Bengali, or English. Advanced medical Speech AI automatically extracts symptoms, duration, and vitals.",
+    tag: "Hands-free & Senior friendly",
+  },
+  {
+    icon: <Scan className="w-5 h-5 text-indigo-600" />,
+    iconBg: "bg-indigo-50 border-indigo-200/60",
+    badge: "Smart Vision OCR",
+    badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200/50",
+    title: "Prescription & Lab OCR",
+    desc: "Simply present previous doctor prescriptions or diagnostic reports. High-speed OCR digitizes clinical history in seconds.",
+    tag: "Zero manual typing",
+  },
+  {
+    icon: <Activity className="w-5 h-5 text-rose-600" />,
+    iconBg: "bg-rose-50 border-rose-200/60",
+    badge: "Automated Triage",
+    badgeColor: "bg-rose-50 text-rose-700 border-rose-200/50",
+    title: "Clinical Algorithmic Triage",
+    desc: "Instant acuity scoring (Red/Yellow/Green) flags emergency chest pain or acute symptoms immediately to on-duty trauma staff.",
+    tag: "Emergency fast-track",
+  },
+  {
+    icon: <Stethoscope className="w-5 h-5 text-emerald-600" />,
+    iconBg: "bg-emerald-50 border-emerald-200/60",
+    badge: "EMR Ready",
+    badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200/50",
+    title: "Doctor Casesheet Handoff",
+    desc: "Converts voice interview into structured SOAP notes and differential diagnosis summary, saving 60% of doctor consultation time.",
+    tag: "Instant Doctor Portal sync",
+  },
+  {
+    icon: <Fingerprint className="w-5 h-5 text-purple-600" />,
+    iconBg: "bg-purple-50 border-purple-200/60",
+    badge: "NDHM / ABDM",
+    badgeColor: "bg-purple-50 text-purple-700 border-purple-200/50",
+    title: "ABHA 14-Digit Health ID",
+    desc: "Seamlessly link your Ayushman Bharat Health Account via biometric/OTP or check in with mobile number under DPDP Act compliance.",
+    tag: "Universal health record",
+  },
+  {
+    icon: <Smartphone className="w-5 h-5 text-cyan-600" />,
+    iconBg: "bg-cyan-50 border-cyan-200/60",
+    badge: "Patient Portal",
+    badgeColor: "bg-cyan-50 text-cyan-700 border-cyan-200/50",
+    title: "Live Queue & AI Companion",
+    desc: "Scan the on-screen QR code to carry your live OPD queue token on your smartphone and chat with our 24/7 empathetic Medical Copilot.",
+    tag: "Mobile web app included",
+  },
+];
 
 interface Props {
   onSessionStarted: (sessionData: any, patientData: Patient, language: string) => void;
@@ -146,7 +254,7 @@ export function Login({ onSessionStarted }: Props) {
   const getInitialStep = (): Step => {
     if (saved?.step === 'ABHA_OTP') return 'ABHA_IDENTIFY';
     if (saved?.step === 'MOBILE_OTP_VERIFY') return 'PHONE';
-    return saved?.step || 'CONSENT';
+    return saved?.step || 'WELCOME_LANGUAGE';
   };
 
   // ── Core state ────────────────────────────────────────────────────
@@ -188,9 +296,284 @@ export function Login({ onSessionStarted }: Props) {
   const [selectedDoctor, setSelectedDoctor] = useState(saved?.selectedDoctor || '');
   const [doctors, setDoctors] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
-  const { language, setLanguage, speak, stop, isSpeaking } = useAudioGuide();
+  const {
+    language,
+    setLanguage,
+    setUiLang,
+    speak,
+    stop,
+    isSpeaking,
+    isMuted,
+    registerAudioElement,
+    registerAbortController,
+  } = useAudioGuide();
   const [activeConsentAudio, setActiveConsentAudio] = useState<ConsentKey | null>(null);
   const wasSpeakingRef = useRef(false);
+
+  // ── Welcome Language Screen Audio Loop ─────────────────────────────
+  const [activeSpeakingLang, setActiveSpeakingLang] = useState<'en' | 'hi' | 'bn' | null>(null);
+  const welcomeLoopAbortRef = useRef<AbortController | null>(null);
+  const welcomeAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const stopWelcomeLoop = useCallback(() => {
+    if (welcomeLoopAbortRef.current) {
+      try {
+        welcomeLoopAbortRef.current.abort();
+      } catch {}
+      welcomeLoopAbortRef.current = null;
+    }
+    registerAbortController(null);
+
+    if (welcomeAudioRef.current) {
+      welcomeAudioRef.current.onended = null;
+      welcomeAudioRef.current.onerror = null;
+      try {
+        welcomeAudioRef.current.pause();
+        welcomeAudioRef.current.src = '';
+      } catch {}
+      welcomeAudioRef.current = null;
+    }
+    registerAudioElement(null);
+
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+    }
+    setActiveSpeakingLang(null);
+  }, [registerAudioElement, registerAbortController]);
+
+  const playSingleWelcome = useCallback(async (item: WelcomeLangItem) => {
+    stopWelcomeLoop();
+    if (isMuted) return;
+
+    setActiveSpeakingLang(item.id);
+    const abortController = new AbortController();
+    welcomeLoopAbortRef.current = abortController;
+    registerAbortController(abortController);
+
+    try {
+      const formData = new FormData();
+      formData.append('text', item.welcomePrompt);
+      formData.append('language', item.ttsLang);
+
+      const resp = await fetch(`${getApiBaseUrl()}/api/tts`, {
+        method: 'POST',
+        body: formData,
+        signal: abortController.signal,
+      });
+
+      if (resp.ok) {
+        const blob = await resp.blob();
+        if (abortController.signal.aborted || isMuted) return;
+
+        const blobUrl = URL.createObjectURL(blob);
+        const audio = new Audio(blobUrl);
+        welcomeAudioRef.current = audio;
+        registerAudioElement(audio);
+
+        audio.onended = () => {
+          URL.revokeObjectURL(blobUrl);
+          welcomeAudioRef.current = null;
+          registerAudioElement(null);
+          setActiveSpeakingLang(null);
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(blobUrl);
+          welcomeAudioRef.current = null;
+          registerAudioElement(null);
+          setActiveSpeakingLang(null);
+        };
+
+        await audio.play().catch(() => {
+          URL.revokeObjectURL(blobUrl);
+          welcomeAudioRef.current = null;
+          registerAudioElement(null);
+          setActiveSpeakingLang(null);
+        });
+        return;
+      }
+    } catch {
+      // Continue to fallback
+    }
+
+    if (abortController.signal.aborted || isMuted) return;
+
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+        const utt = new SpeechSynthesisUtterance(item.welcomePrompt);
+        utt.lang = item.ttsLang;
+        utt.rate = 0.95;
+        const voices = window.speechSynthesis.getVoices();
+        const langPrefix = item.ttsLang.slice(0, 2).toLowerCase();
+        const matchingVoice = voices.find(v => {
+          const vLang = v.lang.toLowerCase().replace('_', '-');
+          return vLang.startsWith(langPrefix) ||
+            (langPrefix === 'bn' && (v.name.toLowerCase().includes('bengali') || v.name.toLowerCase().includes('bangla')));
+        });
+        if (matchingVoice) utt.voice = matchingVoice;
+        utt.onend = () => setActiveSpeakingLang(null);
+        utt.onerror = () => setActiveSpeakingLang(null);
+        window.speechSynthesis.speak(utt);
+      } catch {
+        setActiveSpeakingLang(null);
+      }
+    } else {
+      setActiveSpeakingLang(null);
+    }
+  }, [stopWelcomeLoop, isMuted, registerAbortController, registerAudioElement]);
+
+  const handleSelectLanguage = useCallback((langId: 'en' | 'hi' | 'bn') => {
+    stopWelcomeLoop();
+    stop();
+    const langItem = KIOSK_LANGUAGES.find((l) => l.id === langId);
+    if (langItem) {
+      setLanguage(langItem.ttsLang);
+      setUiLang(langItem.id);
+    }
+    setStep('CONSENT');
+  }, [stopWelcomeLoop, stop, setLanguage, setUiLang]);
+
+  // Audio loop for WELCOME_LANGUAGE
+  useEffect(() => {
+    if (step !== 'WELCOME_LANGUAGE' || isMuted) {
+      stopWelcomeLoop();
+      return;
+    }
+
+    const abortController = new AbortController();
+    welcomeLoopAbortRef.current = abortController;
+    registerAbortController(abortController);
+    let isCancelled = false;
+
+    const playPromptAsync = (item: WelcomeLangItem): Promise<boolean> => {
+      return new Promise((resolve) => {
+        if (abortController.signal.aborted || isCancelled || isMuted) return resolve(false);
+        setActiveSpeakingLang(item.id);
+
+        const cleanUp = () => {
+          if (welcomeAudioRef.current) {
+            welcomeAudioRef.current.onended = null;
+            welcomeAudioRef.current.onerror = null;
+            try {
+              welcomeAudioRef.current.pause();
+              welcomeAudioRef.current.src = '';
+            } catch {}
+            welcomeAudioRef.current = null;
+          }
+          registerAudioElement(null);
+          if ('speechSynthesis' in window) {
+            try {
+              window.speechSynthesis.cancel();
+            } catch {}
+          }
+        };
+
+        abortController.signal.addEventListener('abort', () => {
+          cleanUp();
+          resolve(false);
+        }, { once: true });
+
+        const formData = new FormData();
+        formData.append('text', item.welcomePrompt);
+        formData.append('language', item.ttsLang);
+
+        fetch(`${getApiBaseUrl()}/api/tts`, {
+          method: 'POST',
+          body: formData,
+          signal: abortController.signal,
+        })
+          .then(async (resp) => {
+            if (!resp.ok) throw new Error('TTS error');
+            const blob = await resp.blob();
+            if (abortController.signal.aborted || isCancelled || isMuted) return resolve(false);
+
+            const blobUrl = URL.createObjectURL(blob);
+            const audio = new Audio(blobUrl);
+            welcomeAudioRef.current = audio;
+            registerAudioElement(audio);
+
+            audio.onended = () => {
+              URL.revokeObjectURL(blobUrl);
+              welcomeAudioRef.current = null;
+              registerAudioElement(null);
+              resolve(true);
+            };
+            audio.onerror = () => {
+              URL.revokeObjectURL(blobUrl);
+              welcomeAudioRef.current = null;
+              registerAudioElement(null);
+              resolve(true);
+            };
+
+            await audio.play().catch(() => {
+              URL.revokeObjectURL(blobUrl);
+              welcomeAudioRef.current = null;
+              registerAudioElement(null);
+              resolve(true);
+            });
+          })
+          .catch(() => {
+            if (abortController.signal.aborted || isCancelled || isMuted) return resolve(false);
+            if ('speechSynthesis' in window) {
+              try {
+                window.speechSynthesis.cancel();
+                const utt = new SpeechSynthesisUtterance(item.welcomePrompt);
+                utt.lang = item.ttsLang;
+                utt.rate = 0.95;
+                const voices = window.speechSynthesis.getVoices();
+                const langPrefix = item.ttsLang.slice(0, 2).toLowerCase();
+                const matchingVoice = voices.find(v => {
+                  const vLang = v.lang.toLowerCase().replace('_', '-');
+                  return vLang.startsWith(langPrefix) ||
+                    (langPrefix === 'bn' && (v.name.toLowerCase().includes('bengali') || v.name.toLowerCase().includes('bangla')));
+                });
+                if (matchingVoice) utt.voice = matchingVoice;
+                utt.onend = () => resolve(true);
+                utt.onerror = () => resolve(true);
+                window.speechSynthesis.speak(utt);
+              } catch {
+                resolve(true);
+              }
+            } else {
+              resolve(true);
+            }
+          });
+      });
+    };
+
+    const runLoop = async () => {
+      await new Promise((r) => setTimeout(r, 500));
+
+      let i = 0;
+      while (!abortController.signal.aborted && !isCancelled && !isMuted) {
+        const item = KIOSK_LANGUAGES[i % KIOSK_LANGUAGES.length];
+        const ok = await playPromptAsync(item);
+        if (!ok || abortController.signal.aborted || isCancelled || isMuted) break;
+
+        setActiveSpeakingLang(null);
+        await new Promise((r) => setTimeout(r, 1200));
+        i++;
+      }
+    };
+
+    runLoop();
+
+    return () => {
+      isCancelled = true;
+      abortController.abort();
+      stopWelcomeLoop();
+    };
+  }, [step, isMuted, stopWelcomeLoop, registerAbortController, registerAudioElement]);
+
+  // Immediately stop all welcome audio if muted changes to true
+  useEffect(() => {
+    if (isMuted) {
+      stopWelcomeLoop();
+      stop();
+    }
+  }, [isMuted, stopWelcomeLoop, stop]);
 
   // Auto-reset active consent audio when playback finishes
   useEffect(() => {
@@ -208,6 +591,7 @@ export function Login({ onSessionStarted }: Props) {
       stop();
     }
   }, [step, stop]);
+
 
   const handleToggleConsentAudio = (key: ConsentKey, audioKey: TranslationKey) => {
     if (activeConsentAudio === key) {
@@ -246,37 +630,46 @@ export function Login({ onSessionStarted }: Props) {
 
   // ── Step Audio Announcer ──────────────────────────────────────────
   useEffect(() => {
+    // Immediately terminate any leftover audio from the previous step
+    stopWelcomeLoop();
+    stop();
+
+    if (step === 'WELCOME_LANGUAGE' || isMuted) return;
+
     const speakStep = () => {
       switch (step) {
         case 'CONSENT':
-          speak('consent_intro');
+          speak('consent_intro', undefined, 1);
           break;
         case 'LANDING':
-          speak('welcome');
+          speak('welcome', undefined, 1);
           break;
         case 'ABHA_IDENTIFY':
-          speak('enter_abha');
+          speak('enter_abha', undefined, 1);
           break;
         case 'ABHA_OTP':
         case 'MOBILE_OTP_VERIFY':
-          speak('enter_otp');
+          speak('enter_otp', undefined, 1);
           break;
         case 'PHONE':
-          speak('enter_mobile');
+          speak('enter_mobile', undefined, 1);
           break;
         case 'REGISTER':
           if (abhaSourceProfile) {
-            speak('register_verify_abha');
+            speak('register_verify_abha', undefined, 1);
           } else {
-            speak('register_manual');
+            speak('register_manual', undefined, 1);
           }
           break;
       }
     };
     // Slight delay so DOM renders first before speaking
-    const t = setTimeout(speakStep, 300);
-    return () => clearTimeout(t);
-  }, [step, abhaSourceProfile, speak]);
+    const t = setTimeout(speakStep, 350);
+    return () => {
+      clearTimeout(t);
+      stop();
+    };
+  }, [step, isMuted, abhaSourceProfile, speak, stop, stopWelcomeLoop]);
 
   // ── Load doctors + departments ────────────────────────────────────
   useEffect(() => {
@@ -535,11 +928,11 @@ export function Login({ onSessionStarted }: Props) {
   // RENDER
   // ─────────────────────────────────────────────────────────────────
   return (
-    <div className={`flex-1 h-full w-full flex flex-col items-center justify-center overflow-y-auto ${step === 'CONSENT' ? '' : 'p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-blue-50/30'}`}>
-      <div className={`w-full flex flex-col items-center ${step === 'CONSENT' ? 'h-full' : 'max-w-3xl'}`}>
+    <div className={`flex-1 h-full w-full flex flex-col items-center ${['CONSENT', 'WELCOME_LANGUAGE'].includes(step) ? 'justify-start' : 'justify-center'} overflow-y-auto ${['CONSENT', 'WELCOME_LANGUAGE'].includes(step) ? '' : 'p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-blue-50/30'}`}>
+      <div className={`w-full flex flex-col items-center ${['CONSENT', 'WELCOME_LANGUAGE'].includes(step) ? 'h-full' : 'max-w-3xl'}`}>
 
         {/* Header & Step Indicator — shown on most steps */}
-        {step !== 'CONSENT' && (
+        {!['CONSENT', 'WELCOME_LANGUAGE'].includes(step) && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -606,6 +999,259 @@ export function Login({ onSessionStarted }: Props) {
         )}
 
         <AnimatePresence mode="wait">
+
+          {/* ────────────────────────────────────────────────────────
+              STEP: WELCOME_LANGUAGE
+          ──────────────────────────────────────────────────────── */}
+          {step === 'WELCOME_LANGUAGE' && (
+            <motion.div
+              key="WELCOME_LANGUAGE"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="w-full h-full flex flex-col lg:flex-row min-h-0"
+            >
+              {/* ════════════════════════════════════════════════════════
+                  LEFT PANEL — System Capabilities & Feature Showcase (~60%)
+              ════════════════════════════════════════════════════════ */}
+              <div className="lg:w-[58%] xl:w-[60%] w-full bg-transparent text-slate-900 px-5 py-2 sm:px-8 sm:py-3 lg:px-10 lg:py-3 flex flex-col justify-start relative overflow-hidden">
+                {/* Decorative orbs */}
+                <div className="absolute top-0 right-0 w-80 h-80 bg-blue-100/60 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-50/70 rounded-full blur-3xl pointer-events-none" />
+
+                {/* Hospital branding & Header */}
+                <div className="relative z-10 mb-3">
+                  <div className="flex items-center gap-3 mb-1">
+                    <div className="w-10 h-10 rounded-xl bg-white shadow-xs border border-slate-200/80 flex items-center justify-center p-1.5 shrink-0">
+                      <img src={logoPNG} alt="SwasthyaSync Logo" className="w-full h-full object-contain" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-blue-700 font-bold uppercase tracking-wider bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-md">
+                          National Health Mission Ready
+                        </span>
+                        <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
+                          Smart OPD Kiosk
+                        </span>
+                      </div>
+                      <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-tight">
+                        SwasthyaSync
+                      </h1>
+                    </div>
+                  </div>
+                  <p className="text-slate-600 text-xs sm:text-sm font-medium">
+                    AI Clinical Triage, Multilingual Patient Intake & Doctor EMR Synchronization.
+                  </p>
+                </div>
+
+                {/* Features Grid Header */}
+                <div className="relative z-10 flex items-center justify-between mb-2">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                    SYSTEM FEATURES & CAPABILITIES · मुख्य विशेषताएं
+                  </p>
+                  <span className="text-[10px] text-blue-600 font-semibold flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-blue-500" />
+                    Powered by Medical AI
+                  </span>
+                </div>
+
+                {/* Feature Bento Grid */}
+                <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 mb-3">
+                  {SYSTEM_FEATURES.map((feat, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-white/80 backdrop-blur-md rounded-xl p-2.5 sm:p-3 border border-slate-200/80 shadow-2xs hover:shadow-xs hover:border-blue-300 transition-all duration-150 flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shadow-2xs ${feat.iconBg}`}>
+                            {feat.icon}
+                          </div>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${feat.badgeColor}`}>
+                            {feat.badge}
+                          </span>
+                        </div>
+                        <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 leading-tight mb-0.5">
+                          {feat.title}
+                        </h3>
+                        <p className="text-[11px] text-slate-500 leading-snug">
+                          {feat.desc}
+                        </p>
+                      </div>
+                      <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center gap-1.5 text-[9px] font-semibold text-slate-400">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span className="truncate">{feat.tag}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Trust and Compliance Footer */}
+                <div className="relative z-10 flex flex-wrap items-center gap-4 text-[11px] font-semibold text-slate-500 pt-2 border-t border-slate-200/70">
+                  <div className="flex items-center gap-1.5 text-slate-600">
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                    <span>DPDP Act 2023 Compliant</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-slate-600">
+                    <Fingerprint className="w-3.5 h-3.5 text-purple-600" />
+                    <span>ABDM / ABHA Integrated</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-slate-600">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Sarvam AI Speech</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ════════════════════════════════════════════════════════
+                  RIGHT PANEL — Language Selection & Rotating Audio Loop (~40%)
+              ════════════════════════════════════════════════════════ */}
+              <div className="lg:w-[42%] xl:w-[40%] w-full bg-transparent px-4 py-2 sm:px-6 sm:py-3 lg:px-8 lg:py-3 flex flex-col justify-start items-center">
+                <div className="max-w-md w-full bg-white/85 backdrop-blur-xl border border-white p-4 sm:p-5 rounded-2xl shadow-xl shadow-slate-200/50 flex flex-col">
+                  {/* Heading */}
+                  <div className="mb-3 text-center">
+                    <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20 mb-1.5 relative">
+                      <Languages className="w-5 h-5" />
+                      <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                      </span>
+                    </div>
+                    <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                      Select Kiosk Language
+                    </h2>
+                    <p className="text-[11px] font-semibold text-blue-600 mt-0.5">
+                      अपनी भाषा चुनें · আপনার ভাষা নির্বাচন করুন
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      Touch your language to begin your registration & intake
+                    </p>
+                  </div>
+
+                  {/* Voice Announcement Status Banner */}
+                  <div className="mb-2.5 p-2 rounded-xl bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border border-blue-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isMuted ? 'bg-amber-100 text-amber-600' : activeSpeakingLang ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-200 text-slate-500'}`}>
+                        {isMuted ? <VolumeX className="w-3.5 h-3.5 text-amber-600" /> : <Volume2 className={`w-3.5 h-3.5 ${activeSpeakingLang ? 'animate-pulse' : ''}`} />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold text-slate-800 leading-tight truncate">
+                          {isMuted && 'Audio Guide Muted (Unmute in top bar)'}
+                          {!isMuted && activeSpeakingLang === 'en' && 'English Audio Announcement'}
+                          {!isMuted && activeSpeakingLang === 'hi' && 'हिन्दी ऑडियो घोषणा जारी'}
+                          {!isMuted && activeSpeakingLang === 'bn' && 'বাংলা অডিও নির্দেশিকা চলছে'}
+                          {!isMuted && !activeSpeakingLang && 'Kiosk Audio Guide Active'}
+                        </p>
+                        <p className="text-[9px] text-slate-500 truncate">
+                          {isMuted ? 'Audio prompts are turned off' : 'Dictating in 3 languages · Loop auto-rotates'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={isMuted}
+                      onClick={() => {
+                        if (isMuted) return;
+                        if (activeSpeakingLang) {
+                          stopWelcomeLoop();
+                        } else {
+                          playSingleWelcome(KIOSK_LANGUAGES[0]);
+                        }
+                      }}
+                      className="px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:text-blue-700 bg-white/90 border border-slate-200/80 rounded-md shrink-0 shadow-2xs hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isMuted ? 'Muted' : activeSpeakingLang ? 'Pause Audio' : 'Play Audio'}
+                    </button>
+                  </div>
+
+                  {/* Language Cards */}
+                  <div className="space-y-2 mb-2.5">
+                    {KIOSK_LANGUAGES.map((lang) => {
+                      const isSpeakingThis = activeSpeakingLang === lang.id;
+                      return (
+                        <div
+                          key={lang.id}
+                          onClick={() => handleSelectLanguage(lang.id)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSelectLanguage(lang.id); }}
+                          className={`
+                            relative group p-2.5 sm:p-3 rounded-xl border-2 cursor-pointer transition-all duration-150 select-none
+                            ${isSpeakingThis
+                              ? `${lang.borderActive} bg-white shadow-md scale-[1.01]`
+                              : 'border-slate-200/80 bg-white/90 hover:border-blue-400 hover:shadow-xs'
+                            }
+                          `}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${lang.accent} text-white font-black flex items-center justify-center text-sm shadow-xs shrink-0`}>
+                                {lang.id === 'en' ? 'En' : lang.id === 'hi' ? 'अ' : 'অ'}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <h3 className="text-sm font-bold text-slate-900">{lang.native}</h3>
+                                  <span className="text-[11px] text-slate-500 font-medium">({lang.label})</span>
+                                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                                    {lang.badge}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-0.5">{lang.sub}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playSingleWelcome(lang);
+                                }}
+                                className={`p-1.5 rounded-lg transition-all ${
+                                  isSpeakingThis
+                                    ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-300'
+                                    : 'bg-slate-100 text-slate-400 hover:text-blue-600 hover:bg-blue-50'
+                                }`}
+                                title={`Listen in ${lang.label}`}
+                              >
+                                <Volume2 className="w-3.5 h-3.5" />
+                              </button>
+
+                              <div className="w-6 h-6 rounded-full bg-slate-100 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center transition-all">
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-colors" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Active speaking indicator */}
+                          {isSpeakingThis && (
+                            <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-blue-700 font-medium">
+                              <span className="flex items-center gap-1">
+                                <span className="flex gap-0.5 items-end h-2.5">
+                                  <span className="w-0.5 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s] h-2.5" />
+                                  <span className="w-0.5 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.15s] h-1" />
+                                  <span className="w-0.5 bg-blue-600 rounded-full animate-bounce h-2" />
+                                </span>
+                                Speaking now · Touch to select
+                              </span>
+                              <span className="text-[9px] text-blue-500 font-bold">START →</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Footer Instructions */}
+                  <div className="text-center pt-2 border-t border-slate-100 text-[10px] text-slate-400 leading-tight">
+                    <p>Touch any box above to proceed to Patient Consent.</p>
+                    <p className="text-[9px] text-slate-400 mt-0.5">Audio guidance will match your selected language throughout the kiosk.</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {/* ────────────────────────────────────────────────────────
               STEP: CONSENT
@@ -696,6 +1342,26 @@ export function Login({ onSessionStarted }: Props) {
               ════════════════════════════════════════════════════════ */}
               <div className="lg:w-[38%] w-full bg-transparent p-8 sm:p-10 lg:p-12 flex flex-col justify-center items-center">
                 <div className="max-w-md w-full bg-white/70 backdrop-blur-xl border border-white p-8 rounded-3xl shadow-xl shadow-slate-200/50">
+                  {/* Change Language Navigation */}
+                  <div className="flex items-center justify-between mb-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        stop();
+                        setActiveConsentAudio(null);
+                        wasSpeakingRef.current = false;
+                        setStep('WELCOME_LANGUAGE');
+                      }}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 border border-slate-200/80"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Change Language / भाषा बदलें</span>
+                    </button>
+                    <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider bg-blue-50 border border-blue-100 px-2.5 py-0.5 rounded-full">
+                      {language === 'hi-IN' ? 'हिन्दी' : language === 'bn-IN' ? 'বাংলা' : 'English'}
+                    </span>
+                  </div>
+
                   {/* Small heading */}
                   <div className="mb-8">
                     <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-100 mb-4">
@@ -970,7 +1636,7 @@ export function Login({ onSessionStarted }: Props) {
                     type="text"
                     value={abhaNumber}
                     onChange={(e) => { setAbhaNumber(formatAbhaNumber(e.target.value)); }}
-                    onFocus={() => speak('enter_abha')}
+                    onFocus={() => stop()}
                     onKeyDown={e => e.key === 'Enter' && handleAbhaInit()}
                     placeholder={t('abha.placeholder')}
                     autoFocus
@@ -1039,7 +1705,7 @@ export function Login({ onSessionStarted }: Props) {
                 </div>
 
                 <div className="mb-6">
-                  <OtpInput length={6} value={otp} onChange={setOtp} onFocus={() => speak('enter_otp')} hasError={otpHasError} />
+                  <OtpInput length={6} value={otp} onChange={setOtp} onFocus={() => stop()} hasError={otpHasError} />
                   {otpHasError && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 mt-4 text-red-500 bg-red-50 px-4 py-3 rounded-lg text-sm font-medium">
                       <AlertCircle className="w-4 h-4 shrink-0" />
@@ -1182,7 +1848,7 @@ export function Login({ onSessionStarted }: Props) {
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                    onFocus={() => speak('enter_mobile')}
+                    onFocus={() => stop()}
                     onKeyDown={e => e.key === 'Enter' && handleMobileInit()}
                     placeholder={t('phone.placeholder')}
                     autoFocus
@@ -1241,7 +1907,7 @@ export function Login({ onSessionStarted }: Props) {
                 </div>
 
                 <div className="mb-6">
-                  <OtpInput length={6} value={mobileOtp} onChange={setMobileOtp} onFocus={() => speak('enter_otp')} hasError={mobileOtpHasError} />
+                  <OtpInput length={6} value={mobileOtp} onChange={setMobileOtp} onFocus={() => stop()} hasError={mobileOtpHasError} />
                   {mobileOtpHasError && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 mt-4 text-red-500 bg-red-50 px-4 py-3 rounded-lg text-sm font-medium">
                       <AlertCircle className="w-4 h-4 shrink-0" />
@@ -1386,7 +2052,7 @@ export function Login({ onSessionStarted }: Props) {
                     value={regData.full_name || ''}
                     placeholder={t('form.name_placeholder')}
                     onChange={e => setRegData({...regData, full_name: e.target.value})}
-                    onFocus={() => speak('enter_name')}
+                    onFocus={() => stop()}
                     disabled={!!abhaSourceProfile}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none transition-colors"
                   />
@@ -1403,7 +2069,7 @@ export function Login({ onSessionStarted }: Props) {
                       value={regData.age || ''}
                       placeholder={t('form.age_placeholder')}
                       onChange={e => setRegData({...regData, age: parseInt(e.target.value) || undefined})}
-                      onFocus={() => speak('enter_age')}
+                      onFocus={() => stop()}
                       disabled={!!abhaSourceProfile}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none transition-colors"
                     />
@@ -1416,7 +2082,7 @@ export function Login({ onSessionStarted }: Props) {
                     <select
                       value={regData.gender || ''}
                       onChange={e => setRegData({...regData, gender: e.target.value})}
-                      onFocus={() => speak('select_gender')}
+                      onFocus={() => stop()}
                       disabled={!!abhaSourceProfile}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none transition-colors"
                     >
@@ -1438,7 +2104,7 @@ export function Login({ onSessionStarted }: Props) {
                       type="number"
                       value={regData.weight || ''}
                       placeholder={t('form.weight_placeholder')}
-                      onFocus={() => speak('enter_weight')}
+                      onFocus={() => stop()}
                       onChange={e => setRegData({ ...regData, weight: parseFloat(e.target.value) || undefined })}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none transition-colors"
                     />
@@ -1452,7 +2118,7 @@ export function Login({ onSessionStarted }: Props) {
                       type="text"
                       value={regData.height || ''}
                       placeholder={t('form.height_placeholder')}
-                      onFocus={() => speak('enter_height')}
+                      onFocus={() => stop()}
                       onChange={e => setRegData({ ...regData, height: e.target.value })}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none transition-colors"
                     />
@@ -1497,7 +2163,7 @@ export function Login({ onSessionStarted }: Props) {
                     type="text"
                     value={regData.address || ''}
                     placeholder={t('form.address_placeholder')}
-                    onFocus={() => speak('enter_address')}
+                    onFocus={() => stop()}
                     onChange={e => setRegData({ ...regData, address: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none transition-colors"
                   />

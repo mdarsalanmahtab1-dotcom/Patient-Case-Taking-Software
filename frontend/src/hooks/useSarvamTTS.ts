@@ -1,13 +1,6 @@
-/**
- * SwasthyaSync — Sarvam AI Text-to-Speech Hook
- *
- * Sends text to the backend /api/tts endpoint (powered by Sarvam AI),
- * receives WAV audio bytes, and plays them via an HTMLAudioElement.
- * Auto-selects a natural voice for the given Indian language.
- */
-
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { getApiBaseUrl } from '../config';
+import { useAudioGuideContext } from '../context/AudioGuideContext';
 
 interface UseSarvamTTSReturn {
   speak: (text: string, language: string, loopCount?: number) => Promise<void>;
@@ -19,30 +12,55 @@ interface UseSarvamTTSReturn {
 const BACKEND_URL = getApiBaseUrl();
 
 export function useSarvamTTS(): UseSarvamTTSReturn {
+  const { isMuted, registerAudioElement, registerAbortController } = useAudioGuideContext();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const loopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stop = useCallback(() => {
+    if (loopTimeoutRef.current) {
+      clearTimeout(loopTimeoutRef.current);
+      loopTimeoutRef.current = null;
+    }
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
+      try {
+        abortControllerRef.current.abort();
+      } catch {}
       abortControllerRef.current = null;
     }
+    registerAbortController(null);
+
     if (audioRef.current) {
       audioRef.current.onplay = null;
       audioRef.current.onended = null;
       audioRef.current.onerror = null;
-      audioRef.current.pause();
-      audioRef.current.src = '';
+      try {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      } catch {}
+      audioRef.current = null;
     }
+    registerAudioElement(null);
+
     if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current);
+      try {
+        URL.revokeObjectURL(blobUrlRef.current);
+      } catch {}
       blobUrlRef.current = null;
     }
+
+    // Cancel native browser SpeechSynthesis
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+    }
+
     setIsSpeaking(false);
-  }, []);
+  }, [registerAudioElement, registerAbortController]);
 
   useEffect(() => {
     return () => {
@@ -50,40 +68,61 @@ export function useSarvamTTS(): UseSarvamTTSReturn {
     };
   }, [stop]);
 
+  // If kiosk is muted, immediately stop everything
+  useEffect(() => {
+    if (isMuted) {
+      stop();
+    }
+  }, [isMuted, stop]);
+
   const speak = useCallback(async (text: string, language: string, loopCount: number = 1) => {
-    if (!text?.trim()) return;
+    if (!text?.trim() || isMuted) return;
 
     stop(); // Stop any currently playing audio and abort in-flight requests
     setError(null);
 
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
+    registerAbortController(abortController);
 
     const playFallback = () => {
-        if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = language || 'hi-IN';
-          utterance.onstart = () => setIsSpeaking(true);
-          
-          let fallbackLoops = loopCount;
-          utterance.onend = () => {
-             if (fallbackLoops > 1) {
-                fallbackLoops--;
-                setTimeout(() => {
-                  if (abortControllerRef.current === abortController && !abortController.signal.aborted) {
-                     window.speechSynthesis.speak(utterance);
-                  }
-                }, 1500); // 1.5s gap
-             } else {
-                setIsSpeaking(false);
-             }
-          };
-          utterance.onerror = () => setIsSpeaking(false);
-          window.speechSynthesis.speak(utterance);
-          return true;
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window && !isMuted) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        const targetLang = language || 'hi-IN';
+        utterance.lang = targetLang;
+
+        const voices = window.speechSynthesis.getVoices();
+        const langPrefix = targetLang.slice(0, 2).toLowerCase();
+        const matchingVoice = voices.find(v => {
+          const vLang = v.lang.toLowerCase().replace('_', '-');
+          return vLang.startsWith(langPrefix) ||
+            (langPrefix === 'bn' && (v.name.toLowerCase().includes('bengali') || v.name.toLowerCase().includes('bangla')));
+        });
+        if (matchingVoice) {
+          utterance.voice = matchingVoice;
         }
-        return false;
+
+        utterance.onstart = () => setIsSpeaking(true);
+        
+        let fallbackLoops = loopCount;
+        utterance.onend = () => {
+          if (fallbackLoops > 1 && !isMuted) {
+            fallbackLoops--;
+            loopTimeoutRef.current = setTimeout(() => {
+              if (abortControllerRef.current === abortController && !abortController.signal.aborted && !isMuted) {
+                window.speechSynthesis.speak(utterance);
+              }
+            }, 1500); // 1.5s gap
+          } else {
+            setIsSpeaking(false);
+          }
+        };
+        utterance.onerror = () => setIsSpeaking(false);
+        window.speechSynthesis.speak(utterance);
+        return true;
+      }
+      return false;
     };
 
     try {
@@ -98,30 +137,30 @@ export function useSarvamTTS(): UseSarvamTTSReturn {
       });
 
       if (!response.ok) {
-        // Fallback to native Web Speech API if Sarvam is out of credits (402) or offline
         if (playFallback()) return;
         throw new Error(`TTS failed: ${response.status}`);
       }
 
       const audioBlob = await response.blob();
       
-      // If we got aborted while waiting for response, skip processing
-      if (abortController.signal.aborted) return;
+      // If we got aborted while waiting for response or muted, cancel
+      if (abortController.signal.aborted || isMuted) return;
       
       const blobUrl = URL.createObjectURL(audioBlob);
       blobUrlRef.current = blobUrl;
 
       const audio = new Audio(blobUrl);
       audioRef.current = audio;
+      registerAudioElement(audio);
 
       let loopsRemaining = loopCount;
 
       audio.onplay = () => setIsSpeaking(true);
       audio.onended = () => {
-        if (loopsRemaining > 1) {
+        if (loopsRemaining > 1 && !isMuted) {
           loopsRemaining--;
-          setTimeout(() => {
-            if (audioRef.current === audio && abortControllerRef.current === abortController && !abortController.signal.aborted) {
+          loopTimeoutRef.current = setTimeout(() => {
+            if (audioRef.current === audio && abortControllerRef.current === abortController && !abortController.signal.aborted && !isMuted) {
               audio.play().catch(console.error);
             }
           }, 1500); // 1.5s gap between loops
@@ -138,10 +177,11 @@ export function useSarvamTTS(): UseSarvamTTSReturn {
         setError('Audio playback failed');
       };
 
-      await audio.play();
+      if (!isMuted && !abortController.signal.aborted) {
+        await audio.play();
+      }
     } catch (err: any) {
       if (err?.name === 'AbortError') {
-        // Ignored, we aborted the request on purpose
         return;
       }
       try {
@@ -153,7 +193,7 @@ export function useSarvamTTS(): UseSarvamTTSReturn {
       setError(msg);
       setIsSpeaking(false);
     }
-  }, [stop]);
+  }, [stop, isMuted, registerAbortController, registerAudioElement]);
 
   return { speak, stop, isSpeaking, error };
 }

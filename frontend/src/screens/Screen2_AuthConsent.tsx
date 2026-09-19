@@ -1,7 +1,8 @@
 import { LiquidButton } from '../components/ui/button';
 import { ShieldCheck, Info, User, Calendar, UserCircle, ArrowLeft, ArrowRight } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useAudioGuide } from '../hooks/useAudioGuide';
 
 interface Props {
   onNext: (demographics: { name: string; age: number | null; sex: string }) => void;
@@ -13,13 +14,19 @@ import { useTranslations } from '../translations';
 
 export function Screen2_AuthConsent({ onNext, onBack, language = 'en-IN' }: Props) {
   const { t } = useTranslations(language);
+  const { stop } = useAudioGuide();
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [sex, setSex] = useState('');
 
+  useEffect(() => {
+    return () => stop();
+  }, [stop]);
+
   const canProceed = name.trim().length > 0;
 
   const handleSubmit = () => {
+    stop();
     onNext({
       name: name.trim(),
       age: age ? parseInt(age, 10) : null,
@@ -163,7 +170,10 @@ export function Screen2_AuthConsent({ onNext, onBack, language = 'en-IN' }: Prop
       {/* Sticky Bottom Buttons for Mobile Accessibility */}
       <div className="sticky sm:relative bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md pt-3 pb-3 sm:pt-6 w-full max-w-2xl flex gap-3 z-30 shadow-lg sm:shadow-none border-t sm:border-t-0 border-slate-200/80 px-2 sm:px-0 mt-6">
         <LiquidButton
-          onClick={onBack}
+          onClick={() => {
+            stop();
+            onBack();
+          }}
           className="group flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-8 py-3.5 sm:py-5 rounded-full font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-[transform,background-color] duration-150 active:scale-[0.97] w-1/3 text-sm sm:text-lg cursor-pointer shadow-2xs"
         >
           <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 group-hover:-translate-x-1 transition-transform" />

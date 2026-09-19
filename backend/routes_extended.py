@@ -570,7 +570,16 @@ async def get_summary_pdf(session_id: str):
                         logo_b64 = base64.b64encode(lf.read()).decode()
             except: pass
             
+            # Determine clinic_mode for AYUSH / Allopathic rendering
+            clinic_mode = "allopathic"
+            if dm and hasattr(dm.record, "clinic_mode"):
+                clinic_mode = dm.record.clinic_mode
+            elif filled_state_json and any(k.startswith("prakriti_") for k in filled_state_json.keys()):
+                clinic_mode = "ayush"
+
             context = {
+                "clinic_mode": clinic_mode,
+                "filled_state": filled_state_json,
                 "patient": {
                     "token": q_row["token_id"] if q_row else "",
                     "abha_id": p_info["abha_id"] if p_info and p_info.get("abha_id") else "Not Provided",
@@ -656,6 +665,8 @@ async def get_summary_pdf(session_id: str):
                 
             try:
                 import database
+                if clinic_mode in ("ayush", "integrative") and "ayush_summary" in context:
+                    ai_summary["ayush_assessment"] = context["ayush_summary"]
                 await database.save_clinical_summary(
                     session_id=session_id,
                     small_summary=ai_summary.get("Narrative", ""),

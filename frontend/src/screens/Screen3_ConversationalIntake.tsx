@@ -10,7 +10,7 @@ import { LiquidButton } from '../components/ui/button';
  *  - High-touch targets for non-formally educated rural citizens
  */
 
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { Mic, TriangleAlert, SkipForward, Volume2, VolumeX, Send, ArrowLeft, Loader2, Globe, Bot, User, Sparkles } from 'lucide-react';
 import { AbstractOrb } from '../components/AbstractOrb';
 import type { OrbState } from '../components/AbstractOrb';
@@ -21,6 +21,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from '../hooks/useTranslation';
 import { ClinicalSummaryBadge } from '../components/ClinicalSummaryBadge';
 import { getMedicalOptionVisual } from '../utils/medicalIcons';
+import { AyushChecklistModal, ALL_25_AYUSH_CHECKS, parseSummaryMap, getAyushCheckValue } from '../components/AyushChecklistModal';
 
 interface Props {
   ui: UIInstruction;
@@ -46,7 +47,21 @@ export function Screen3_ConversationalIntake({
   const { t } = useTranslation();
   const { speak, stop: stopTTS, isSpeaking } = useSarvamTTS();
   const [inputText, setInputText] = useState('');
+  const [leftPanelTab, setLeftPanelTab] = useState<'transcript' | 'all_fields'>('transcript');
+  const [checklistModalOpen, setChecklistModalOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const isAyush = ui?.clinic_mode === 'ayush' || (typeof ui?.section_summary === 'string' && ui?.section_summary.includes('prakriti_'));
+
+  const collectedMap = useMemo(() => {
+    return parseSummaryMap(ui?.section_summary);
+  }, [ui?.section_summary]);
+
+  const collectedFieldCount = useMemo(() => {
+    if (!ui?.section_summary) return 0;
+    const lines = ui.section_summary.split('\n');
+    return lines.filter(l => l.includes(':') && !['Chief Complaint', 'Category', 'Patient', 'vitals', 'BMI', 'weight'].some(h => l.startsWith(h))).length;
+  }, [ui?.section_summary]);
 
   // Track the last prompt to avoid re-speaking the same one
   const lastSpokenPromptRef = useRef<string>('');
@@ -121,77 +136,204 @@ export function Screen3_ConversationalIntake({
       ───────────────────────────────────────────────────────────── */}
       <div className="w-full md:w-[320px] lg:w-[360px] bg-white border-b md:border-b-0 md:border-r border-slate-200 p-4 flex flex-col h-[38vh] md:h-full overflow-hidden shrink-0 shadow-xs z-10">
         
-        {/* Live Clinical Summary Badge Card */}
-        <div className="mb-3.5 shrink-0">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-              <span>{t('interview.live_summary')}</span>
-            </h3>
-            <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full shadow-2xs">
-              AUTO-EXTRACT
-            </span>
-          </div>
-          <ClinicalSummaryBadge summary={ui.section_summary} emptyText={t('interview.waiting_info')} />
+        {/* Tab Switcher: Transcript vs All Fields */}
+        <div className="flex items-center p-1 bg-slate-100/90 rounded-xl mb-2.5 shrink-0 border border-slate-200/80 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setLeftPanelTab('transcript')}
+            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              leftPanelTab === 'transcript'
+                ? 'bg-white text-slate-800 shadow-2xs border border-slate-200/60'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <span>💬</span>
+            <span>{t('interview.conversation')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setLeftPanelTab('all_fields')}
+            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              leftPanelTab === 'all_fields'
+                ? isAyush ? 'bg-emerald-600 text-white shadow-2xs' : 'bg-blue-600 text-white shadow-2xs'
+                : isAyush ? 'text-emerald-700 hover:text-emerald-950 hover:bg-emerald-50' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <span>{isAyush ? '🌿' : '📋'}</span>
+            <span>{isAyush ? 'AYUSH Fields' : 'All Fields'}</span>
+            {collectedFieldCount > 0 && (
+              <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                leftPanelTab === 'all_fields' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+              }`}>
+                {collectedFieldCount}
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* Conversation Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2 shrink-0">
-          <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-widest">
-            {t('interview.conversation')}
-          </h3>
-          <span className="bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full text-[10px] tracking-wide">
-            LIVE TRANSCRIPT
-          </span>
-        </div>
-
-        {/* Conversation Message List (Independent Internal Scroll) */}
-        <div className="flex-1 overflow-y-auto space-y-3 pr-1.5 scrollbar-thin scrollbar-thumb-slate-200">
-          {ui.conversation_history && ui.conversation_history.length > 0 ? (
-            ui.conversation_history.map((msg, i) => {
-              // Fix: Backend uses role='patient', also match 'user'
-              const isPatient = msg.role === 'patient' || msg.role === 'user';
-              return (
-                <motion.div 
-                  initial={{ opacity: 0, y: 8, scale: isPatient ? 0.98 : 1 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                  key={i} 
-                  className={`flex flex-col ${isPatient ? 'items-end' : 'items-start'}`}
-                >
-                  <span className={`text-[11px] font-bold mb-1 uppercase tracking-wider flex items-center gap-1 ${
-                    isPatient ? 'text-blue-600' : 'text-slate-500'
-                  }`}>
-                    {isPatient ? (
-                      <>
-                        <span>{t('interview.you')}</span>
-                        <User className="w-3 h-3 text-blue-500" />
-                      </>
-                    ) : (
-                      <>
-                        <Bot className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>{t('interview.ai_doctor')}</span>
-                      </>
-                    )}
-                  </span>
-                  <div className={`px-3.5 py-2.5 rounded-2xl max-w-[92%] text-sm font-medium leading-relaxed shadow-card ${
-                    isPatient 
-                      ? 'bg-blue-600 text-white rounded-tr-xs shadow-blue-600/15' 
-                      : 'bg-white text-slate-800 rounded-tl-xs border border-slate-200/90'
-                  }`}>
-                    {msg.content}
-                  </div>
-                </motion.div>
-              );
-            })
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center text-slate-400 text-sm font-medium py-8">
-              <span className="block mb-1.5 text-2xl">👋</span>
-              <span>Say hello or speak your symptom to start!</span>
+        {leftPanelTab === 'transcript' ? (
+          <>
+            {/* Live Clinical Summary Badge Card */}
+            <div className="mb-2 shrink-0">
+              <div className="flex items-center justify-between mb-1.5">
+                <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                  <span>{t('interview.live_summary')}</span>
+                </h3>
+                <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full shadow-2xs">
+                  AUTO-EXTRACT
+                </span>
+              </div>
+              <ClinicalSummaryBadge summary={ui.section_summary} clinicMode={ui.clinic_mode} emptyText={t('interview.waiting_info')} />
             </div>
-          )}
-          <div ref={chatEndRef} className="h-2" />
-        </div>
+
+            {/* Conversation Header */}
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 mb-1.5 shrink-0">
+              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-widest">
+                {t('interview.conversation')}
+              </h3>
+              <span className="bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full text-[10px] tracking-wide">
+                LIVE TRANSCRIPT
+              </span>
+            </div>
+
+            {/* Conversation Message List (Independent Internal Scroll) */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1.5 scrollbar-thin scrollbar-thumb-slate-200">
+              {ui.conversation_history && ui.conversation_history.length > 0 ? (
+                ui.conversation_history.map((msg, i) => {
+                  const isPatient = msg.role === 'patient' || msg.role === 'user';
+                  return (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 8, scale: isPatient ? 0.98 : 1 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                      key={i} 
+                      className={`flex flex-col ${isPatient ? 'items-end' : 'items-start'}`}
+                    >
+                      <span className={`text-[11px] font-bold mb-1 uppercase tracking-wider flex items-center gap-1 ${
+                        isPatient ? 'text-blue-600' : 'text-slate-500'
+                      }`}>
+                        {isPatient ? (
+                          <>
+                            <span>{t('interview.you')}</span>
+                            <User className="w-3 h-3 text-blue-500" />
+                          </>
+                        ) : (
+                          <>
+                            <Bot className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>{t('interview.ai_doctor')}</span>
+                          </>
+                        )}
+                      </span>
+                      <div className={`px-3.5 py-2.5 rounded-2xl max-w-[92%] text-sm font-medium leading-relaxed shadow-card ${
+                        isPatient 
+                          ? 'bg-blue-600 text-white rounded-tr-xs shadow-blue-600/15' 
+                          : 'bg-white text-slate-800 rounded-tl-xs border border-slate-200/90'
+                      }`}>
+                        {msg.content}
+                      </div>
+                    </motion.div>
+                  );
+                })
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-slate-400 text-sm font-medium py-8">
+                  <span className="block mb-1.5 text-2xl">👋</span>
+                  <span>Say hello or speak your symptom to start!</span>
+                </div>
+              )}
+              <div ref={chatEndRef} className="h-2" />
+            </div>
+          </>
+        ) : (
+          /* ALL FIELDS FULL-HEIGHT INSPECTOR VIEW */
+          <div className="flex-1 overflow-y-auto pr-1 flex flex-col">
+            <div className="flex items-center justify-between mb-2 shrink-0">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <span>{isAyush ? '🌿' : '📋'}</span>
+                <span>{isAyush ? '25 CCRAS Checks' : 'All Clinical Fields'}</span>
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setChecklistModalOpen(true)}
+                  className="text-[10px] font-extrabold bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded-full cursor-pointer transition-colors flex items-center gap-1 shadow-2xs"
+                  title="Open full screen modal"
+                >
+                  <span>🔍</span>
+                  <span>Expand</span>
+                </button>
+                <span className="text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded-full">
+                  100% DB
+                </span>
+              </div>
+            </div>
+
+            {isAyush ? (
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin scrollbar-thumb-slate-200">
+                {/* Live Prakriti Dominance Mini Banner */}
+                <ClinicalSummaryBadge summary={ui.section_summary} clinicMode={ui.clinic_mode} />
+
+                {/* 25 Authentic CCRAS Checks List */}
+                <div className="border-t border-slate-200 pt-2 space-y-1.5">
+                  <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1 px-1">
+                    <span>CCRAS Protocol Checks</span>
+                    <span className="text-emerald-700 font-bold">{collectedFieldCount}/25 Verified</span>
+                  </div>
+
+                  {ALL_25_AYUSH_CHECKS.map((item) => {
+                    const val = getAyushCheckValue(item, collectedMap);
+                    const isDone = Boolean(val);
+                    const isCurrent = ui.current_field_id === item.id || Boolean(item.aliases && ui.current_field_id && item.aliases.includes(ui.current_field_id));
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-2 rounded-xl border text-left transition-all ${
+                          isDone
+                            ? 'bg-emerald-50/70 border-emerald-200/80 shadow-2xs'
+                            : isCurrent
+                            ? 'bg-amber-50/90 border-amber-300 shadow-2xs ring-1 ring-amber-200'
+                            : 'bg-white border-slate-200/70 opacity-80'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-1.5 mb-0.5">
+                          <span className="text-[11px] font-black text-slate-900 flex items-center gap-1.5 truncate">
+                            <span className="text-sm shrink-0">{item.icon}</span>
+                            <span className="truncate">{item.ayurvedicTerm}</span>
+                          </span>
+                          {isDone ? (
+                            <span className="text-[9px] font-extrabold bg-emerald-600 text-white px-1.5 py-0.2 rounded-full shrink-0 flex items-center gap-0.5">
+                              <span>✓</span>
+                              <span>Done</span>
+                            </span>
+                          ) : isCurrent ? (
+                            <span className="text-[9px] font-extrabold bg-amber-500 text-white px-1.5 py-0.2 rounded-full shrink-0 animate-pulse">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded-full shrink-0">
+                              Pending
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-emerald-800 font-medium pl-5 truncate">
+                          {item.ayurvedicHindi}
+                        </div>
+                        {isDone && (
+                          <div className="mt-1 pl-5 text-[10px] font-bold text-emerald-950 bg-white/80 p-1 rounded-md border border-emerald-200/70 truncate">
+                            {val}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <ClinicalSummaryBadge summary={ui.section_summary} clinicMode={ui.clinic_mode} showAllFields={true} />
+            )}
+          </div>
+        )}
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
@@ -202,9 +344,30 @@ export function Screen3_ConversationalIntake({
         {/* Top Progress & Badges (Pinned) */}
         <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-2 shrink-0">
           <div className="flex items-center gap-2.5 flex-wrap justify-center">
-            <span className="px-3.5 py-1 bg-blue-100/70 text-blue-700 border border-blue-200/70 rounded-full text-xs font-extrabold uppercase tracking-widest shadow-2xs">
-              {typeof (ui.section_label || ui.macro_state) === 'string' ? (ui.section_label || ui.macro_state) : String(ui.section_label || ui.macro_state)}
-            </span>
+            {isAyush ? (
+              <span className="px-3.5 py-1 bg-gradient-to-r from-emerald-100 via-teal-100 to-amber-100 text-emerald-950 border border-emerald-300 rounded-full text-xs font-extrabold uppercase tracking-wider shadow-2xs flex items-center gap-1.5">
+                <span className="text-sm">🌿</span>
+                <span>
+                  {ui.section_label === 'PRAKRITI' 
+                    ? 'CCRAS PRAKRITI INTAKE' 
+                    : ui.section_label === 'SAFETY_CHECKS' || (typeof ui.macro_state === 'string' && ui.macro_state.includes('SAFETY'))
+                    ? 'AYUSH SURAKSHA (SAFETY CHECKS)'
+                    : ui.section_label === 'HPI' || (typeof ui.macro_state === 'string' && ui.macro_state.includes('HPI'))
+                    ? 'NIDANA & ROGA PARIKSHA'
+                    : (ui.section_label || 'AYUSH INTAKE')}
+                </span>
+                <span className="bg-emerald-700 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold ml-1">Govt SOP</span>
+              </span>
+            ) : (
+              <span className="px-3.5 py-1 bg-blue-100/70 text-blue-700 border border-blue-200/70 rounded-full text-xs font-extrabold uppercase tracking-widest shadow-2xs">
+                {typeof (ui.section_label || ui.macro_state) === 'string' ? (ui.section_label || ui.macro_state) : String(ui.section_label || ui.macro_state)}
+              </span>
+            )}
+            {isAyush && (
+              <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs">
+                <span>NAMASTE / CCRAS Scale</span>
+              </span>
+            )}
             {ui.language && ui.language !== 'en-IN' && (
               <span className="px-3 py-1 bg-emerald-100/70 text-emerald-700 border border-emerald-200/70 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-2xs">
                 <Globe className="w-3.5 h-3.5" />
@@ -235,6 +398,29 @@ export function Screen3_ConversationalIntake({
               </div>
             </div>
           )}
+
+          {/* Option to see all 25 Ayurvedic checks */}
+          <div className="flex items-center justify-center gap-2 mt-0.5">
+            <button
+              type="button"
+              onClick={() => setChecklistModalOpen(true)}
+              className={`flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-bold transition-all shadow-xs cursor-pointer border ${
+                isAyush
+                  ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-amber-50 hover:from-emerald-100 hover:to-teal-100 text-emerald-950 border-emerald-300 hover:scale-[1.02]'
+                  : 'bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-200 hover:scale-[1.02]'
+              }`}
+              title="Click to view all 25 Ayurvedic checks"
+            >
+              <span>{isAyush ? '🌿' : '📋'}</span>
+              <span>{isAyush ? 'View All 25 AYUSH Checks (CCRAS Protocol)' : 'View All 25 Checks'}</span>
+              <span className={`text-[10px] font-black px-2 py-0.2 rounded-full ${
+                isAyush ? 'bg-emerald-700 text-white' : 'bg-blue-600 text-white'
+              }`}>
+                {collectedFieldCount}/25
+              </span>
+              <span className="text-[10px] text-slate-400 font-bold">🔍</span>
+            </button>
+          </div>
         </div>
 
         {/* Center Zone: Orb, Prompt & Accessible Emoji Options (Scrollable internally if needed) */}
@@ -447,6 +633,16 @@ export function Screen3_ConversationalIntake({
           </div>
         </div>
       </div>
+
+      {/* Full 25-Check AYUSH & Clinical Inspector Modal */}
+      <AyushChecklistModal
+        isOpen={checklistModalOpen}
+        onClose={() => setChecklistModalOpen(false)}
+        summaryText={ui.section_summary}
+        currentFieldId={ui.current_field_id}
+        progressTotal={25}
+        progressDone={collectedFieldCount}
+      />
     </motion.div>
   );
 }

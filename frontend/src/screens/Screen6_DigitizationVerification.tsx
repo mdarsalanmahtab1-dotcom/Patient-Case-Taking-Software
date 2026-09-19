@@ -1,8 +1,10 @@
 import { LiquidButton } from '../components/ui/button';
 import { CheckCircle, AlertTriangle, ArrowRight, FileCheck, Stethoscope, Pill, TestTube } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { getApiBaseUrl } from '../config';
+import { useTranslation } from '../hooks/useTranslation';
+import { useAudioGuide } from '../hooks/useAudioGuide';
 
 interface Props {
   patientRecord: any;
@@ -12,13 +14,17 @@ interface Props {
   onBack: () => void;
 }
 
-import { useTranslation } from '../hooks/useTranslation';
-
 export function Screen6_DigitizationVerification({ patientRecord, sessionId, onNext, onBack }: Props) {
   const { t } = useTranslation();
   const [isConfirming, setIsConfirming] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const BACKEND_URL = getApiBaseUrl();
+  const { speak, stop } = useAudioGuide();
+
+  useEffect(() => {
+    speak('final_check', undefined, 1);
+    return () => stop();
+  }, [speak, stop]);
 
   // Extract data from patientRecord (use the most recent extraction)
   const extractions = patientRecord?.document_extractions || [];
@@ -29,6 +35,7 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
   const confidence = docExt?.requires_human_verification ? 0.65 : 0.95;
 
   const handleConfirm = async () => {
+    stop();
     setIsConfirming(true);
     setErrorMsg(null);
     if (sessionId) {
@@ -71,7 +78,10 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
             {t('verify.no_docs_desc')}
           </p>
           <LiquidButton
-            onClick={onNext}
+            onClick={() => {
+              stop();
+              onNext();
+            }}
             className="bg-emerald-600 hover:bg-emerald-500 text-white px-10 py-4 rounded-full font-bold shadow-xl transition-all active:scale-95 text-lg"
           >
             {t('verify.continue')}
@@ -271,7 +281,10 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
         )}
         <div className="flex gap-4">
         <LiquidButton
-          onClick={onBack}
+          onClick={() => {
+            stop();
+            onBack();
+          }}
           disabled={isConfirming}
           className="px-6 sm:px-8 py-4 sm:py-5 rounded-full font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-[transform,background-color] duration-150 active:scale-[0.97] text-base sm:text-lg w-1/3 cursor-pointer shadow-2xs"
         >

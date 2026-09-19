@@ -1,5 +1,6 @@
 import { LiquidButton } from '../components/ui/button';
-import { CheckCircle2, Activity, FileText, Send, UserCircle, Pill, TestTube, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Activity, FileText, Send, UserCircle, Pill, TestTube, AlertTriangle, Sparkles, Bot, Clock, ExternalLink, Scan } from 'lucide-react';
+import QRCode from 'react-qr-code';
 import { toast } from '../components/Toast';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
@@ -35,12 +36,12 @@ export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
         .then(data => {
           if (data.token) {
             setTokenInfo(data);
-            speak('token_gen', { token: String(data.token), dest: data.doctor_name || 'the doctor' });
+            speak('token_gen', { token: String(data.token), dest: data.doctor_name || 'the doctor' }, 1);
           }
         })
         .catch(console.error);
     }
-  }, [sessionId]);
+  }, [sessionId, speak]);
   
   const rawName = patientRecord?.patient_name;
   const patientName = typeof rawName === 'string' ? rawName : '';
@@ -75,6 +76,7 @@ export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
   });
 
   const handleSendToDoctor = async () => {
+    stop();
     setIsSending(true);
     try {
       if (sessionId) {
@@ -153,6 +155,78 @@ export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
               <p className="text-2xl font-extrabold text-slate-800">{assignedDoctor}</p>
             </div>
           </motion.div>
+
+          {/* ─── Patient Mobile Portal & AI Assistant Showcase Card ─── */}
+          <motion.div 
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.32, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="rounded-3xl p-6 sm:p-7 mb-8 border-2 border-indigo-200/90 bg-gradient-to-br from-indigo-50/70 via-white to-blue-50/80 shadow-[0_12px_32px_rgba(37,99,235,0.08)] text-left relative overflow-hidden"
+          >
+            {/* Ambient background glow */}
+            <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-300/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-blue-300/20 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6">
+              {/* Big QR Code with SCAN ME badge */}
+              <div className="flex flex-col items-center gap-2 shrink-0">
+                <div className="p-3 bg-white rounded-2xl border-2 border-indigo-200 shadow-sm hover:scale-105 transition-transform duration-200">
+                  <QRCode
+                    value="https://swasthyasync-patient-portal.vercel.app/login"
+                    size={112}
+                    className="rounded-lg"
+                  />
+                </div>
+                <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs animate-pulse">
+                  <Scan className="w-3 h-3" />
+                  SCAN ME
+                </span>
+              </div>
+
+              {/* Information & AI Highlight */}
+              <div className="flex-1 min-w-0 text-center sm:text-left">
+                <div className="flex items-center justify-center sm:justify-start gap-2 mb-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-xs">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    AI Medical Assistant Live
+                  </span>
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Live Queue Sync
+                  </span>
+                </div>
+
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mb-1.5">
+                  Scan to Open Patient Portal
+                </h3>
+                <p className="text-xs sm:text-sm font-medium text-slate-600 leading-relaxed mb-3.5">
+                  Scan this QR code with your phone camera to see your <strong className="text-slate-900">live OPD queue status</strong> in real time and talk 1-on-1 with our <strong className="text-indigo-600">AI Medical Assistant</strong> for symptom queries, prescription guidance, and digital health records.
+                </p>
+
+                {/* Feature Pills */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3.5">
+                  <div className="flex items-center gap-2 p-2 rounded-xl bg-white/90 border border-indigo-100 shadow-2xs text-xs font-bold text-slate-700">
+                    <Bot className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <span>Talk to AI Medical Assistant</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 rounded-xl bg-white/90 border border-indigo-100 shadow-2xs text-xs font-bold text-slate-700">
+                    <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Live Queue Position & Wait Times</span>
+                  </div>
+                </div>
+
+                {/* Direct Link button */}
+                <button
+                  type="button"
+                  onClick={() => window.open('https://swasthyasync-patient-portal.vercel.app/login', '_blank')}
+                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-blue-600 hover:text-blue-800 transition-colors group cursor-pointer"
+                >
+                  <span>Or open Patient Portal directly in browser</span>
+                  <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
           
           {sessionId && (
             <LiquidButton
@@ -172,6 +246,7 @@ export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
           >
             <LiquidButton
               onClick={() => {
+                stop();
                 if (onReset) onReset();
                 navigate('/kiosk/login');
               }}

@@ -52,7 +52,7 @@ export function Screen5_DocumentScanner({ onNext, onSkip }: Props) {
   const { speak, stop } = useAudioGuide();
   
   useEffect(() => {
-    speak('upload_docs');
+    speak('upload_docs', undefined, 1);
     return () => stop();
   }, [speak, stop]);
   
@@ -93,6 +93,7 @@ export function Screen5_DocumentScanner({ onNext, onSkip }: Props) {
   };
 
   const handleSubmit = async () => {
+    stop();
     if (files.length > 0) {
       setIsProcessing(true);
       setErrorMsg(null);
@@ -232,7 +233,10 @@ export function Screen5_DocumentScanner({ onNext, onSkip }: Props) {
 
       <div className="mt-auto pt-8 sm:pt-10 w-full max-w-4xl flex gap-4 sm:gap-6">
         <LiquidButton
-          onClick={onSkip}
+          onClick={() => {
+            stop();
+            onSkip();
+          }}
           disabled={isProcessing}
           className="group flex items-center justify-center gap-2 px-6 sm:px-8 py-4 sm:py-5 rounded-full font-extrabold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-[transform,background-color] duration-150 active:scale-[0.97] w-1/3 text-base sm:text-lg disabled:opacity-50 cursor-pointer shadow-2xs"
         >

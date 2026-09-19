@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MonitorSmartphone, ActivitySquare, Stethoscope, ShieldCheck, ExternalLink, Wifi, FileText, Lock, Scale, Info, CheckCircle2, Send, Code2, Link2, MessageCircle, Globe, Mail, Phone, MapPin, Heart } from 'lucide-react';
+import { MonitorSmartphone, ActivitySquare, Stethoscope, ShieldCheck, ExternalLink, Wifi, FileText, Lock, Scale, Info, CheckCircle2, Send, Code2, Link2, MessageCircle, Globe, Mail, Phone, MapPin, Heart, Sparkles, Scan, ArrowRight } from 'lucide-react';
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
 import QRCode from 'react-qr-code';
 import logoPNG from '../assets/logoPNG.png';
@@ -15,63 +15,55 @@ export const DemoSwitcher: React.FC = () => {
   const headerShadow = useTransform(smoothScrollY, [0, 50], ["0 4px 20px rgba(0,0,0,0.06)", "0 10px 32px rgba(0,0,0,0.12)"]);
   const headerBlur = useTransform(smoothScrollY, [0, 50], ["blur(12px)", "blur(24px)"]);
 
-  const modules = [
+  const coreModules = [
     {
+      badge: "Self-Service",
       title: "Patient Kiosk",
-      description: "Self-service AI intake, family registration, and document OCR.",
-      icon: <MonitorSmartphone className="w-7 h-7 text-emerald-500" />,
+      description: "Voice-guided AI intake, ABHA lookup, registration & document OCR.",
+      icon: <MonitorSmartphone className="w-5 h-5 text-emerald-600" />,
       path: "/kiosk/login",
-      gradient: "from-emerald-500 to-teal-500",
-      borderColor: "border-emerald-200",
-      iconBg: "bg-emerald-50",
+      borderColor: "border-emerald-200/90",
+      iconBg: "bg-emerald-50 text-emerald-600 border border-emerald-100",
       hoverBorder: "hover:border-emerald-400",
-      shadowColor: "hover:shadow-emerald-200/60",
+      shadowColor: "hover:shadow-emerald-200/50",
+      badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200/70",
     },
     {
+      badge: "Nurse Station",
       title: "Triage Nurse Queue",
-      description: "Live monitoring, emergency red-flag sorting, and patient flow.",
-      icon: <ActivitySquare className="w-7 h-7 text-rose-500" />,
+      description: "Live queue monitoring, algorithmic triage acuity & emergency red-flag sorting.",
+      icon: <ActivitySquare className="w-5 h-5 text-rose-600" />,
       path: "/dashboard/triage",
-      gradient: "from-rose-500 to-pink-500",
-      borderColor: "border-rose-200",
-      iconBg: "bg-rose-50",
+      borderColor: "border-rose-200/90",
+      iconBg: "bg-rose-50 text-rose-600 border border-rose-100",
       hoverBorder: "hover:border-rose-400",
-      shadowColor: "hover:shadow-rose-200/60",
+      shadowColor: "hover:shadow-rose-200/50",
+      badgeColor: "bg-rose-50 text-rose-700 border-rose-200/70",
     },
     {
+      badge: "Physician EMR",
       title: "Doctor Dashboard",
-      description: "View AI summaries, sign casesheets, and review OCR lab data.",
-      icon: <Stethoscope className="w-7 h-7 text-cyan-500" />,
+      description: "View AI SOAP summaries, sign casesheets & review OCR lab reports.",
+      icon: <Stethoscope className="w-5 h-5 text-cyan-600" />,
       path: "/doctor",
-      gradient: "from-cyan-500 to-blue-500",
-      borderColor: "border-cyan-200",
-      iconBg: "bg-cyan-50",
+      borderColor: "border-cyan-200/90",
+      iconBg: "bg-cyan-50 text-cyan-600 border border-cyan-100",
       hoverBorder: "hover:border-cyan-400",
-      shadowColor: "hover:shadow-cyan-200/60",
+      shadowColor: "hover:shadow-cyan-200/50",
+      badgeColor: "bg-cyan-50 text-cyan-700 border-cyan-200/70",
     },
     {
+      badge: "Hospital Ops",
       title: "Hospital Admin",
-      description: "Role-Based Access Control (RBAC), doctor rosters, and staff management.",
-      icon: <ShieldCheck className="w-7 h-7 text-purple-500" />,
+      description: "Role-Based Access Control (RBAC), doctor rosters & staff analytics.",
+      icon: <ShieldCheck className="w-5 h-5 text-purple-600" />,
       path: "/admin",
-      gradient: "from-purple-500 to-indigo-500",
-      borderColor: "border-purple-200",
-      iconBg: "bg-purple-50",
+      borderColor: "border-purple-200/90",
+      iconBg: "bg-purple-50 text-purple-600 border border-purple-100",
       hoverBorder: "hover:border-purple-400",
-      shadowColor: "hover:shadow-purple-200/60",
+      shadowColor: "hover:shadow-purple-200/50",
+      badgeColor: "bg-purple-50 text-purple-700 border-purple-200/70",
     },
-    {
-      title: "Patient Mobile Portal",
-      description: "Scan QR code on your phone to access live AI chat and consultation history.",
-      icon: <QRCode value="https://swasthyasync-patient-portal.vercel.app/login" size={40} className="rounded-md" />,
-      path: "https://swasthyasync-patient-portal.vercel.app/login",
-      gradient: "from-orange-500 to-amber-500",
-      borderColor: "border-orange-200",
-      iconBg: "bg-orange-50",
-      hoverBorder: "hover:border-orange-400",
-      shadowColor: "hover:shadow-orange-200/60",
-      isExternal: true
-    }
   ];
 
   return (
@@ -95,7 +87,7 @@ export const DemoSwitcher: React.FC = () => {
       {/* ─── Main Content Area ─── */}
       <div className="flex-1 flex flex-col w-full h-full relative overflow-hidden bg-slate-50">
         {/* Floating Round Header (same as Layout) */}
-        <div className="absolute top-4 left-0 right-0 z-40 flex justify-center px-4 pointer-events-none">
+        <div className="absolute top-3.5 left-0 right-0 z-40 flex justify-center px-4 pointer-events-none">
           <motion.header
             style={{
               paddingTop: headerPaddingY,
@@ -104,20 +96,20 @@ export const DemoSwitcher: React.FC = () => {
               backdropFilter: headerBlur,
               WebkitBackdropFilter: headerBlur
             }}
-            className="pointer-events-auto w-full max-w-3xl px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between bg-white border border-slate-100 rounded-full shadow-lg z-10"
+            className="pointer-events-auto w-full max-w-3xl px-4 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between bg-white border border-slate-100 rounded-full shadow-lg z-10"
           >
             <div className="flex items-center">
               <div className="flex items-center justify-center rounded-full overflow-hidden bg-white mr-2 sm:mr-3">
-                <img src={logoPNG} alt="SwasthyaSync Logo" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
+                <img src={logoPNG} alt="SwasthyaSync Logo" className="w-7 h-7 sm:w-8 sm:h-8 object-contain" />
               </div>
               <div className="hidden sm:block">
-                <h1 className="text-base sm:text-xl font-extrabold text-slate-900 tracking-tight leading-tight">SwasthyaSync</h1>
-                <p className="text-[9px] sm:text-[10px] text-blue-600 font-bold tracking-wide uppercase">AI-Powered OPD Presentation</p>
+                <h1 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight leading-tight">SwasthyaSync</h1>
+                <p className="text-[8px] sm:text-[9px] text-blue-600 font-bold tracking-wide uppercase">AI-Powered OPD Presentation</p>
               </div>
             </div>
 
             <div className="flex items-center gap-4 sm:gap-6">
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-700">
                 <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                 Demo Mode
               </div>
@@ -128,93 +120,152 @@ export const DemoSwitcher: React.FC = () => {
         {/* ─── Scrollable Content ─── */}
         <main
           ref={scrollRef}
-          className="flex-1 relative overflow-y-auto overflow-x-hidden pt-24 sm:pt-28"
+          className="flex-1 relative overflow-y-auto overflow-x-hidden pt-18 sm:pt-20"
           tabIndex={-1}
         >
           {/* Background gradient orbs */}
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-200/30 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-200/25 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute top-20 right-1/4 w-72 h-72 bg-teal-200/20 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-8 relative z-10">
-            {/* Logo + Title */}
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-1 sm:pt-2 pb-6 relative z-10">
+            {/* Compact Header Title */}
             <motion.div
-              initial={{ opacity: 0, y: -20 }}
+              initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.5 }}
-              className="text-center mb-12 flex flex-col items-center"
+              transition={{ delay: 0.1, duration: 0.35 }}
+              className="text-center mb-3 sm:mb-4 flex flex-col items-center"
             >
-              <motion.img
-                src={logoPNG}
-                alt="SwasthyaSync Logo"
-                className="w-36 h-36 sm:w-44 sm:h-44 object-contain mb-4 drop-shadow-lg"
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              />
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-teal-500 to-emerald-500 mb-4 pb-1">
-                SwasthyaSync OPD
-              </h1>
-              <p className="text-slate-500 text-sm sm:text-base font-medium max-w-lg mx-auto leading-relaxed">
+              <div className="flex items-center justify-center gap-2.5 mb-1">
+                <motion.img
+                  src={logoPNG}
+                  alt="SwasthyaSync Logo"
+                  className="w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow-xs"
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.15, type: "spring", stiffness: 220 }}
+                />
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-teal-500 to-emerald-500">
+                  SwasthyaSync OPD
+                </h1>
+              </div>
+              <p className="text-slate-500 text-xs sm:text-sm font-medium max-w-xl mx-auto leading-normal">
                 Built to drastically reduce OPD wait times and streamline clinical workflows through AI-driven triage and automated history-taking.
               </p>
             </motion.div>
 
-            {/* ─── Module Cards Grid ─── */}
+            {/* ─── Module Cards Grid: All 4 Options in 1 View ─── */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.5 }}
-              className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-12"
+              transition={{ delay: 0.2, duration: 0.35 }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5 mb-3.5"
             >
-              {modules.map((mod, idx) => (
+              {coreModules.map((mod, idx) => (
                 <motion.button
                   key={idx}
-                  onClick={() => {
-                    if (mod.isExternal) {
-                      window.open(mod.path, '_blank');
-                    } else {
-                      navigate(mod.path);
-                    }
-                  }}
-                  initial={{ opacity: 0, y: 16 }}
+                  onClick={() => navigate(mod.path)}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 + idx * 0.05, duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                  whileHover={{ y: -3, scale: 1.008 }}
-                  whileTap={{ scale: 0.97 }}
+                  transition={{ delay: 0.15 + idx * 0.05, duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  whileHover={{ y: -3, scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
                   className={`
-                    group flex items-start text-left p-5 sm:p-6 rounded-2xl border-2 ${mod.borderColor}
+                    group flex flex-col justify-between text-left p-4 sm:p-4.5 rounded-2xl border-2 ${mod.borderColor}
                     bg-white shadow-card
                     transition-[transform,box-shadow,border-color] duration-150 cursor-pointer
-                    ${mod.hoverBorder} ${mod.shadowColor} hover:shadow-card-hover
+                    ${mod.hoverBorder} ${mod.shadowColor} hover:shadow-card-hover h-full
                   `}
                 >
-                  {/* Icon */}
-                  <div className={`p-3.5 rounded-xl mr-4 sm:mr-5 ${mod.iconBg} transition-transform duration-200 group-hover:scale-105 shrink-0`}>
-                    {mod.icon}
-                  </div>
+                  <div>
+                    {/* Top: Icon + Badge */}
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <div className={`p-2 rounded-xl ${mod.iconBg} transition-transform duration-200 group-hover:scale-110 shrink-0`}>
+                        {mod.icon}
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${mod.badgeColor}`}>
+                        {mod.badge}
+                      </span>
+                    </div>
 
-                  {/* Text */}
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-slate-800 font-extrabold text-base sm:text-lg mb-1">{mod.title}</h2>
-                    <p className="text-slate-500 text-sm font-medium leading-relaxed">
+                    {/* Title & Description */}
+                    <h2 className="text-slate-900 font-extrabold text-sm sm:text-base mb-1 tracking-tight group-hover:text-blue-600 transition-colors">
+                      {mod.title}
+                    </h2>
+                    <p className="text-slate-500 text-xs font-medium leading-relaxed mb-3">
                       {mod.description}
                     </p>
-                    <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-slate-400 group-hover:text-slate-600 transition-colors">
-                      <span>Open Module</span>
-                      <ExternalLink className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
-                    </div>
+                  </div>
+
+                  {/* Bottom Action */}
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-400 group-hover:text-blue-600 transition-colors">
+                    <span>Launch Module</span>
+                    <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
                   </div>
                 </motion.button>
               ))}
             </motion.div>
 
-            {/* ─── System Guide & Privacy Terms ─── */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
+            {/* ─── Patient Mobile Portal & AI Companion (Compact Full-Width Banner) ─── */}
+            <motion.button
+              onClick={() => window.open("https://swasthyasync-patient-portal.vercel.app/login", '_blank')}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6, duration: 0.5 }}
-              className="mt-16 bg-white border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden"
+              transition={{ delay: 0.35, duration: 0.3 }}
+              whileHover={{ y: -2, scale: 1.004 }}
+              whileTap={{ scale: 0.99 }}
+              className="w-full group flex flex-col sm:flex-row items-center justify-between text-left p-3 sm:p-3.5 rounded-2xl border-2 border-indigo-200/90 bg-gradient-to-r from-white via-indigo-50/40 to-blue-50/40 shadow-card hover:border-indigo-400 hover:shadow-indigo-100/60 hover:shadow-card-hover transition-all duration-150 cursor-pointer gap-3.5 relative overflow-hidden"
             >
+              <div className="absolute top-0 right-0 w-60 h-60 bg-gradient-to-bl from-indigo-200/20 to-transparent rounded-bl-full pointer-events-none" />
+
+              {/* Left: Compact QR Code with SCAN ME badge */}
+              <div className="flex items-center gap-3 shrink-0 relative z-10">
+                <div className="p-1.5 bg-white rounded-xl border-2 border-indigo-200/90 shadow-2xs group-hover:scale-105 transition-transform duration-200">
+                  <QRCode value="https://swasthyasync-patient-portal.vercel.app/login" size={54} className="rounded" />
+                </div>
+                <div className="flex flex-col items-center sm:items-start gap-0.5">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-xs animate-pulse">
+                    <Scan className="w-2.5 h-2.5" />
+                    SCAN ME
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-bold">On Smartphone</span>
+                </div>
+              </div>
+
+              {/* Center: Info */}
+              <div className="flex-1 min-w-0 text-center sm:text-left relative z-10">
+                <div className="flex items-center justify-center sm:justify-start gap-2 mb-1 flex-wrap">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-xs">
+                    <Sparkles className="w-3 h-3" />
+                    AI Medical Assistant Live
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Live OPD Queue Sync
+                  </span>
+                </div>
+                <h3 className="text-slate-900 font-extrabold text-sm sm:text-base group-hover:text-indigo-600 transition-colors">
+                  Patient Mobile Web Portal & AI Health Companion
+                </h3>
+                <p className="text-slate-500 text-xs font-medium leading-snug line-clamp-1 sm:line-clamp-none">
+                  Scan with your phone to access live OPD queue token, consult our 24/7 empathetic Medical Copilot, and review digital prescription history.
+                </p>
+              </div>
+
+              {/* Right: Launch Pill */}
+              <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 group-hover:text-indigo-700 shrink-0 px-3.5 py-2 rounded-xl bg-indigo-50 border border-indigo-200/70 group-hover:bg-indigo-100/70 transition-all relative z-10">
+                <span>Open on Web</span>
+                <ExternalLink className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+              </div>
+            </motion.button>
+          </div>
+
+          {/* ─── System Guide & Privacy Terms ─── */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.4 }}
+            className="mt-8 sm:mt-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 bg-white border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden"
+          >
               {/* Header */}
               <div className="bg-slate-50 px-6 sm:px-10 py-6 border-b border-slate-200 flex items-center gap-4">
                 <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shrink-0">
@@ -304,7 +355,6 @@ export const DemoSwitcher: React.FC = () => {
 
               </div>
             </motion.div>
-          </div>
 
           {/* ─── Premium Footer ─── */}
           <footer className="relative w-full bg-slate-900 text-slate-300 overflow-hidden">

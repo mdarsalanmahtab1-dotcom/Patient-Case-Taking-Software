@@ -2,6 +2,7 @@ import { LiquidButton } from '../components/ui/button';
 import { useEffect, useState } from 'react';
 import { ShieldAlert, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAudioGuide } from '../hooks/useAudioGuide';
 
 interface Props {
   onResume: () => void;
@@ -9,13 +10,20 @@ interface Props {
 }
 
 export function Screen7_TriageAlert({ onResume, onNewPatient }: Props) {
+  const { stopAllAudio } = useAudioGuide();
   const [secondsLeft, setSecondsLeft] = useState(10);
+
+  useEffect(() => {
+    // Kill any and all active voices immediately on priority alert
+    stopAllAudio();
+  }, [stopAllAudio]);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          stopAllAudio();
           onResume();
           return 0;
         }
@@ -23,7 +31,7 @@ export function Screen7_TriageAlert({ onResume, onNewPatient }: Props) {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [onResume]);
+  }, [onResume, stopAllAudio]);
 
   return (
     <motion.div 
@@ -67,13 +75,19 @@ export function Screen7_TriageAlert({ onResume, onNewPatient }: Props) {
 
       <div className="relative z-10 flex flex-col sm:flex-row gap-4">
         <LiquidButton
-          onClick={onResume}
+          onClick={() => {
+            stopAllAudio();
+            onResume();
+          }}
           className="group overflow-hidden bg-white text-red-700 border border-red-200/80 px-8 sm:px-10 py-4 sm:py-5 rounded-full font-bold shadow-card hover:shadow-card-hover hover:bg-red-50/50 transition-[transform,background-color,box-shadow] duration-150 active:scale-[0.97] text-base sm:text-lg flex items-center justify-center gap-3 cursor-pointer"
         >
           <span className="relative z-10">I Understand, Continue</span>
         </LiquidButton>
         <LiquidButton
-          onClick={onNewPatient}
+          onClick={() => {
+            stopAllAudio();
+            onNewPatient();
+          }}
           className="group overflow-hidden bg-red-600 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-full font-bold shadow-card-hover hover:bg-red-700 transition-[transform,background-color,box-shadow] duration-150 active:scale-[0.97] text-base sm:text-lg flex items-center justify-center gap-3 cursor-pointer shadow-red-600/20"
         >
           <span className="relative z-10">Start New Patient</span>

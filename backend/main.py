@@ -127,6 +127,22 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 # ──────────────────────────────────────────────────────────────────────
+# Health & Status Endpoints
+# ──────────────────────────────────────────────────────────────────────
+
+@app.get("/")
+@app.get("/health")
+async def health_check():
+    """Liveness probe for Google Cloud Run and reverse proxies."""
+    return {
+        "status": "healthy",
+        "service": "SwasthyaSync Backend",
+        "version": "2.0.0",
+        "region": os.getenv("K_SERVICE", "local"),
+    }
+
+
+# ──────────────────────────────────────────────────────────────────────
 # REST Endpoints
 # ──────────────────────────────────────────────────────────────────────
 
@@ -418,10 +434,20 @@ async def text_to_speech_endpoint(
     if not audio_bytes:
         return JSONResponse(status_code=503, content={"error": "TTS unavailable"})
 
+    # Check format: MP3 (Google TTS fallback) vs WAV (Sarvam)
+    is_mp3 = (
+        audio_bytes.startswith(b"\xff\xfb")
+        or audio_bytes.startswith(b"\xff\xf3")
+        or audio_bytes.startswith(b"\xff\xf2")
+        or audio_bytes.startswith(b"ID3")
+    )
+    media_type = "audio/mpeg" if is_mp3 else "audio/wav"
+    filename = "speech.mp3" if is_mp3 else "speech.wav"
+
     return Response(
         content=audio_bytes,
-        media_type="audio/wav",
-        headers={"Content-Disposition": "inline; filename=speech.wav"},
+        media_type=media_type,
+        headers={"Content-Disposition": f"inline; filename={filename}"},
     )
 
 
@@ -594,7 +620,8 @@ async def websocket_session(ws: WebSocket, session_id: str = Query(None)):
                     record_payload = {
                         "filled_state": dm.record.filled_state,
                         "document_extractions": [e.model_dump() for e in dm.record.document_extractions],
-                        "red_flags": [r.model_dump() for r in dm.record.red_flags]
+                        "red_flags": [r.model_dump() for r in dm.record.red_flags],
+                        "clinic_mode": getattr(dm.record, "clinic_mode", "allopathic"),
                     }
                     has_red_flags = len(dm.record.red_flags) > 0
                     await database.commit_fsm_checkpoint(
@@ -603,7 +630,7 @@ async def websocket_session(ws: WebSocket, session_id: str = Query(None)):
                         chief_complaint=str(dm.record.chief_complaint.value or "") if dm.record.chief_complaint else "",
                         interview_qa=dm.record.conversation_history,
                         priority_flag=has_red_flags,
-                        status="IN_PROGRESS"
+                        status="COMPLETED" if getattr(dm.fsm, "state", "") == "COMPLETE" else "IN_PROGRESS"
                     )
                 except Exception as e:
                     logger.error(f"🚨 Checkpoint failed for session {dm.record.session_id} - {e}")
