@@ -47,79 +47,8 @@ class ConversationResult:
 
 
 # ──────────────────────────────────────────────────────────────────────
+# STEP 1: EXTRACTION — extract field values from patient's message
 # ──────────────────────────────────────────────────────────────────────
-# STEP 1: SINGLE-TARGET FIELD EXTRACTION (Zero-Hallucination)
-# ──────────────────────────────────────────────────────────────────────
-
-# Deterministic negative-answer patterns — skips LLM call entirely
-_NEGATIVE_PATTERNS = frozenset([
-    "no", "none", "nahi", "nah", "nahin", "na", "denied", "denies",
-    "nothing", "nil", "not applicable", "n/a", "no issues", "no problem",
-    "koi nahi", "kuch nahi", "nope", "never", "not sure", "don't know",
-    "healthy", "normal", "fine", "none of these", "inme se kuch nahi",
-    "kuch bhi nahi",
-])
-
-def _is_negative_answer(answer: str) -> bool:
-    """Fast deterministic check — if True, skip LLM calls entirely and record Denied."""
-    clean = str(answer or "").strip().lower().rstrip(".!,")
-    if clean in _NEGATIVE_PATTERNS:
-        return True
-    if clean.startswith(("no ", "no,", "none ", "nahi ", "nah ", "kuch nahi", "koi nahi")):
-        return True
-    return False
-
-
-def extract_single_target_field(
-    target_field: dict,
-    patient_message: str,
-    language: str = "en-IN",
-) -> dict:
-    """
-    Tightly constrained, single-field extraction.
-    Extracts/summarizes the patient's answer strictly for the target field.
-    Guaranteed zero hallucination across other fields.
-    Returns: {"value": str, "confidence": float}
-    """
-    clean_msg = str(patient_message or "").strip()
-    if not clean_msg:
-        return {"value": None, "confidence": 0.0}
-
-    # Deterministic negative check — bypass LLM completely
-    if _is_negative_answer(clean_msg):
-        return {"value": "Denied / None", "confidence": 1.0}
-
-    language_name = LANGUAGE_NAMES.get(language, "English")
-    field_id = target_field.get("id", "target_field")
-    field_intent = target_field.get("question_intent", field_id.replace("_", " "))
-
-    system_prompt = f"""You are a precise clinical data extraction tool.
-The doctor asked the patient a specific question:
-Target Field: {field_id} ({field_intent})
-
-Your ONLY task: Extract a concise clinical summary (2-6 words in English) answering THIS specific question from the patient's statement (which may be in {language_name} or English).
-
-RULES:
-1. ONLY extract information that directly answers '{field_intent}'. Do NOT infer, guess, or extract unrelated symptoms.
-2. If the patient denies or says no/nothing, return: {{"value": "Denied / None", "confidence": 1.0}}
-3. If the patient's answer does not answer '{field_intent}', return: {{"value": null, "confidence": 0.0}}
-4. Return ONLY a JSON object: {{"value": "concise English summary", "confidence": 0.95}}"""
-
-    user_prompt = f"""Patient statement: "{clean_msg}"
-
-Extract the value for '{field_intent}':"""
-
-    try:
-        res = llm_client.conversation_turn(system_prompt, user_prompt, temperature=0.0)
-        val = res.get("value")
-        conf = float(res.get("confidence", 0.9)) if val else 0.0
-        if val and str(val).strip().lower() not in ("none", "null", ""):
-            return {"value": str(val).strip(), "confidence": conf}
-        return {"value": None, "confidence": 0.0}
-    except Exception as e:
-        logger.error(f"extract_single_target_field error for '{field_id}': {e}")
-        return {"value": clean_msg[:60], "confidence": 0.7}
-
 
 def extract_from_response(
     patient_message: str,
@@ -128,55 +57,109 @@ def extract_from_response(
     conversation_history: list[dict],
     language: str,
     doctor_custom_instructions: str | None = None,
-) -> tuple[dict, list[dict]]:
+) -> dict:
     """
-    Initial extraction pass for chief complaint only.
-    Returns: (extracted_fields, []) — additional unprompted findings are disabled to prevent hallucinations.
+    Given the patient's latest message and a list of unfilled fields,
+    extract any field values the patient provided.
+    
+    Returns: {field_id: {"value": str, "confidence": float}}
     """
     if not patient_message.strip():
-        return {}, []
+        return {}
 
     language_name = LANGUAGE_NAMES.get(language, "English")
 
+    # Build a compact field list for the extraction prompt
     field_descriptions = []
-    for f in unfilled_fields[:20]:  # Limit to top 20 baseline fields
+    for f in unfilled_fields[:15]:  # Cap at 15 to keep extraction scoped and cheap
         field_descriptions.append(f"- {f['id']}: {f.get('question_intent', f['id'])}")
     fields_text = "\n".join(field_descriptions)
 
-    system_prompt = f"""You are a precise clinical data extraction tool.
-Given the patient's chief complaint statement (in {language_name} or English), extract any clearly stated values that map directly to the listed unfilled fields (such as duration or pain site).
+    # Last few messages for context
+    recent_msgs = conversation_history[-4:] if conversation_history else []
+    context_text = ""
+    if recent_msgs:
+        lines = []
+        for m in recent_msgs:
+            role = "Doctor" if m["role"] == "assistant" else "Patient"
+            lines.append(f"{role}: {m['content']}")
+        context_text = "\n".join(lines)
 
-RULES:
-1. Only extract information that the patient EXPLICITLY stated. Do NOT infer or guess.
-2. If not explicitly stated, do NOT include the field.
-3. Values must be concise English summaries.
-4. Output ONLY a JSON object:
-{{
-  "extracted_fields": {{
-    "field_id": {{"value": "concise summary", "confidence": 0.95}}
-  }}
-}}"""
+    system_prompt = f"""You are a medical data extraction engine.
+
+    Given a patient's message (potentially in {language_name}), extract any clinical information that maps to the listed fields.
+    {"The doctor requested you specifically look out for these details during extraction: " + doctor_custom_instructions if doctor_custom_instructions else ""}
+
+    RULES:
+    1. Only extract information that the patient CLEARLY stated. Do not infer or guess.
+    2. If the patient's message doesn't contain information for a field, do NOT include that field.
+    3. Values should be concise clinical summaries in English (for structured storage). Also include a "verbatim" key with the patient's approximate wording (translated to English if needed).
+    4. Assign confidence: 0.9+ if clearly stated, 0.7-0.8 if somewhat clear, 0.5-0.6 if ambiguous.
+
+    Output ONLY a JSON object:
+    {{
+      "extracted_fields": {{
+        "field_id": {{"value": "clinical summary", "verbatim": "patient's exact words", "confidence": 0.9}},
+        ...
+      }}
+    }}
+    If nothing can be extracted, return: {{"extracted_fields": {{}}}}"""
 
     user_prompt = f"""=== FIELDS TO EXTRACT INTO ===
 {fields_text}
 
-=== PATIENT'S STATEMENT ===
+=== RECENT CONVERSATION ===
+{context_text}
+
+=== PATIENT'S LATEST MESSAGE ===
 {patient_message}
 
-Extract explicit field values:"""
+=== ALREADY KNOWN ===
+{filled_summary}
+
+Extract any field values from the patient's latest message."""
 
     try:
-        result = llm_client.conversation_turn(system_prompt, user_prompt, temperature=0.0)
+        result = llm_client.conversation_turn(system_prompt, user_prompt, temperature=0.1)
         extracted = result.get("extracted_fields", {})
+        
+        # Validate: only accept fields that are in our unfilled list
         valid_field_ids = {f["id"] for f in unfilled_fields}
         validated = {}
         for fid, entry in extracted.items():
             if fid in valid_field_ids and isinstance(entry, dict) and entry.get("value"):
                 validated[fid] = entry
-        return validated, []
+        
+        logger.info(f"Extraction: {len(validated)} fields extracted from patient message")
+        return validated
+
     except Exception as e:
-        logger.error(f"Initial extraction failed: {e}")
-        return {}, []
+        logger.error(f"Extraction failed: {e}")
+        return {}
+
+
+# ──────────────────────────────────────────────────────────────────────
+# STEP 1.5: FORK CHECK — generate sub-questions for significant answers
+# ──────────────────────────────────────────────────────────────────────
+
+# Deterministic negative-answer patterns — skips LLM call entirely
+_NEGATIVE_PATTERNS = frozenset([
+    "no", "none", "nahi", "nah", "nahin", "na", "denied", "denies",
+    "nothing", "nil", "not applicable", "n/a", "no issues", "no problem",
+    "koi nahi", "kuch nahi", "nope", "never", "not sure", "don't know",
+    "healthy", "normal", "fine",
+])
+
+def _is_negative_answer(answer: str) -> bool:
+    """Fast deterministic check — if True, skip the fork LLM call entirely."""
+    clean = answer.strip().lower().rstrip(".!,")
+    # Exact match
+    if clean in _NEGATIVE_PATTERNS:
+        return True
+    # Starts with "no " or "no,"
+    if clean.startswith(("no ", "no,", "none ", "nahi ", "nah ")):
+        return True
+    return False
 
 
 def check_and_generate_fork_questions(
@@ -187,10 +170,105 @@ def check_and_generate_fork_questions(
     doctor_custom_instructions: str | None = None,
 ) -> list[dict] | None:
     """
-    Disabled: Dynamic schema forking is turned off to ensure zero hallucination
-    and bounded, predictable intake interviews.
+    Given a fork_eligible field and the patient's answer, decide if a fork
+    is warranted and generate 1-2 sub-question fields.
+
+    OPTIMIZATIONS:
+    - Deterministic negative-answer shortcircuit (no LLM call for "no"/"none")
+    - Low temperature (0.1) to prevent hallucination
+    - Bounded output tokens (512) for fast response
+    
+    Returns: list of sub-field dicts (same shape as schema fields) or None.
     """
-    return None
+    # SHORTCIRCUIT: Skip LLM entirely for clearly negative answers
+    if _is_negative_answer(patient_answer):
+        logger.info(f"Fork shortcircuit: negative answer for '{parent_field.get('id')}' — no LLM call")
+        return None
+
+    parent_id = parent_field.get("id", "unknown")
+    parent_intent = parent_field.get("question_intent", "")
+    parent_category = parent_field.get("category", "HPI")
+
+    system_prompt = f"""You are a clinical interview sub-question generator.
+
+A patient answered a question. You must decide if the answer is clinically significant enough to warrant 1-2 follow-up sub-questions.
+
+RULES:
+1. ONLY fork if the answer reveals something that NEEDS clarification (e.g., "yes I have allergies" → ask WHICH allergies).
+2. Generate EXACTLY 1-2 sub-questions, no more. Keep them tightly scoped.
+3. Sub-question IDs must be: "{parent_id}__<sub_name>" (double underscore).
+4. Do NOT fork for vague or uninformative answers.
+5. Sub-questions inherit the parent's category.
+6. If the patient's answer conflates two clinically different scenarios (e.g., "takes supplements or retinoids" covers both self-treatment AND a drug side-effect), you MUST fork to disambiguate. Ask what the medication was prescribed FOR, even if they don't know the name.
+7. If the parent question asked about family history and the patient said "yes", ALWAYS fork to ask: which relative, what condition, and at what age.
+
+OUTPUT FORMAT — Return ONLY a JSON object:
+If fork is warranted:
+{{
+  "fork": true,
+  "sub_fields": [
+    {{
+      "id": "{parent_id}__<descriptive_sub_name>",
+      "question_intent": "what this sub-question tries to learn",
+      "type": "string",
+      "priority": "high",
+      "red_flag": false,
+      "fork_eligible": false,
+      "category": "{parent_category}",
+      "conditional_on": null
+    }}
+  ]
+}}
+
+If fork is NOT warranted:
+{{"fork": false, "sub_fields": []}}"""
+
+    user_prompt = f"""Parent question: {parent_intent}
+Patient's answer: "{patient_answer}"
+Chief complaint: {chief_complaint}
+{f"Doctor's instructions: {doctor_custom_instructions}" if doctor_custom_instructions else ""}
+
+Should this answer be forked into sub-questions?"""
+
+    t0 = time.time()
+    try:
+        result = llm_client.conversation_turn(system_prompt, user_prompt, temperature=0.1)
+        elapsed = time.time() - t0
+
+        if not result.get("fork", False):
+            logger.info(f"Fork check for '{parent_id}': LLM said no fork ({elapsed:.2f}s)")
+            return None
+
+        sub_fields = result.get("sub_fields", [])
+        if not sub_fields or not isinstance(sub_fields, list):
+            return None
+
+        # Validate and cap at 2 sub-fields
+        validated = []
+        for sf in sub_fields[:2]:
+            if not isinstance(sf, dict) or not sf.get("id"):
+                continue
+            # Enforce namespacing
+            if not sf["id"].startswith(f"{parent_id}__"):
+                sf["id"] = f"{parent_id}__{sf['id']}"
+            sf.setdefault("type", "string")
+            sf.setdefault("priority", "high")
+            sf.setdefault("red_flag", False)
+            sf.setdefault("fork_eligible", False)
+            sf.setdefault("category", parent_category)
+            sf.setdefault("conditional_on", None)
+            sf.setdefault("question_intent", sf["id"].replace("_", " "))
+            validated.append(sf)
+
+        if validated:
+            logger.info(f"Fork triggered on '{parent_id}': {len(validated)} sub-fields generated ({elapsed:.2f}s)")
+            return validated
+        return None
+
+    except Exception as e:
+        elapsed = time.time() - t0
+        logger.error(f"Fork check failed for '{parent_id}' after {elapsed:.2f}s: {e}")
+        return None
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -258,7 +336,7 @@ def generate_question(
 - The label field in suggested_options should remain in English (for backend).
 - The patient speaks {language_name}. Respond warmly in {language_name}."""
 
-    system_prompt = f"""You are a polite, direct medical kiosk intake assistant conducting a structured clinical triage.
+    system_prompt = f"""You are a compassionate medical kiosk assistant conducting a clinical history interview.
 
 {lang_rule}
 
@@ -266,29 +344,29 @@ def generate_question(
 Chief Complaint: {chief_complaint}
 {"DOCTOR'S CUSTOM INSTRUCTIONS: " + doctor_custom_instructions if doctor_custom_instructions else ""}
 
-YOUR TASK: Ask the patient ONE direct question about this clinical topic:
+YOUR TASK: Ask the patient about this specific clinical topic:
   Field: {field_id}
   Intent: {question_intent}
   Category: {category}
-  {"⚠️ This is an essential SAFETY check — ask it clearly." if is_red_flag else ""}
+  {"⚠️ This is a RED FLAG safety question — ask it sensitively but clearly." if is_red_flag else ""}
 
-CRITICAL RULES (ANTI-HALLUCINATION & ANTI-FLUFF):
-1. Ask ONE single, clear, direct question. Do NOT bundle multiple symptoms together.
-2. NEVER use repetitive emotional filler phrases such as "मैं आपकी परेशानी को समझ रहा हूँ", "मुझे दुख है", or "I understand your pain". Ask the question directly, politely, and respectfully.
-3. Be polite, clear, and use simple everyday language without medical jargon.
-4. Generate 3 to 4 distinct, contextually accurate suggested options the patient can tap.
-5. ALWAYS include a clear negative option as the final option:
-   {{"label": "None of these", "label_translated": "इनमें से कुछ नहीं"}} (or "No" / "नहीं").
-6. Do NOT suggest diagnoses or treatments.
+CONVERSATION RULES:
+1. Ask ONE question at a time — natural and conversational, NOT robotic.
+2. If the patient just gave an answer, acknowledge it briefly before asking your next question.
+3. Be warm and empathetic. Use simple language. No medical jargon.
+4. Do NOT diagnose or suggest treatments. You are gathering information only.
+5. Generate 3-6 contextually relevant suggested options the patient can tap.
+6. Include a flexible option like "Something else" or "None of these".
+7. Do NOT repeat any question the patient has already answered (check the conversation history and known information below).
 
 OUTPUT FORMAT — Return ONLY a JSON object:
 {{
-  "spoken_text": "Your direct question in {language_name}",
+  "spoken_text": "Your question in {language_name}",
   "suggested_options": [
     {{"label": "English label", "label_translated": "Label in {language_name}"}},
     ...
   ],
-  "reasoning": "Brief clinical reasoning in English"
+  "reasoning": "Brief internal reasoning (English, not shown to patient)"
 }}"""
 
     user_prompt = f"""=== ALREADY KNOWN INFORMATION ===
@@ -301,11 +379,11 @@ OUTPUT FORMAT — Return ONLY a JSON object:
 
 {"=== PATIENT'S LAST MESSAGE ===" + chr(10) + patient_message if patient_message else "This is the opening question. No patient message yet."}
 
-Generate your direct question about: {question_intent}"""
+Generate your question about: {question_intent}"""
 
     t0 = time.time()
     try:
-        result = llm_client.conversation_turn(system_prompt, user_prompt, temperature=0.1)
+        result = llm_client.conversation_turn(system_prompt, user_prompt, temperature=0.4)
         elapsed = time.time() - t0
 
         spoken_text = result.get("spoken_text", "")
@@ -316,16 +394,6 @@ Generate your direct question about: {question_intent}"""
             spoken_text = _fallback_question(question_intent, language_name)
         if not options:
             options = _fallback_options(language_name)
-
-        # Guarantee a clean negative option exists
-        has_negative = any("none" in str(opt.get("label", "")).lower() or "no" == str(opt.get("label", "")).lower().strip() for opt in options)
-        if not has_negative:
-            if language == "hi-IN":
-                options.append({"label": "None of these", "label_translated": "इनमें से कुछ नहीं"})
-            elif language == "en-IN":
-                options.append({"label": "None of these", "label_translated": "None of these"})
-            else:
-                options.append({"label": "None of these", "label_translated": "None of these"})
 
         logger.info(f"Question generation took {elapsed:.2f}s | field={field_id} | category={category}")
 

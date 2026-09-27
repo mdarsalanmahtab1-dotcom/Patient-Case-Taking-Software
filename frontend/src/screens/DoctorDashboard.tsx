@@ -3,7 +3,7 @@ import { LogoutDialog } from '../components/LogoutDialog';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getApiBaseUrl } from '../config';
-import { ArrowLeft, Save, FileText, CheckCircle, Activity, HeartPulse, LogOut, Loader2, User, Download } from 'lucide-react';
+import { ArrowLeft, FileText, CheckCircle, Activity, HeartPulse, LogOut, Loader2, User, Download } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export const DoctorDashboard: React.FC = () => {
@@ -36,6 +36,8 @@ export const DoctorDashboard: React.FC = () => {
             setError('Encounter not found or already completed.');
           }
         }
+        // Mark session as IN_PROGRESS if it was WAITING
+        fetch(`${getApiBaseUrl()}/api/session/${session_id}/start`, { method: 'POST' }).catch(() => {});
       })
       .catch(err => {
         console.error(err);

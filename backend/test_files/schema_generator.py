@@ -133,22 +133,15 @@ def generate_schema(
     patient_sex: str,
     category: str,
     doctor_custom_instructions: str | None = None,
-    clinic_mode: str = "allopathic",
 ) -> dict:
     """
     Generate a complaint-specific clinical interview schema.
     
     Called ONCE per encounter after chief complaint capture.
     Uses a heavier model for quality, with fallback to a static schema.
-    For AYUSH mode, loads deterministic CCRAS 14-predictor schema with zero LLM calls.
     
     Returns: A validated schema dict with "chief_complaint" and "fields" keys.
     """
-    if str(clinic_mode).lower().strip() in ("ayush", "ayurveda"):
-        from ayush_templates import get_ayush_schema
-        raw_schema = get_ayush_schema(chief_complaint, category)
-        return _validate_schema(raw_schema, chief_complaint)
-
     safety_floor_text = get_safety_floor_as_text(category)
     system_prompt, user_prompt = _build_schema_generation_prompt(
         chief_complaint, patient_age, patient_sex, category, safety_floor_text, doctor_custom_instructions

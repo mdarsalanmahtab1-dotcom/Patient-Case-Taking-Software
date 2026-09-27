@@ -34,8 +34,9 @@ async def init_db_pool():
     async with _pool.acquire() as conn:
         try:
             await conn.execute("ALTER TABLE patients ADD COLUMN IF NOT EXISTS vitals TEXT")
+            await conn.execute("ALTER TABLE staff_sessions DROP CONSTRAINT IF EXISTS staff_sessions_staff_id_fkey")
         except Exception as e:
-            logger.warning(f"Could not add vitals column: {e}")
+            logger.warning(f"Could not apply startup schema patches: {e}")
     logger.info("Database pool initialized.")
 
 async def close_db_pool():
@@ -114,9 +115,9 @@ async def start_kiosk_session(patient_data: dict, department: str = "General Med
     if not _pool: return {}
     async with _pool.acquire() as conn:
         patient_id = patient_data.get("patient_id")
+        abha_id = patient_data.get("abha_id")
         
         if not patient_id:
-            abha_id = patient_data.get("abha_id")
             if abha_id:
                 existing = await conn.fetchrow("SELECT patient_id FROM patients WHERE abha_id = $1", abha_id)
                 if existing:
@@ -125,20 +126,29 @@ async def start_kiosk_session(patient_data: dict, department: str = "General Med
                     patient_id = abha_id
             else:
                 patient_id = f"pat_{uuid.uuid4().hex[:8]}"
-            await conn.execute("""
-                INSERT INTO patients (patient_id, full_name, phone_number, age, gender, date_of_birth, weight, height, address, abha_id, vitals)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                ON CONFLICT (patient_id) DO UPDATE SET
-                    weight = COALESCE(EXCLUDED.weight, patients.weight),
-                    height = COALESCE(EXCLUDED.height, patients.height),
-                    vitals = COALESCE(EXCLUDED.vitals, patients.vitals),
-                    address = COALESCE(EXCLUDED.address, patients.address)
-            """, 
-                patient_id, patient_data.get("full_name"), patient_data.get("phone_number"),
-                patient_data.get("age"), patient_data.get("gender"), patient_data.get("date_of_birth"),
-                patient_data.get("weight"), patient_data.get("height"), patient_data.get("address"), 
-                patient_data.get("abha_id"), patient_data.get("vitals")
-            )
+
+        # Always upsert patient record so that any changes to name, phone, age, gender, address, vitals, etc.
+        # are accurately stored and never frozen to an outdated or collided record!
+        await conn.execute("""
+            INSERT INTO patients (patient_id, full_name, phone_number, age, gender, date_of_birth, weight, height, address, abha_id, vitals)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            ON CONFLICT (patient_id) DO UPDATE SET
+                full_name = CASE WHEN EXCLUDED.full_name IS NOT NULL AND TRIM(EXCLUDED.full_name) != '' THEN EXCLUDED.full_name ELSE patients.full_name END,
+                phone_number = CASE WHEN EXCLUDED.phone_number IS NOT NULL AND TRIM(EXCLUDED.phone_number) != '' THEN EXCLUDED.phone_number ELSE patients.phone_number END,
+                age = COALESCE(EXCLUDED.age, patients.age),
+                gender = CASE WHEN EXCLUDED.gender IS NOT NULL AND TRIM(EXCLUDED.gender) != '' THEN EXCLUDED.gender ELSE patients.gender END,
+                date_of_birth = COALESCE(EXCLUDED.date_of_birth, patients.date_of_birth),
+                weight = COALESCE(EXCLUDED.weight, patients.weight),
+                height = COALESCE(EXCLUDED.height, patients.height),
+                vitals = COALESCE(EXCLUDED.vitals, patients.vitals),
+                address = CASE WHEN EXCLUDED.address IS NOT NULL AND TRIM(EXCLUDED.address) != '' THEN EXCLUDED.address ELSE patients.address END,
+                abha_id = COALESCE(EXCLUDED.abha_id, patients.abha_id)
+        """, 
+            patient_id, patient_data.get("full_name"), patient_data.get("phone_number"),
+            patient_data.get("age"), patient_data.get("gender"), patient_data.get("date_of_birth"),
+            patient_data.get("weight"), patient_data.get("height"), patient_data.get("address"), 
+            abha_id, patient_data.get("vitals")
+        )
             
         token_number = None
         room_number = "TBD"
@@ -146,6 +156,19 @@ async def start_kiosk_session(patient_data: dict, department: str = "General Med
             doc_row = await conn.fetchrow("SELECT room_number FROM doctors WHERE doctor_id = $1", doctor_id)
             if doc_row:
                 room_number = doc_row["room_number"]
+        else:
+            # Auto-assign first available active doctor in the chosen department
+            dept_doc = await conn.fetchrow("""
+                SELECT d.doctor_id, d.full_name, d.room_number
+                FROM doctors d
+                LEFT JOIN departments dept ON d.dept_id = dept.dept_id
+                WHERE LOWER(dept.name) = LOWER($1) AND (d.status = 'Active' OR d.status IS NULL)
+                ORDER BY d.doctor_id LIMIT 1
+            """, department)
+            if dept_doc:
+                doctor_id = dept_doc["doctor_id"]
+                room_number = dept_doc["room_number"] or "OPD Consultation Room"
+                logger.info(f"Auto-assigned doctor {dept_doc['full_name']} (room {room_number}) for department '{department}'")
             
         # GUARANTEE NO TOKEN DUPLICATION (Active Session Lock) applies universally
         existing_session = await conn.fetchrow("""
@@ -290,7 +313,18 @@ async def fetch_triage_queue(doctor_id: str = None) -> list[dict]:
         """
         params = []
         if doctor_id:
-            query += " AND ps.doctor_id = $1"
+            # Include both directly assigned patients AND unassigned patients
+            # whose department matches the querying doctor's department
+            query += """ AND (
+                ps.doctor_id = $1
+                OR (
+                    ps.doctor_id IS NULL AND LOWER(ps.department) = (
+                        SELECT LOWER(dept.name) FROM doctors d
+                        JOIN departments dept ON d.dept_id = dept.dept_id
+                        WHERE d.doctor_id = $1
+                    )
+                )
+            )"""
             params.append(doctor_id)
             
         query += " ORDER BY ps.priority_flag DESC, ps.created_at ASC"

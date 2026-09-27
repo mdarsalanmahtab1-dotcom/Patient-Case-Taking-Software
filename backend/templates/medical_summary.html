@@ -377,6 +377,7 @@
         .vital-tag-normal { background: #dcfce7; color: #166534; }
         .vital-tag-warn { background: #fef3c7; color: #92400e; }
         .vital-tag-alert { background: #fee2e2; color: #991b1b; }
+        .vital-tag-neutral { background: #f1f5f9; color: #64748b; }
 
         /* --------------------------------------------------------------------------
            5. CLINICAL OBSERVATIONS & HPI SECTION
@@ -840,7 +841,7 @@
                     </td>
                     <td style="width: 27%;">
                         <span class="demo-label">ABHA ID</span>: 
-                        <span class="demo-val demo-highlight">{{ patient.abha_id | default('91-1001-2001-3001') }}</span>
+                        <span class="demo-val demo-highlight">{{ patient.abha_id if (patient.abha_id and patient.abha_id != 'None') else 'Not Linked / N/A' }}</span>
                     </td>
                     <td style="width: 25%;">
                         <span class="demo-label">Date &amp; Time</span>: 
@@ -866,7 +867,7 @@
                     </td>
                     <td>
                         <span class="demo-label">Room No</span>: 
-                        <span class="demo-val demo-highlight">{{ room_no | default('Room 101') }}</span>
+                        <span class="demo-val demo-highlight">{{ room_no | default('OPD Room') }}</span>
                     </td>
                 </tr>
                 <tr>
@@ -876,14 +877,16 @@
                     </td>
                     <td colspan="2">
                         <span class="demo-label">Consultant</span>: 
-                        <span class="demo-val">{{ doctor_name | default('Dr. Jane Doe (MD)') }}</span>
-                        <span style="font-size:8px; color:var(--ink-muted); margin-left:4px;">(Reg: {{ doctor_license | default('MCI-2018-9821') }})</span>
+                        <span class="demo-val">{{ doctor_name | default('Attending Medical Officer') }}</span>
+                        {% if doctor_license and doctor_license != 'N/A' %}
+                        <span style="font-size:8px; color:var(--ink-muted); margin-left:4px;">(Reg: {{ doctor_license }})</span>
+                        {% endif %}
                     </td>
                 </tr>
                 <tr>
                     <td colspan="4">
                         <span class="demo-label">Residential Address</span>: 
-                        <span class="demo-val" style="font-weight:500;">{{ patient.address | default('Kolkata, West Bengal, India') }}</span>
+                        <span class="demo-val" style="font-weight:500;">{{ patient.address | default('Not Provided') }}</span>
                     </td>
                 </tr>
             </table>
@@ -896,11 +899,14 @@
                     <div class="vital-cell">
                         <span class="vital-cell-label">Blood Pressure</span>
                         <div class="vital-cell-value">
-                            {{ vitals.bp | default('120/80') }}
-                            <span class="vital-cell-unit">mmHg</span>
+                            {% if vitals.bp %}
+                            {{ vitals.bp }} <span class="vital-cell-unit">mmHg</span>
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:10px; font-weight:600;">Not Recorded</span>
+                            {% endif %}
                         </div>
-                        <span class="vital-tag {% if vitals.bp and ('140' in vitals.bp or '150' in vitals.bp or '160' in vitals.bp) %}vital-tag-warn{% else %}vital-tag-normal{% endif %}">
-                            {% if vitals.bp and ('140' in vitals.bp or '150' in vitals.bp or '160' in vitals.bp) %}Elevated{% else %}Standard{% endif %}
+                        <span class="vital-tag {% if vitals.bp and ('140' in vitals.bp or '150' in vitals.bp or '160' in vitals.bp) %}vital-tag-warn{% elif vitals.bp %}vital-tag-normal{% else %}vital-tag-neutral{% endif %}">
+                            {% if vitals.bp and ('140' in vitals.bp or '150' in vitals.bp or '160' in vitals.bp) %}Elevated{% elif vitals.bp %}Standard{% else %}Unrecorded{% endif %}
                         </span>
                     </div>
 
@@ -908,62 +914,98 @@
                     <div class="vital-cell">
                         <span class="vital-cell-label">Heart Rate</span>
                         <div class="vital-cell-value">
-                            {{ vitals.hr | default('76') | replace('bpm', '') | trim }}
-                            <span class="vital-cell-unit">bpm</span>
+                            {% if vitals.hr %}
+                            {{ vitals.hr | replace('bpm', '') | trim }} <span class="vital-cell-unit">bpm</span>
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:10px; font-weight:600;">Not Recorded</span>
+                            {% endif %}
                         </div>
-                        {% set hr_val = (vitals.hr | default('76') | replace('bpm', '') | trim | int) %}
+                        {% if vitals.hr %}
+                        {% set hr_val = (vitals.hr | replace('bpm', '') | trim | int) %}
                         <span class="vital-tag {% if hr_val > 100 %}vital-tag-alert{% elif hr_val > 0 and hr_val < 55 %}vital-tag-warn{% else %}vital-tag-normal{% endif %}">
                             {% if hr_val > 100 %}Tachycardia{% elif hr_val > 0 and hr_val < 55 %}Bradycardia{% else %}Regular{% endif %}
                         </span>
+                        {% else %}
+                        <span class="vital-tag vital-tag-neutral">Unrecorded</span>
+                        {% endif %}
                     </div>
 
                     <!-- 3. Temp -->
                     <div class="vital-cell">
                         <span class="vital-cell-label">Temperature</span>
                         <div class="vital-cell-value">
-                            {{ vitals.temp | default('98.6') | replace('°F', '') | replace('F', '') | replace('°C', '') | replace('C', '') | trim }}
-                            <span class="vital-cell-unit">&deg;F</span>
+                            {% if vitals.temp %}
+                            {{ vitals.temp | replace('°F', '') | replace('F', '') | replace('°C', '') | replace('C', '') | trim }} <span class="vital-cell-unit">&deg;F</span>
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:10px; font-weight:600;">Not Recorded</span>
+                            {% endif %}
                         </div>
-                        {% set temp_val = (vitals.temp | default('98.6') | replace('°F', '') | replace('F', '') | replace('°C', '') | replace('C', '') | trim | float) %}
+                        {% if vitals.temp %}
+                        {% set temp_val = (vitals.temp | replace('°F', '') | replace('F', '') | replace('°C', '') | replace('C', '') | trim | float) %}
                         <span class="vital-tag {% if temp_val >= 99.5 %}vital-tag-alert{% else %}vital-tag-normal{% endif %}">
                             {% if temp_val >= 99.5 %}Febrile{% else %}Normal{% endif %}
                         </span>
+                        {% else %}
+                        <span class="vital-tag vital-tag-neutral">Unrecorded</span>
+                        {% endif %}
                     </div>
 
                     <!-- 4. SpO2 -->
                     <div class="vital-cell">
                         <span class="vital-cell-label">Oxygen (SpO2)</span>
                         <div class="vital-cell-value">
-                            {{ vitals.spo2 | default('98') | replace('%', '') | trim }}
-                            <span class="vital-cell-unit">%</span>
+                            {% if vitals.spo2 %}
+                            {{ vitals.spo2 | replace('%', '') | trim }} <span class="vital-cell-unit">%</span>
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:10px; font-weight:600;">Not Recorded</span>
+                            {% endif %}
                         </div>
-                        {% set spo2_val = (vitals.spo2 | default('98') | replace('%', '') | trim | int) %}
+                        {% if vitals.spo2 %}
+                        {% set spo2_val = (vitals.spo2 | replace('%', '') | trim | int) %}
                         <span class="vital-tag {% if spo2_val > 0 and spo2_val < 95 %}vital-tag-alert{% else %}vital-tag-normal{% endif %}">
                             {% if spo2_val > 0 and spo2_val < 95 %}Attention{% else %}Ambient Air{% endif %}
                         </span>
+                        {% else %}
+                        <span class="vital-tag vital-tag-neutral">Unrecorded</span>
+                        {% endif %}
                     </div>
 
                     <!-- 5. Weight & Height -->
                     <div class="vital-cell">
                         <span class="vital-cell-label">Weight / Height</span>
                         <div class="vital-cell-value" style="font-size:10.5px;">
-                            {{ vitals.weight | default('68') }}<span class="vital-cell-unit">kg</span>
+                            {% if vitals.weight or vitals.height %}
+                            {{ vitals.weight | default('--') }}<span class="vital-cell-unit">kg</span>
                             <span style="color:#94a3b8; font-weight:400;">/</span>
-                            {{ vitals.height | default('168 cm') }}
+                            {{ vitals.height | default('--') }}
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:10px; font-weight:600;">Not Recorded</span>
+                            {% endif %}
                         </div>
+                        {% if vitals.weight or vitals.height %}
                         <span class="vital-tag vital-tag-normal">Measured</span>
+                        {% else %}
+                        <span class="vital-tag vital-tag-neutral">Unrecorded</span>
+                        {% endif %}
                     </div>
 
                     <!-- 6. BMI -->
                     <div class="vital-cell">
                         <span class="vital-cell-label">Body Mass Index</span>
                         <div class="vital-cell-value">
-                            {{ vitals.bmi | default('24.1') }}
-                            <span class="vital-cell-unit">kg/m&sup2;</span>
+                            {% if vitals.bmi %}
+                            {{ vitals.bmi }} <span class="vital-cell-unit">kg/m&sup2;</span>
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:10px; font-weight:600;">--</span>
+                            {% endif %}
                         </div>
+                        {% if vitals.bmi %}
                         <span class="vital-tag {% if vitals.bmi_status == 'Overweight' or vitals.bmi_status == 'Obese' %}vital-tag-warn{% else %}vital-tag-normal{% endif %}">
                             {{ vitals.bmi_status | default('Normal') }}
                         </span>
+                        {% else %}
+                        <span class="vital-tag vital-tag-neutral">Unrecorded</span>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -1176,8 +1218,8 @@
                 <div class="doctor-signature-block">
                     <div class="sig-stamp-box">
                         <div class="sig-stamp-verified">&#10003; Digitally Signed &amp; Approved</div>
-                        <div class="sig-doctor-name">{{ doctor_name | default('Dr. Jane Doe (MD)') }}</div>
-                        <div class="sig-doctor-reg">Reg No: {{ doctor_license | default('MCI-2018-9821') }} &bull; {{ department | default('General Medicine') }}</div>
+                        <div class="sig-doctor-name">{{ doctor_name | default('Attending Medical Officer') }}</div>
+                        <div class="sig-doctor-reg">{% if doctor_license and doctor_license != 'N/A' %}Reg No: {{ doctor_license }} &bull; {% endif %}{{ department | default('General Medicine') }}</div>
                     </div>
                 </div>
             </div>

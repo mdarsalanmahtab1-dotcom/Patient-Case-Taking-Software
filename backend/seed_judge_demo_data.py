@@ -2,7 +2,7 @@
 SwasthyaSync — Hackathon Judges Demo Data Seeder
 Populates rich, clinically realistic, high-impact mock data for all SIH PS 26047 features:
 1. Allopathy + AYUSH Departments
-2. Doctors with active credentials (Dr. Jane Doe, Dr. Rajesh Sharma, Vaidya Anand Mishra)
+2. Doctors with active credentials (Dr. Sneha Roy, Dr. Rajesh Sharma, Vaidya Anand Mishra)
 3. Staff & Admin accounts
 4. Returning Family Members (Longitudinal EHR via phone 9876543210)
 5. Emergency Red-Flag Patient (Top of Triage Queue)
@@ -69,7 +69,7 @@ async def seed_demo_data(reset: bool = True):
 
     print("Seeding Doctors & Staff...")
     docs = [
-        ("doc_1", "doctor1", "doctor123", "Dr. Jane Doe (MD)", 1, "MCI-2018-9821", 40, "Active", "Available", "Room 101 (General OPD)", "Day"),
+        ("doc_1", "doctor1", "doctor123", "Dr. Sneha Roy (MD, Gen Med)", 1, "MCI-2018-9821", 40, "Active", "Available", "Room 101 (General OPD)", "Day"),
         ("doc_2", "doctor2", "doctor123", "Dr. Rajesh Sharma (DM Cardio)", 2, "MCI-2014-4512", 30, "Active", "Available", "Room 102 (Cardio OPD)", "Day"),
         ("doc_3", "ayush_doc", "doctor123", "Vaidya Anand Mishra (BAMS, MD Ayu)", 3, "AYU-CCRAS-7741", 35, "Active", "Available", "Room 104 (AYUSH Center)", "Day"),
         ("doc_4", "doctor4", "doctor123", "Dr. Priya Nair (DCH Pediatrics)", 4, "MCI-2020-1123", 45, "Active", "Available", "Room 105 (Pediatrics)", "Day"),
@@ -109,7 +109,7 @@ async def seed_demo_data(reset: bool = True):
     patients = [
         ("pat_ramesh", "91-2345-6789-0123", "ramesh.kumar@abdm", "aadhaar_h_1", "Ramesh Kumar", "9876543210", 58, "Male", "1966-04-12", 74.5, "172 cm", "Sector 4, Rohini, New Delhi", "138/88 mmHg, HR 78, SpO2 98%"),
         ("pat_sunita", "91-2345-6789-0124", "sunita.kumar@abdm", "aadhaar_h_2", "Sunita Kumar", "9876543210", 54, "Female", "1970-08-23", 62.0, "158 cm", "Sector 4, Rohini, New Delhi", "124/82 mmHg, HR 82, SpO2 99%"),
-        ("pat_vikram", "91-1001-2001-3001", "vikram.singh@abdm", "aadhaar_h_3", "Vikramaditya Singh", "9811223344", 52, "Male", "1972-11-05", 81.0, "175 cm", "C-Block, Saket, New Delhi", "155/95 mmHg, HR 104, SpO2 94%"),
+        ("pat_devendra", "91-9988-7766-5544", "devendra.rathore@abdm", "aadhaar_h_3", "Devendra Rathore", "9811223344", 52, "Male", "1972-11-05", 81.0, "175 cm", "C-Block, Saket, New Delhi", "155/95 mmHg, HR 104, SpO2 94%"),
         ("pat_rahul", "91-4455-6677-8899", "rahul.verma@abdm", "aadhaar_h_4", "Rahul Verma", "9988776655", 29, "Male", "1995-02-18", 68.0, "170 cm", "Mayur Vihar Ph-1, Delhi", "110/70 mmHg, HR 112, SpO2 97%, Temp 102.4F"),
         ("pat_meenakshi", "91-8899-0011-2233", "meenakshi.s@abdm", "aadhaar_h_5", "Meenakshi Sundaram", "9711554433", 44, "Female", "1980-07-14", 59.0, "162 cm", "Kailash Colony, New Delhi", "118/76 mmHg, HR 72, SpO2 99%"),
         ("pat_anita", "91-3344-5566-7788", "anita.sharma@abdm", "aadhaar_h_6", "Anita Sharma", "9871122334", 36, "Female", "1988-09-30", 56.5, "160 cm", "Janakpuri, New Delhi", "120/80 mmHg, HR 76, SpO2 98%"),
@@ -126,7 +126,7 @@ async def seed_demo_data(reset: bool = True):
         """, p_id, abha_id, abha_addr, a_hash, name, phone, age, gender, dob, wt, ht, addr, vitals)
 
     print("Seeding Today's Live Active Queue...")
-    # Session 1: Emergency Red Flag (Vikramaditya - Severe Angina / MI Alert)
+    # Session 1: Emergency Red Flag (Devendra - Severe Angina / MI Alert)
     sess_redflag = "sess_demo_redflag"
     token_rf = f"TOKEN-{today_str}-1"
     qa_rf = [
@@ -149,7 +149,7 @@ async def seed_demo_data(reset: bool = True):
             session_status, doctor_id, token_number, created_at
         ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10, $11, $12, $13)
         ON CONFLICT (session_id) DO NOTHING
-    """, sess_redflag, "pat_vikram", token_rf, "Cardiology",
+    """, sess_redflag, "pat_devendra", token_rf, "Cardiology",
         "Severe crushing chest pain radiating to left arm with diaphoresis",
         json.dumps(qa_rf), json.dumps(state_rf), True,
         "EMERGENCY PROTOCOL: Acute Coronary Syndrome (Severe Angina with Radiation & Diaphoresis)",
@@ -345,7 +345,7 @@ async def seed_demo_data(reset: bool = True):
     await conn.execute("""
         INSERT INTO admin_notifications (notif_id, doctor_id, message, is_read, timestamp)
         VALUES 
-            ($1, 'doc_2', '🚨 Emergency Priority Patient Vikramaditya Singh assigned to Cardiology (Room 102)', FALSE, $2),
+            ($1, 'doc_2', '🚨 Emergency Priority Patient Devendra Rathore assigned to Cardiology (Room 102)', FALSE, $2),
             ($3, 'doc_1', '⚠️ Critical Lab Value detected: Rahul Verma Platelets < 20,000 /µL', FALSE, $4)
         ON CONFLICT (notif_id) DO NOTHING
     """, str(uuid.uuid4()), now - timedelta(minutes=24), str(uuid.uuid4()), now - timedelta(minutes=17))
@@ -374,16 +374,16 @@ async def seed_demo_data(reset: bool = True):
     print("[SUCCESS] SWASTHYASYNC HACKATHON DEMO DATA SEEDING COMPLETE!")
     print("==========================================================")
     print("Active Today's Patients in Queue:")
-    print("  1. Vikramaditya Singh  -> [EMERGENCY PRIORITY] Chest Pain / Angina (Cardiology)")
+    print("  1. Devendra Rathore     -> [EMERGENCY PRIORITY] Chest Pain / Angina (Cardiology)")
     print("  2. Rahul Verma         -> [CRITICAL LAB ALERT] Platelets 18,000 /µL (General Medicine)")
     print("  3. Meenakshi Sundaram  -> [AYUSH 25-CCRAS] Amlapitta / Pitta Prakriti (AYUSH OPD)")
     print("  4. Ramesh Kumar        -> [RETURNING PATIENT] Hypertension Review (General Medicine)")
     print("Historical Footfall:")
     print("  40+ completed consults over last 7 days for Admin Analytics & Impact Metrics")
     print("Doctor Logins (password for all is 'doctor123'):")
-    print("  - Dr. Jane Doe (General Med) : username='doctor1'")
-    print("  - Dr. Rajesh Sharma (Cardio) : username='doctor2'")
-    print("  - Vaidya Anand Mishra (AYUSH): username='ayush_doc'")
+    print("  - Dr. Sneha Roy (General Med) : username='doctor1'")
+    print("  - Dr. Rajesh Sharma (Cardio)  : username='doctor2'")
+    print("  - Vaidya Anand Mishra (AYUSH) : username='ayush_doc'")
     print("==========================================================")
 
 if __name__ == "__main__":

@@ -308,7 +308,6 @@ class DialogueManager:
             patient_sex=self.record.patient_sex,
             category=category,
             doctor_custom_instructions=self.record.doctor_custom_instructions,
-            clinic_mode=self.record.clinic_mode,
         )
         self.record.dynamic_schema = schema
 
@@ -318,27 +317,6 @@ class DialogueManager:
 
         field_count = len(schema.get("fields", []))
         logger.info(f"Schema generated: {field_count} fields for category '{category}'")
-
-        # Pre-fill schema slots directly volunteered in chief complaint
-        if self.record.clinic_mode != "ayush":
-            try:
-                pre_extracted = conversation_engine.extract_from_response(
-                    patient_message=enriched_complaint,
-                    unfilled_fields=schema.get("fields", []),
-                    filled_summary="",
-                    conversation_history=self.record.conversation_history,
-                    language=self.language,
-                    doctor_custom_instructions=self.record.doctor_custom_instructions,
-                )
-                for fid, entry in pre_extracted.items():
-                    if entry.get("value"):
-                        self.record.update_filled_state(
-                            fid,
-                            entry.get("value"),
-                            entry.get("confidence", 0.8),
-                        )
-            except Exception as e:
-                logger.warning(f"Chief complaint pre-extraction failed: {e}")
 
         # Skip SCHEMA_GENERATION state and go directly to DYNAMIC_INTERVIEW
         self.fsm.set_state("DYNAMIC_INTERVIEW")

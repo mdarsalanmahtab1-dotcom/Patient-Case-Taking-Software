@@ -304,20 +304,32 @@ class StaffLoginReq(BaseModel):
 @extended_router.post("/api/auth/staff/login")
 async def staff_login(req: StaffLoginReq):
     import database
+    import hashlib
     if not database._pool: raise HTTPException(500, "DB error")
     async with database._pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT doctor_id, full_name as name, 'DOCTOR' as role FROM doctors WHERE username = $1 AND password = $2 AND status = 'Active'", req.username, req.password)
+        # Check doctors table
+        row = await conn.fetchrow(
+            "SELECT doctor_id as id, full_name as name, 'DOCTOR' as role FROM doctors WHERE username = $1 AND password = $2 AND status = 'Active'",
+            req.username, req.password
+        )
+        if not row:
+            # Check staff table (ADMIN, NURSE, RECEPTIONIST)
+            pw_hash = hashlib.sha256(req.password.encode()).hexdigest()
+            row = await conn.fetchrow(
+                "SELECT id, name, role FROM staff WHERE id = $1 AND (password_hash = $2 OR password_hash = $3)",
+                req.username, pw_hash, req.password
+            )
         if not row:
             raise HTTPException(401, "Invalid credentials")
-        token = await _issue_token(row["doctor_id"], row["role"], row["name"])
-        return {"token": token, "role": row["role"], "name": row["name"], "staff_id": row["doctor_id"]}
+        token = await _issue_token(row["id"], row["role"], row["name"])
+        return {"token": token, "role": row["role"], "name": row["name"], "staff_id": row["id"]}
 
 @extended_router.post("/api/auth/staff/logout")
-async def staff_logout(staff: dict = Depends(_get_current_staff)):
-    # Revoke token
-    for tok, info in list(_active_tokens.items()):
-        if info["id"] == staff["id"]:
-            del _active_tokens[tok]
+async def staff_logout(credentials: HTTPAuthorizationCredentials = Depends(security), staff: dict = Depends(_get_current_staff)):
+    import database
+    if database._pool and credentials:
+        async with database._pool.acquire() as conn:
+            await conn.execute("DELETE FROM staff_sessions WHERE token = $1", credentials.credentials)
     return {"status": "logged_out"}
 
 class StaffCreateReq(BaseModel):
@@ -443,7 +455,7 @@ async def generate_and_save_session_pdf(session_id: str, doctor_prescription_ove
                 "hr": "",
                 "temp": "",
                 "spo2": "",
-                "resp_rate": "16",
+                "resp_rate": "",
                 "weight": "",
                 "height": "",
                 "bmi": "",
@@ -475,15 +487,11 @@ async def generate_and_save_session_pdf(session_id: str, doctor_prescription_ove
             temp_match = re.search(r'(?:Temp|Temperature)[\s:]*([\d\.]+)\s*(?:F|C|\xb0F|\xb0C)?', text, re.IGNORECASE)
             if temp_match:
                 res["temp"] = temp_match.group(1)
-            else:
-                res["temp"] = "98.4"
 
             # 5. Respiratory Rate
             rr_match = re.search(r'(?:RR|Resp|Respiratory\s*Rate)[\s:]*(\d{1,2})', text, re.IGNORECASE)
             if rr_match:
                 res["resp_rate"] = rr_match.group(1)
-            else:
-                res["resp_rate"] = "16"
 
             # Check filled_state overrides if any field is still missing
             if filled_state and isinstance(filled_state, dict):
@@ -500,15 +508,14 @@ async def generate_and_save_session_pdf(session_id: str, doctor_prescription_ove
                     if not res["spo2"] and "spo2" in k_low:
                         m = re.search(r'(\d{2,3})', val_str)
                         if m and 50 <= int(m.group(1)) <= 100: res["spo2"] = m.group(1)
-                    if ("temp" in k_low or "fever" in k_low) and res["temp"] == "98.4":
+                    if ("temp" in k_low or "fever" in k_low) and not res["temp"]:
                         m = re.search(r'([\d\.]+)', val_str)
                         if m and 94 <= float(m.group(1)) <= 108: res["temp"] = m.group(1)
+                    if ("rr" in k_low or "respiratory" in k_low) and not res["resp_rate"]:
+                        m = re.search(r'(\d{1,2})', val_str)
+                        if m: res["resp_rate"] = m.group(1)
 
-            if not res["bp"]: res["bp"] = "120/80"
-            if not res["hr"]: res["hr"] = "76"
-            if not res["spo2"]: res["spo2"] = "98"
-
-            # Weight, Height & BMI
+            # Weight, Height & BMI (only calculate if actual measurements are recorded)
             wt = None
             if weight_val:
                 try: wt = float(str(weight_val).replace("kg", "").strip())
@@ -542,11 +549,6 @@ async def generate_and_save_session_pdf(session_id: str, doctor_prescription_ove
                 elif bmi_val < 25.0: res["bmi_status"] = "Normal"
                 elif bmi_val < 30.0: res["bmi_status"] = "Overweight"
                 else: res["bmi_status"] = "Obese"
-            else:
-                res["bmi"] = "22.4"
-                res["bmi_status"] = "Normal"
-                if not res["weight"]: res["weight"] = "68.0"
-                if not res["height"]: res["height"] = "168 cm"
 
             return res
 
@@ -603,14 +605,14 @@ async def generate_and_save_session_pdf(session_id: str, doctor_prescription_ove
                 doctor_license = doc_row["license_number"]
                 room_no = doc_row["room_number"]
             else:
-                doctor_name = "Dr. Jane Doe (MD)"
-                doctor_license = "MCI-2018-9821"
-                room_no = "Room 101 (General OPD)"
+                doctor_name = "Attending Medical Officer"
+                doctor_license = "N/A"
+                room_no = "OPD Consultation Room"
         
         if not room_no:
-            room_no = "Room 101 (General OPD)"
+            room_no = "OPD Consultation Room"
         if not doctor_license:
-            doctor_license = "MCI-2018-9821"
+            doctor_license = "N/A"
 
         # Safely resolve valid doctor_id to avoid FK constraint violation
         valid_doc_id = None
@@ -622,7 +624,11 @@ async def generate_and_save_session_pdf(session_id: str, doctor_prescription_ove
         if not valid_doc_id and doc_row and doc_row.get("doctor_id"):
             valid_doc_id = str(doc_row["doctor_id"])
         if not valid_doc_id:
-            valid_doc_id = "doc_1"
+            # Dynamically resolve first available active doctor instead of hardcoding an ID
+            fallback_doc = await conn.fetchval(
+                "SELECT doctor_id FROM doctors WHERE status = 'Active' OR status IS NULL ORDER BY doctor_id LIMIT 1"
+            )
+            valid_doc_id = str(fallback_doc) if fallback_doc else None
 
         # Resolve effective doctor prescription
         effective_doc_rx = doctor_prescription_override
@@ -654,6 +660,7 @@ async def generate_and_save_session_pdf(session_id: str, doctor_prescription_ove
         extracted_labs = []
         uploaded_images = []
         doc_extractions_list = []
+        filled_state_json = {}
         
         # ── Helper: parse any raw date to sortable ISO YYYY-MM-DD ──
         def _parse_to_iso_date(raw_date_str: str) -> str:
@@ -819,8 +826,8 @@ async def generate_and_save_session_pdf(session_id: str, doctor_prescription_ove
         )
 
         token_val = q_row["token_id"] if q_row and q_row.get("token_id") else "TOKEN-2026"
-        abha_val = p_info["abha_id"] if p_info and p_info.get("abha_id") else "91-1001-2001-3001"
-        patient_name_val = p_info["full_name"] if p_info and p_info.get("full_name") else "Unknown"
+        abha_val = p_info["abha_id"] if p_info and p_info.get("abha_id") else "Not Linked / N/A"
+        patient_name_val = p_info["full_name"] if p_info and p_info.get("full_name") else "Walk-in Patient"
 
         # Generate offline ABDM QR code
         qr_b64 = _generate_abdm_qr_b64(
@@ -1145,7 +1152,8 @@ async def get_queue_token(session_id: str):
     async with database._pool.acquire() as conn:
         # Fetch from patient_sessions and doctors
         row = await conn.fetchrow('''
-            SELECT ps.token_number, ps.token_id, d.full_name as doctor_name, d.room_number 
+            SELECT ps.token_number, ps.token_id, ps.department,
+                   d.full_name as doctor_name, d.room_number 
             FROM patient_sessions ps
             LEFT JOIN doctors d ON ps.doctor_id = d.doctor_id
             WHERE ps.session_id = $1
@@ -1153,11 +1161,27 @@ async def get_queue_token(session_id: str):
         
         if not row:
             raise HTTPException(404, "Session not found")
-            
+
+        doctor_name = row["doctor_name"]
+        room_number = row["room_number"]
+
+        # If doctor_id was NULL, resolve the department's default doctor and room
+        if not doctor_name and row.get("department"):
+            dept_doc = await conn.fetchrow('''
+                SELECT d.full_name, d.room_number
+                FROM doctors d
+                LEFT JOIN departments dept ON d.dept_id = dept.dept_id
+                WHERE LOWER(dept.name) = LOWER($1) AND (d.status = 'Active' OR d.status IS NULL)
+                ORDER BY d.doctor_id LIMIT 1
+            ''', row["department"])
+            if dept_doc:
+                doctor_name = dept_doc["full_name"]
+                room_number = dept_doc["room_number"]
+
         return {
             "token": row["token_number"] or row["token_id"],
-            "doctor_name": row["doctor_name"],
-            "room_number": row["room_number"],
+            "doctor_name": doctor_name or "Attending Medical Officer",
+            "room_number": room_number or "OPD Consultation Room",
             "position": row["token_number"] or 1
         }
 
@@ -1217,6 +1241,23 @@ async def submit_to_doctor(session_id: str):
         )
     return {"status": "success", "message": "Session submitted to doctor queue"}
 
+@extended_router.post("/api/session/{session_id}/start")
+async def start_consultation(session_id: str):
+    """Doctor-facing: marks session as IN_PROGRESS when doctor opens the clinical encounter."""
+    import database
+    if not database._pool: raise HTTPException(500, "DB error")
+    async with database._pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT session_status FROM patient_sessions WHERE session_id = $1", session_id)
+        if not row:
+            raise HTTPException(404, "Session not found")
+        if row["session_status"] == "WAITING":
+            await conn.execute(
+                "UPDATE patient_sessions SET session_status = 'IN_PROGRESS' WHERE session_id = $1",
+                session_id
+            )
+    return {"status": "success", "session_status": "IN_PROGRESS"}
+
+
 
 # ── Phase 5: Reception & Admin ───────────────────────────────────────
 
@@ -1248,8 +1289,8 @@ async def admin_dashboard(staff: dict = Depends(_require_role("ADMIN"))):
         stats = {
             "total_patients": (await conn.fetchrow("SELECT COUNT(*) as c FROM patients"))["c"],
             "total_sessions": (await conn.fetchrow("SELECT COUNT(*) as c FROM patient_sessions"))["c"],
-            "queue_waiting": (await conn.fetchrow("SELECT COUNT(*) as c FROM patient_sessions WHERE status = 'waiting'"))["c"],
-            "queue_priority": (await conn.fetchrow("SELECT COUNT(*) as c FROM patient_sessions WHERE priority_flag = TRUE AND status != 'completed'"))["c"],
+            "queue_waiting": (await conn.fetchrow("SELECT COUNT(*) as c FROM patient_sessions WHERE session_status = 'WAITING'"))["c"],
+            "queue_priority": (await conn.fetchrow("SELECT COUNT(*) as c FROM patient_sessions WHERE priority_flag = TRUE AND session_status NOT IN ('COMPLETED', 'ARCHIVED')"))["c"],
             "total_summaries": (await conn.fetchrow("SELECT COUNT(*) as c FROM clinical_summaries"))["c"],
             "total_staff": (await conn.fetchrow("SELECT COUNT(*) as c FROM staff"))["c"],
             "total_doctors": (await conn.fetchrow("SELECT COUNT(*) as c FROM doctors"))["c"],
@@ -1411,13 +1452,19 @@ async def complete_session_doctor(session_id: str, req: CompleteSessionReq):
         logger.error(f"Error generating final signed PDF for session {session_id}: {e}", exc_info=True)
             
     try:
-        import httpx
-        async with httpx.AsyncClient() as client:
-            await client.post("http://localhost:8000/api/admin/notifications", json={
-                "message": f"Patient session {session_id} completed.",
-                "doctor_id": 0
-            })
-    except:
+        # Direct database notification instead of fragile httpx localhost loopback
+        if database._pool:
+            async with database._pool.acquire() as conn:
+                # Resolve the doctor_id from the session for the notification
+                sess_doc = await conn.fetchval(
+                    "SELECT doctor_id FROM patient_sessions WHERE session_id = $1", session_id
+                )
+                notif_id = f"notif_{__import__('uuid').uuid4().hex[:8]}"
+                await conn.execute("""
+                    INSERT INTO admin_notifications (notif_id, doctor_id, message, is_read, timestamp)
+                    VALUES ($1, $2, $3, FALSE, CURRENT_TIMESTAMP)
+                """, notif_id, sess_doc or "system", f"OPD Consultation completed for session {session_id}.")
+    except Exception:
         pass
         
     return {

@@ -85,24 +85,6 @@ MOCK_ABHA_REGISTRY = {
         "mobile": "9830556677",
         "profilePhoto": ""
     },
-    "mita.chatterjee@abdm": {
-        "abha_number": "91-1001-2001-3004",
-        "name": "Mita Chatterjee",
-        "gender": "F",
-        "dob": "1974-08-19",
-        "address": "Howrah, West Bengal",
-        "mobile": "9830445566",
-        "blood_group": "AB+"
-    },
-    "debojit.das@abdm": {
-        "abha_number": "91-1001-2001-3005",
-        "name": "Debojit Das",
-        "gender": "M",
-        "dob": "2003-04-10",
-        "address": "Siliguri, West Bengal",
-        "mobile": "9830556677",
-        "blood_group": "O-"
-    },
     "tanusree.paul@abdm": {
         "abha_number": "91-1001-2001-3006",
         "name": "Tanusree Paul",
@@ -1024,101 +1006,7 @@ MOCK_ABHA_REGISTRY = {
         "blood_group": "O-"
     },
 
-    # --- BIHAR ---
-    "sunita.devi@abdm": {
-        "healthIdNumber": "91-1002-2002-3011",
-        "healthId": "sunita.devi@abdm",
-        "name": "Sunita Devi",
-        "gender": "F",
-        "yearOfBirth": "1955",
-        "monthOfBirth": "03",
-        "dayOfBirth": "24",
-        "address": "Kankarbagh",
-        "districtName": "Patna",
-        "stateName": "Bihar",
-        "pincode": "800020",
-        "mobile": "9431012345",
-        "profilePhoto": ""
-    },
-    "amit.kumar.jha@abdm": {
-        "healthIdNumber": "91-1002-2002-3012",
-        "healthId": "amit.kumar.jha@abdm",
-        "name": "Amit Kumar Jha",
-        "gender": "M",
-        "yearOfBirth": "1983",
-        "monthOfBirth": "05",
-        "dayOfBirth": "11",
-        "address": "Darbhanga City",
-        "districtName": "Darbhanga",
-        "stateName": "Bihar",
-        "pincode": "846004",
-        "mobile": "9431123456",
-        "profilePhoto": ""
-    },
 
-    # --- MAHARASHTRA ---
-    "aarav.sharma@abdm": {
-        "healthIdNumber": "91-1003-2003-3021",
-        "healthId": "aarav.sharma@abdm",
-        "name": "Aarav Sharma",
-        "gender": "M",
-        "yearOfBirth": "2018",
-        "monthOfBirth": "11",
-        "dayOfBirth": "05",
-        "address": "Andheri West",
-        "districtName": "Mumbai",
-        "stateName": "Maharashtra",
-        "pincode": "400053",
-        "mobile": "9820011223",
-        "profilePhoto": ""
-    },
-    "pradeep.kulkarni@abdm": {
-        "healthIdNumber": "91-1003-2003-3022",
-        "healthId": "pradeep.kulkarni@abdm",
-        "name": "Pradeep Kulkarni",
-        "gender": "M",
-        "yearOfBirth": "1960",
-        "monthOfBirth": "07",
-        "dayOfBirth": "14",
-        "address": "Kothrud",
-        "districtName": "Pune",
-        "stateName": "Maharashtra",
-        "pincode": "411038",
-        "mobile": "9820122334",
-        "profilePhoto": ""
-    },
-
-    # --- DELHI NCR ---
-    "harpreet.singh@abdm": {
-        "healthIdNumber": "91-1004-2004-3031",
-        "healthId": "harpreet.singh@abdm",
-        "name": "Harpreet Singh",
-        "gender": "M",
-        "yearOfBirth": "1980",
-        "monthOfBirth": "08",
-        "dayOfBirth": "15",
-        "address": "Tilak Nagar",
-        "districtName": "New Delhi",
-        "stateName": "Delhi",
-        "pincode": "110018",
-        "mobile": "9811011223",
-        "profilePhoto": ""
-    },
-    "divya.kapoor@abdm": {
-        "healthIdNumber": "91-1004-2004-3032",
-        "healthId": "divya.kapoor@abdm",
-        "name": "Divya Kapoor",
-        "gender": "F",
-        "yearOfBirth": "1991",
-        "monthOfBirth": "04",
-        "dayOfBirth": "09",
-        "address": "Rohini Sector 9",
-        "districtName": "New Delhi",
-        "stateName": "Delhi",
-        "pincode": "110085",
-        "mobile": "9811122334",
-        "profilePhoto": ""
-    }
 }
 
 # --- LOOKUP HELPER UTILITIES ---
@@ -1136,10 +1024,12 @@ def lookup_patient_by_identifier(query: str) -> dict | None:
     if query.strip() in MOCK_ABHA_REGISTRY:
         return MOCK_ABHA_REGISTRY[query.strip()].copy()
     
-    # Secondary search on healthIdNumber or mobile
+    # Secondary search on healthIdNumber/abha_number or mobile
     for abha_addr, data in MOCK_ABHA_REGISTRY.items():
-        clean_health_id = data["healthIdNumber"].replace("-", "")
-        if clean_health_id == clean_query or data["mobile"] == clean_query:
+        # Handle both schema variants: healthIdNumber (ABDM sandbox) and abha_number (compact)
+        health_id = data.get("healthIdNumber") or data.get("abha_number") or ""
+        clean_health_id = health_id.replace("-", "")
+        if clean_health_id == clean_query or data.get("mobile", "") == clean_query:
             return data.copy()
             
     return None

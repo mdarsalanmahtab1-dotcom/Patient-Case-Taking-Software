@@ -39,7 +39,7 @@ HOSPITAL_DEPARTMENTS = [
         "name": "General Medicine",
         "room": "Room 101 – 104",
         "description": "Primary care for acute illnesses, fevers, chronic hypertension, diabetes management, and general systemic evaluations.",
-        "consultants": "Dr. Jane Doe (MD), Dr. Deepak Shankar Ray"
+        "consultants": "Dr. Sneha Roy (MD), Dr. Deepak Shankar Ray"
     },
     {
         "name": "Cardiology",
