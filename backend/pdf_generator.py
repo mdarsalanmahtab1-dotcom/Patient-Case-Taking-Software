@@ -37,7 +37,7 @@ class PDFEngine:
                     html_content, res_queue = task
                     try:
                         page = self.browser.new_page()
-                        page.set_content(html_content, wait_until="networkidle")
+                        page.set_content(html_content, wait_until="domcontentloaded")
                         pdf_bytes = page.pdf(
                             format="A4",
                             print_background=True,
@@ -78,25 +78,71 @@ pdf_engine = PDFEngine()
 
 def _compress_image_to_base64(image_path: str) -> str:
     import base64
-    if not os.path.exists(image_path):
+    import urllib.request
+    
+    if not image_path:
         return ""
+        
+    img_bytes = None
+    clean_path = str(image_path).strip()
+    
+    # 1. Remote HTTP/HTTPS URL (e.g. Supabase Storage signed URL)
+    if clean_path.startswith("http://") or clean_path.startswith("https://"):
+        try:
+            req = urllib.request.Request(
+                clean_path,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SwasthyaSync/1.0"}
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                img_bytes = resp.read()
+        except Exception as e:
+            logger.error(f"Failed to fetch image from URL {clean_path[:80]}...: {e}")
+            return ""
+            
+    # 2. Local file path
+    elif os.path.exists(clean_path):
+        try:
+            with open(clean_path, "rb") as f:
+                img_bytes = f.read()
+        except Exception as e:
+            logger.error(f"Failed to read local image file {clean_path}: {e}")
+            return ""
+            
+    # 3. Fallback in uploads/ directory
+    else:
+        candidate1 = os.path.join(os.path.dirname(__file__), "uploads", os.path.basename(clean_path))
+        candidate2 = os.path.join("uploads", os.path.basename(clean_path))
+        if os.path.exists(candidate1):
+            try:
+                with open(candidate1, "rb") as f:
+                    img_bytes = f.read()
+            except Exception:
+                pass
+        elif os.path.exists(candidate2):
+            try:
+                with open(candidate2, "rb") as f:
+                    img_bytes = f.read()
+            except Exception:
+                pass
+
+    if not img_bytes:
+        logger.warning(f"Could not load image bytes for path: {clean_path[:80]}")
+        return ""
+
     try:
-        with Image.open(image_path) as img:
-            # Convert to RGB if necessary (e.g., if RGBA)
+        with Image.open(io.BytesIO(img_bytes)) as img:
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
             
-            # Resize preserving aspect ratio
+            # Resize preserving aspect ratio (A4 high resolution)
             img.thumbnail((1200, 1600), Image.Resampling.LANCZOS)
             
-            # Save to BytesIO as JPEG
             buffered = io.BytesIO()
-            img.save(buffered, format="JPEG", quality=80)
+            img.save(buffered, format="JPEG", quality=85)
             img_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
             return f"data:image/jpeg;base64,{img_b64}"
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Error compressing image {image_path}: {e}")
+        logger.error(f"Error compressing image {clean_path[:80]}: {e}")
         return ""
 
 async def generate_summary_pdf(session_id: str, context: dict) -> str:
@@ -114,6 +160,20 @@ async def generate_summary_pdf(session_id: str, context: dict) -> str:
              if b64:
                  compressed_images.append(b64)
         context["uploaded_images"] = compressed_images
+
+    # Auto-inject Ayurvedic summary for AYUSH / integrative clinic mode
+    raw_mode = str(context.get("clinic_mode", "allopathic")).lower().strip()
+    is_ayush = "ayush" in raw_mode or "ayur" in raw_mode or raw_mode == "integrative"
+    if is_ayush and "ayush_summary" not in context:
+        try:
+            from ayush_templates import calculate_prakriti
+            filled_state = context.get("filled_state", {})
+            cc = context.get("ai_summary", {}).get("chief_complaint", "")
+            if not cc and isinstance(context.get("ai_summary"), dict):
+                cc = context.get("ai_summary", {}).get("clinical_narrative", "")
+            context["ayush_summary"] = calculate_prakriti(filled_state, cc)
+        except Exception as e:
+            logger.error(f"Error computing ayush_summary for PDF: {e}")
 
     html_content = template.render(**context)
     

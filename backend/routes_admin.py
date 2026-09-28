@@ -50,10 +50,10 @@ async def get_analytics():
 
 @admin_router.get("/queues")
 async def get_queues():
-    # Reuse the existing fetch_triage_queue but filter for IN_PROGRESS
+    # Return all active non-archived queues (WAITING, IN_PROGRESS)
     all_queues = await database.fetch_triage_queue()
-    in_progress = [q for q in all_queues if q.get("session_status") == "IN_PROGRESS"]
-    return in_progress
+    active_queues = [q for q in all_queues if q.get("session_status") in ("IN_PROGRESS", "WAITING")]
+    return active_queues
 
 @admin_router.put("/queue/{session_id}/downgrade")
 async def downgrade_queue(session_id: str, req: AdminActionReq):

@@ -1,4 +1,4 @@
-﻿"""
+"""
 SwasthyaSync v4 — Simplified Macro-FSM
 
 Simplified for the dynamic schema-driven architecture.
@@ -48,12 +48,12 @@ class MacroFSM:
         self._state_sequence = self._build_sequence()
 
     def _build_sequence(self) -> list[str]:
-        """Build the ordered state list, inserting AYUSH_ASSESSMENT if needed."""
-        seq = list(MACRO_STATES)
-        if self.clinic_mode in ("ayush", "integrative"):
-            interview_idx = seq.index("DOCUMENT_SCAN")
-            seq.insert(interview_idx, "AYUSH_ASSESSMENT")
-        return seq
+        """
+        Build the ordered state list.
+        AYUSH intake is handled seamlessly inside DYNAMIC_INTERVIEW via the fixed
+        CCRAS template, ensuring 100% identical UI/UX and state progression.
+        """
+        return list(MACRO_STATES)
 
     @property
     def is_conversational(self) -> bool:

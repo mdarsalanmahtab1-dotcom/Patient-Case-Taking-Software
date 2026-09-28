@@ -166,15 +166,121 @@ async def get_patient_documents(phone: str = Depends(get_verified_phone)):
         raise HTTPException(status_code=500, detail="Internal server error fetching documents")
 
 
+from services.swasthya_prompt import build_chat_system_prompt
+from services.chat_router import classify_intent_and_safety, get_direct_small_talk_reply
+from services.chat_tools import (
+    get_my_profile,
+    get_my_medical_history,
+    get_my_latest_case_summary,
+    get_my_latest_reports,
+    get_my_prescriptions,
+    get_my_vitals,
+    get_my_uploaded_documents,
+    get_my_queue_status,
+    search_hospital
+)
+from llm_client import generate_portal_chat_structured, generate_portal_chat_reply, clean_and_parse_json
+
+
+@app.get("/api/portal/chat/status")
+async def get_portal_chat_status(phone: str = Depends(get_verified_phone)):
+    """Returns record availability status for dynamic UI context badge."""
+    try:
+        latest = await database.fetch_latest_clinical_record(phone)
+        info = await database.fetch_patient_info_by_phone(phone)
+        return {
+            "record_available": bool(latest),
+            "patient_name": info.get("full_name", "") if info else "",
+            "phone_masked": _mask_phone(phone)
+        }
+    except Exception as e:
+        logger.error(f"Error fetching chat status: {e}")
+        return {"record_available": False, "patient_name": "", "phone_masked": ""}
+
+
 @app.post("/api/portal/chat")
 async def patient_portal_chat(request: ChatRequest, phone: str = Depends(get_verified_phone)):
-    """Context-aware AI chatbot using the patient's latest clinical record (RAG)."""
+    """Context-aware, intent-routed AI companion with scoped tools and clinical safety."""
     try:
+        user_msg = request.user_message.strip()
+        intent, is_emergency = classify_intent_and_safety(user_msg)
+
+        # 1. Immediate Emergency Escalation
+        if is_emergency:
+            return {
+                "reply": "⚠️ **URGENT MEDICAL NOTICE**: Your message describes symptoms that require immediate emergency attention.\n\n"
+                         "Please call **108** (National Emergency), **1800-123-4567** (SwasthyaSync Hospital Emergency), or proceed immediately to the nearest Emergency Trauma Center. "
+                         "Do not wait for an online reply.",
+                "intent": "EMERGENCY",
+                "emergency": True,
+                "needs_clinician": True,
+                "sources": [{"type": "emergency_protocol", "label": "SwasthyaSync Emergency Protocol", "id": "EMERGENCY-108"}],
+                "confidence": "high",
+                "suggested_followups": [
+                    "What is the hospital emergency number?",
+                    "Where is the emergency department located?"
+                ]
+            }
+
+        # 2. Fast Small-Talk Isolation (Zero DB queries, friendly polite reply)
+        if intent == "SMALL_TALK":
+            talk_res = get_direct_small_talk_reply(user_msg)
+            return {
+                "reply": talk_res["response"],
+                **talk_res
+            }
+
+        # 3. Check Patient Record Presence
         latest_record = await database.fetch_latest_clinical_record(phone)
+        patient_info = await database.fetch_patient_info_by_phone(phone)
 
-        if not latest_record:
-            return {"reply": "I couldn't find any recent medical records for your profile. How can I help you today?"}
+        # If user explicitly asked for their personal record, but no record is present
+        if intent == "PATIENT_RECORD" and not latest_record:
+            return {
+                "reply": "I don't currently have a medical report or prescription available in your SwasthyaSync record for that question. "
+                         "You can scan your past paper records at the hospital kiosk or upload them under the **History** tab. "
+                         "In the meantime, feel free to ask me about hospital departments, kiosk guidance, or general health.",
+                "intent": "PATIENT_RECORD",
+                "response": "I don't currently have a medical report or prescription available in your SwasthyaSync record for that question.",
+                "sources": [],
+                "confidence": "high",
+                "needs_clinician": False,
+                "emergency": False,
+                "suggested_followups": [
+                    "What does the SwasthyaSync kiosk do?",
+                    "Which department handles general checkups?",
+                    "How do I upload past medical records?"
+                ]
+            }
 
+        # 4. Scoped Context Assembly
+        patient_context = {}
+        if latest_record or patient_info:
+            patient_context["profile"] = {
+                "name": patient_info.get("full_name") if patient_info else "Patient",
+                "age": patient_info.get("age") if patient_info else None,
+                "gender": patient_info.get("gender") if patient_info else None,
+            }
+            if latest_record:
+                full_sum = latest_record.get("full_detailed_summary", {})
+                patient_context["latest_visit"] = {
+                    "doctor_consultation_notes": latest_record.get("doctor_consultation_notes", ""),
+                    "chief_complaint": full_sum.get("chief_complaint") or full_sum.get("clinical_narrative", ""),
+                    "assessment": full_sum.get("Assessment") or full_sum.get("critical_highlights", []),
+                    "prescriptions": await get_my_prescriptions(phone),
+                    "lab_reports": await get_my_latest_reports(phone),
+                    "vitals": await get_my_vitals(phone)
+                }
+
+        # Retrieve relevant hospital/kiosk knowledge
+        hospital_context = search_hospital(user_msg)
+
+        # Retrieve queue status if relevant
+        if intent == "QUEUE_STATUS":
+            queue_data = await get_my_queue_status(phone)
+            hospital_context["patient_queue"] = queue_data
+
+        # 5. Format Conversation Turns
         conv_text = ""
         if request.history:
             recent = request.history[-6:]
@@ -182,142 +288,49 @@ async def patient_portal_chat(request: ChatRequest, phone: str = Depends(get_ver
             for m in recent:
                 sender_label = "Patient" if m.get("sender") == "user" else "Assistant"
                 turns.append(f"{sender_label}: {m.get('text', '')}")
-            conv_text = "\nPrevious Conversation Context:\n" + "\n".join(turns) + "\n"
+            conv_text = "\n".join(turns)
 
-        system_prompt = f"""
-You are SwasthyaSync's friendly, compassionate, and patient-focused Medical Assistant.
-You are speaking directly with the patient, so communicate naturally, respectfully, and in simple language.
+        # 6. Build Master System Prompt
+        system_prompt = build_chat_system_prompt(
+            patient_context_json=json.dumps(patient_context, indent=2, default=str),
+            hospital_context_json=json.dumps(hospital_context, indent=2, default=str),
+            conversation_history_text=conv_text
+        )
 
-PATIENT'S CLINICAL RECORD:
-{json.dumps(latest_record, indent=2)}
+        # 7. Generate Structured Response
+        structured = generate_portal_chat_structured(system_prompt, user_msg)
+        response_text = structured.get("response") or structured.get("reply", "")
 
-PREVIOUS CONVERSATION:
-{conv_text}
+        # Defensive check: unwrap if response_text is itself a stringified JSON or markdown codeblock
+        if isinstance(response_text, str) and (response_text.strip().startswith("{") or response_text.strip().startswith("```")):
+            inner = clean_and_parse_json(response_text)
+            if inner and ("response" in inner or "reply" in inner):
+                response_text = inner.get("response") or inner.get("reply", "")
+                structured["response"] = response_text
+                if "sources" in inner and not structured.get("sources"):
+                    structured["sources"] = inner["sources"]
+                if "suggested_followups" in inner and not structured.get("suggested_followups"):
+                    structured["suggested_followups"] = inner["suggested_followups"]
+                if "intent" in inner and structured.get("intent") in ["UNKNOWN", "GENERAL_HEALTH"]:
+                    structured["intent"] = inner["intent"]
 
+        structured["response"] = response_text
 
-CORE BEHAVIOR:
-
-1. NATURAL CONVERSATION
-- Talk to the patient naturally, like a helpful and caring assistant.
-- If the patient is simply greeting you, making small talk, asking how you are, thanking you, or trying to have a normal conversation, respond naturally and warmly.
-- Do NOT force every conversation to be about their medical record, symptoms, diagnosis, or treatment.
-- Stay relevant to what the patient is actually saying.
-- Example:
-  Patient: "Hello, how are you?"
-  Assistant: "Hello! I'm doing well. How can I help you today?"
-
-
-2. PERSONAL CLINICAL RECORD QUESTIONS
-- When the patient asks about their own diagnosis, prescriptions, lab results, medical history, donor status, previous reports, or other personal medical information, answer ONLY using the clinical record provided above and relevant conversation context.
-- Do not invent, assume, or fill in missing clinical information.
-- If the requested information is not available in the clinical record, clearly say that you do not have that information.
-- Never present assumptions as facts.
-
-
-3. GENERAL HEALTH QUESTIONS
-- For general medical, health, or wellness questions such as:
-  "What is BMR?"
-  "What is normal blood pressure?"
-  "What foods are healthy?"
-  explain the concept clearly using simple, patient-friendly language.
-- Keep the explanation practical and easy to understand.
-- Do not unnecessarily make the answer complicated or overly detailed.
-
-
-4. WHEN THE PATIENT DESCRIBES A PROBLEM OR SYMPTOM
-- Answer the patient's actual question directly and briefly.
-- Do NOT try to diagnose the patient or guess what disease they may have.
-- Do NOT create a list of possible diseases unless specifically necessary for safety.
-- Do NOT prescribe medicines, change dosages, or recommend starting/stopping medication.
-- Focus only on answering the question asked.
-- When appropriate, give a simple, general safety recommendation such as contacting a doctor.
-- Do not turn a simple symptom question into a long medical explanation.
-
-Example:
-Patient: "I have a headache. What should I do?"
-Good response:
-"Rest, drink enough water, and avoid excessive screen time for a while. If the headache is severe, persistent, or keeps returning, please speak with a doctor."
-
-Avoid:
-"You may have migraine, sinusitis, dehydration, hypertension, or another condition..."
-
-
-5. PREVENT MISINFORMATION
-- Never diagnose a new medical condition.
-- Never prescribe new medications or provide individualized treatment plans.
-- Never contradict the patient's doctor based only on general knowledge.
-- For personal treatment decisions, always advise the patient to follow their doctor's instructions or consult their healthcare professional.
-- Clearly distinguish between general health information and information specifically supported by the patient's record.
-
-
-6. EMERGENCY / WARNING SIGNS
-- If the patient describes symptoms that may indicate an urgent or emergency situation, do not attempt to diagnose them.
-- Give a clear and direct recommendation to seek immediate medical attention or emergency care.
-- Keep the warning concise and understandable.
-
-
-7. RESPONSE STYLE
-- Be warm, calm, respectful, and compassionate.
-- Use simple language that a general patient can easily understand.
-- Keep responses concise and suitable for a smartphone or kiosk screen.
-- Answer the question first; do not bury the answer under unnecessary explanation.
-- Avoid unnecessary medical jargon.
-- Do not repeatedly mention "your clinical record" unless it is relevant.
-- Do not repeatedly say "consult your doctor" for every normal question; use that advice when it is actually relevant.
-- If the patient asks a simple question, give a simple answer.
-
-
-8. FOLLOW THE PATIENT'S INTENT
-- Always respond to what the patient is currently asking or saying.
-- Do not unnecessarily redirect the conversation toward symptoms, diagnosis, reports, prescriptions, or other medical topics.
-- If the patient changes the subject, naturally follow the new topic as long as it is appropriate and safe.
-- Be conversational while remaining medically responsible.
-
-
-9. MISSING OR UNCERTAIN INFORMATION
-- If information is unavailable, uncertain, or not present in the clinical record, say so honestly.
-- Never fabricate patient information, medical results, diagnoses, prescriptions, or history.
-
-
-10. MULTILINGUAL AND LOW-LITERACY COMMUNICATION
-- Communicate in the language the patient is most comfortable using.
-- First identify the language used by the patient and respond in the same language whenever possible.
-- Support common Indian languages such as English, Hindi, Bengali, Tamil, Telugu, Marathi, Gujarati, Kannada, Malayalam, Punjabi, Odia, Assamese, and other languages when supported by the system.
-- Understand and respond naturally when patients mix languages, use Hinglish, Banglish, transliterated Hindi/Bengali, or type in Roman script.
-- Example:
-  Patient: "Pet mein dard ho raha hai"
-  Response: "Agar dard zyada hai ya lagataar bana hua hai, doctor ko jaldi batayein. Filhaal aaram karein aur paani piyen."
-- Example:
-  Patient: "amar matha betha korche"
-  Response: "Matha betha jodi beshi hoy ba onekkhon dhore thake, tahole doctor-ke janan. Ekhon ektu bishram nin ebong porjapto jol khan."
-
-- For patients who may have limited education or difficulty understanding medical terminology:
-  - Prefer very simple everyday words.
-  - Avoid complex medical jargon whenever a simpler word is available.
-  - Explain difficult medical terms in plain language.
-  - Use short sentences.
-  - Give one idea at a time.
-  - Prefer familiar examples when explaining concepts.
-  - Do not use unnecessarily technical English.
-- Do not assume that the patient understands English just because some medical terms appear in their record.
-- If the patient responds in a regional language, continue in that language unless they ask to switch.
-- If the patient asks for a particular language, follow that request.
-- Do not unnecessarily translate every medical term if the translated term could become confusing; use the familiar term and explain it simply when needed.
-- When speaking to patients through voice interaction, use natural conversational phrasing rather than formal textbook language.
-- Never make a patient feel uncomfortable, embarrassed, or less educated because of their language, reading ability, or communication style.
-
-
-IMPORTANT:
-Your goal is to be a helpful conversational medical assistant — not a diagnostician.
-Be natural in conversation, answer the patient's actual question, keep symptom/problem responses brief, and use the clinical record only when the patient's question requires it.
-"""
-
-        reply = generate_portal_chat_reply(system_prompt, request.user_message)
-        return {"reply": reply}
+        return {
+            **structured,
+            "reply": response_text
+        }
 
     except Exception as e:
-        logger.error(f"Error in portal chat: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error generating chat reply")
+        logger.error(f"Error in portal chat: {e}", exc_info=True)
+        return {
+            "reply": "I apologize, but I encountered an error while processing your request. Please try again or ask your doctor directly.",
+            "intent": "ERROR",
+            "sources": [],
+            "confidence": "low",
+            "needs_clinician": True,
+            "emergency": False
+        }
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

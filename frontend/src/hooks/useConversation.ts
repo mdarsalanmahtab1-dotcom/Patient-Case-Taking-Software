@@ -44,6 +44,7 @@ export interface UIInstruction {
   prompt_subtitle?: string;
   options?: UIOption[];
   current_slot_id?: string;
+  current_field_id?: string;
   section_label?: string;
   template_name?: string;
   progress?: ProgressInfo;

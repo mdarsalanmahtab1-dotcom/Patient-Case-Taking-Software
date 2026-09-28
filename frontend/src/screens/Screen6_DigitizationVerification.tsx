@@ -1,8 +1,10 @@
 import { LiquidButton } from '../components/ui/button';
 import { CheckCircle, AlertTriangle, ArrowRight, FileCheck, Stethoscope, Pill, TestTube } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { getApiBaseUrl } from '../config';
+import { useTranslation } from '../hooks/useTranslation';
+import { useAudioGuide } from '../hooks/useAudioGuide';
 
 interface Props {
   patientRecord: any;
@@ -12,13 +14,17 @@ interface Props {
   onBack: () => void;
 }
 
-import { useTranslation } from '../hooks/useTranslation';
-
 export function Screen6_DigitizationVerification({ patientRecord, sessionId, onNext, onBack }: Props) {
   const { t } = useTranslation();
   const [isConfirming, setIsConfirming] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const BACKEND_URL = getApiBaseUrl();
+  const { speak, stop } = useAudioGuide();
+
+  useEffect(() => {
+    speak('final_check', undefined, 1);
+    return () => stop();
+  }, [speak, stop]);
 
   // Extract data from patientRecord (use the most recent extraction)
   const extractions = patientRecord?.document_extractions || [];
@@ -29,6 +35,7 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
   const confidence = docExt?.requires_human_verification ? 0.65 : 0.95;
 
   const handleConfirm = async () => {
+    stop();
     setIsConfirming(true);
     setErrorMsg(null);
     if (sessionId) {
@@ -59,33 +66,36 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="flex flex-col flex-1 p-6 sm:p-10 lg:p-12 h-full max-w-5xl mx-auto w-full"
+      className="flex flex-col flex-1 p-3.5 sm:p-10 lg:p-12 h-full max-w-5xl mx-auto w-full"
     >
       {extractions.length === 0 ? (
         <div className="flex flex-col items-center justify-center flex-1 text-center">
           <div className="bg-slate-100 p-6 rounded-full mb-6">
             <FileCheck className="w-16 h-16 text-slate-400" />
           </div>
-          <h2 className="text-3xl font-extrabold text-slate-900 mb-4">{t('verify.no_documents_uploaded')}</h2>
-          <p className="text-slate-500 text-lg mb-8 max-w-md">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-4">{t('verify.no_documents_uploaded')}</h2>
+          <p className="text-slate-500 text-sm sm:text-lg mb-8 max-w-md">
             {t('verify.no_docs_desc')}
           </p>
           <LiquidButton
-            onClick={onNext}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white px-10 py-4 rounded-full font-bold shadow-xl transition-all active:scale-95 text-lg"
+            onClick={() => {
+              stop();
+              onNext();
+            }}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 sm:px-10 py-3.5 sm:py-4 rounded-full font-bold shadow-xl transition-all active:scale-95 text-base sm:text-lg"
           >
             {t('verify.continue')}
           </LiquidButton>
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-4 mb-8">
-            <div className="bg-emerald-100 p-3 rounded-2xl">
-              <FileCheck className="w-8 h-8 text-emerald-600" />
+          <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-8">
+            <div className="bg-emerald-100 p-2.5 sm:p-3 rounded-2xl shrink-0">
+              <FileCheck className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-600" />
             </div>
             <div>
-              <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">{t('verify.scan_complete')}</h2>
-              <p className="text-slate-500 font-medium text-xl">{t('verify.scan_desc')}</p>
+              <h2 className="text-2xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">{t('verify.scan_complete')}</h2>
+              <p className="text-slate-500 font-medium text-sm sm:text-xl">{t('verify.scan_desc')}</p>
             </div>
           </div>
 
@@ -271,7 +281,10 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
         )}
         <div className="flex gap-4">
         <LiquidButton
-          onClick={onBack}
+          onClick={() => {
+            stop();
+            onBack();
+          }}
           disabled={isConfirming}
           className="px-6 sm:px-8 py-4 sm:py-5 rounded-full font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-[transform,background-color] duration-150 active:scale-[0.97] text-base sm:text-lg w-1/3 cursor-pointer shadow-2xs"
         >

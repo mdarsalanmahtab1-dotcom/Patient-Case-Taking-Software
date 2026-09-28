@@ -90,6 +90,7 @@ def mask_phone(phone_digits: str) -> str:
 class OTPRateLimiter:
     """
     Enforces rolling send limits and verify attempt limits per phone number.
+    Can be explicitly disabled for local demo and testing environments.
     """
     def __init__(
         self,
@@ -97,7 +98,9 @@ class OTPRateLimiter:
         window_seconds: int = 900,         # 15 minutes
         resend_cooldown_seconds: int = 60, # 1 minute between sends
         max_verify_attempts: int = 5,
+        disabled: bool = False,
     ):
+        self.disabled = disabled
         self.max_sends_per_window = max_sends_per_window
         self.window_seconds = window_seconds
         self.resend_cooldown_seconds = resend_cooldown_seconds
@@ -108,10 +111,24 @@ class OTPRateLimiter:
         # phone -> lockout until timestamp
         self._lockouts: Dict[str, float] = {}
 
+    def reset(self, phone_digits: Optional[str] = None) -> None:
+        """Clears lockouts and timestamps for a phone or all phones."""
+        if phone_digits:
+            self._lockouts.pop(phone_digits, None)
+            self._send_timestamps.pop(phone_digits, None)
+        else:
+            self._lockouts.clear()
+            self._send_timestamps.clear()
+
     def check_send_allowed(self, phone_digits: str) -> Tuple[bool, str, int]:
         """
         Returns (is_allowed, reason, retry_after_seconds)
         """
+        # Completely bypass rate limiting if disabled (for demo / dev mode)
+        if self.disabled:
+            self.reset(phone_digits)
+            return True, "", 0
+
         now = time.time()
 
         # Check existing lockout
@@ -140,12 +157,16 @@ class OTPRateLimiter:
         return True, "", 0
 
     def record_send(self, phone_digits: str) -> None:
+        if self.disabled:
+            return
         now = time.time()
         timestamps = self._send_timestamps.get(phone_digits, [])
         timestamps.append(now)
         self._send_timestamps[phone_digits] = timestamps
 
     def trigger_lockout(self, phone_digits: str, duration_seconds: int = 900) -> None:
+        if self.disabled:
+            return
         self._lockouts[phone_digits] = time.time() + duration_seconds
 
 
@@ -324,8 +345,9 @@ class Fast2SMSOTPProvider(BaseOTPProvider):
                 status_code=410
             )
 
+        is_disabled = getattr(self.rate_limiter, "disabled", False) or os.getenv("OTP_DISABLE_RATE_LIMIT", "true").strip().lower() in ("true", "1", "yes")
         entry["attempts"] += 1
-        if entry["attempts"] > self.rate_limiter.max_verify_attempts:
+        if not is_disabled and entry["attempts"] > self.rate_limiter.max_verify_attempts:
             self._transactions.pop(transaction_id, None)
             self.rate_limiter.trigger_lockout(phone, 900)
             return OTPVerifyResult(
@@ -509,8 +531,9 @@ class MockOTPProvider(BaseOTPProvider):
                 status_code=410
             )
 
+        is_disabled = getattr(self.rate_limiter, "disabled", False) or os.getenv("OTP_DISABLE_RATE_LIMIT", "true").strip().lower() in ("true", "1", "yes")
         entry["attempts"] += 1
-        if entry["attempts"] > self.rate_limiter.max_verify_attempts:
+        if not is_disabled and entry["attempts"] > self.rate_limiter.max_verify_attempts:
             self._store.pop(transaction_id, None)
             self.rate_limiter.trigger_lockout(phone, 900)
             return OTPVerifyResult(
@@ -555,21 +578,28 @@ def get_otp_provider() -> BaseOTPProvider:
       OTP_PROVIDER=mock     -> MockOTPProvider (default for safety)
     """
     global _provider_instance
+    disable_rate_limit = os.getenv("OTP_DISABLE_RATE_LIMIT", "true").strip().lower() in ("true", "1", "yes")
+
     if _provider_instance is not None:
+        if disable_rate_limit:
+            if hasattr(_provider_instance, "rate_limiter") and _provider_instance.rate_limiter:
+                _provider_instance.rate_limiter.disabled = True
+                _provider_instance.rate_limiter.reset()
         return _provider_instance
 
     provider_type = os.getenv("OTP_PROVIDER", "mock").strip().lower()
     ttl_seconds = int(os.getenv("OTP_TTL_SECONDS", "300"))
-    max_attempts = int(os.getenv("OTP_MAX_VERIFY_ATTEMPTS", "5"))
-    max_sends = int(os.getenv("OTP_MAX_SENDS_PER_PHONE_WINDOW", "3"))
-    window_sec = int(os.getenv("OTP_SEND_WINDOW_SECONDS", "900"))
+    max_attempts = 999 if disable_rate_limit else int(os.getenv("OTP_MAX_VERIFY_ATTEMPTS", "5"))
+    max_sends = 99999 if disable_rate_limit else int(os.getenv("OTP_MAX_SENDS_PER_PHONE_WINDOW", "3"))
+    window_sec = 1 if disable_rate_limit else int(os.getenv("OTP_SEND_WINDOW_SECONDS", "900"))
     test_mode = os.getenv("OTP_TEST_MODE", "false").strip().lower() in ("true", "1", "yes")
 
     rate_limiter = OTPRateLimiter(
         max_sends_per_window=max_sends,
         window_seconds=window_sec,
-        resend_cooldown_seconds=60,
+        resend_cooldown_seconds=0 if disable_rate_limit else 60,
         max_verify_attempts=max_attempts,
+        disabled=disable_rate_limit,
     )
 
     if provider_type == "fast2sms":

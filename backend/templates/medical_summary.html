@@ -2,460 +2,1288 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>OP Casesheet - {{ patient.token }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>OPD Casesheet - {{ patient.token }} - {{ patient.name }}</title>
+    <!-- Google Fonts for Authentic Hospital Paper Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;0,900;1,400&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+    
     <style>
-        :root {
-            --navy: #0f172a;
-            --navy-2: #1e293b;
-            --brand-accent: #2563eb;
-            --ink: #334155;
-            --muted: #64748b;
-            --hairline: #e2e8f0;
-            --surface: #f8fafc;
-            --chip-ai-bg: #eff6ff;
-            --chip-ai-text: #1d4ed8;
-            --chip-ocr-bg: #f8fafc;
-            --chip-ocr-text: #475569;
-            --chip-doc-bg: #f0fdf4;
-            --chip-doc-text: #15803d;
-            --danger-bg: #fef2f2;
-            --danger-border: #ef4444;
+        /* ==========================================================================
+           AUTHENTIC INDIAN HOSPITAL OPD CASESHEET STYLING
+           Standards: AIIMS / Apollo / CGHS / ABDM Unified Outpatient Record
+           ========================================================================== */
+        
+        @page {
+            size: A4;
+            margin: 0;
         }
 
-        @page { size: A4; margin: 0; }
+        :root {
+            --ink-primary: #0f172a;       /* Deep slate ink */
+            --ink-secondary: #334155;     /* Dark body text */
+            --ink-muted: #64748b;         /* Metadata labels */
+            --border-navy: #0f2744;       /* Primary institutional border */
+            --border-hairline: #cbd5e1;   /* Table hairline separator */
+            --border-subtle: #e2e8f0;     /* Cell borders */
+            --bg-paper: #ffffff;          /* Clean white paper */
+            --bg-tint: #f8fafc;           /* Light clinical grey */
+            --bg-tint-strong: #f1f5f9;    /* Table header grey */
+            --accent-blue: #1d4ed8;       /* Institutional blue */
+            --accent-teal: #0f766e;       /* Clinical seal teal */
+            --danger-bg: #fef2f2;         /* Emergency warning background */
+            --danger-border: #dc2626;     /* Emergency warning red */
+            --danger-text: #991b1b;       /* Warning text */
+            --ayush-border: #059669;      /* AYUSH emerald */
+            --ayush-bg: #f0fdf4;          /* AYUSH light green tint */
+            --ayush-text: #065f46;        /* AYUSH dark text */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
         body {
-            font-family: 'Inter', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            color: var(--ink);
-            background-color: #ffffff;
-            font-size: 11px;
-            line-height: 1.35;
+            font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            color: var(--ink-secondary);
+            background-color: #e2e8f0;
+            font-size: 10.5px;
+            line-height: 1.4;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
 
-        .page-container {
+        .page-sheet {
             width: 210mm;
             min-height: 297mm;
-            padding: 10mm 15mm 15mm 15mm;
-            margin: auto;
-            box-sizing: border-box;
+            padding: 9mm 12mm 10mm 12mm;
+            margin: 0 auto;
+            background: var(--bg-paper);
             position: relative;
-            background: white;
-        }
-        .page-break { page-break-before: always; }
-        .border-dotted-b { border-bottom: 1px dotted #cbd5e1; }
-
-        /* ---- Brand ---- */
-        .brand-bar {
-            height: 5px;
-            border-radius: 3px;
-            background: linear-gradient(90deg, var(--brand-accent) 0%, var(--navy-2) 55%, var(--navy) 100%);
-            margin-bottom: 9px;
-        }
-        .doc-header {
             display: flex;
+            flex-direction: column;
             justify-content: space-between;
-            align-items: flex-start;
-            border-bottom: 2px solid var(--navy);
-            padding-bottom: 8px;
-            margin-bottom: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
-        .logo-lockup { display: flex; align-items: center; gap: 10px; }
-        .logo-img { height: 52px; width: auto; object-fit: contain; }
-        .logo-fallback { width: 42px; height: 42px; flex-shrink: 0; }
-        .wordmark { display: flex; flex-direction: column; line-height: 1.15; }
-        .wordmark-primary { font-size: 15px; font-weight: 800; color: var(--navy); }
-        .wordmark-tag { font-size: 8.5px; color: var(--brand-accent); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin-top: 1px; }
 
-        .title-block { text-align: right; }
-        .doc-title { font-size: 17px; font-weight: 900; color: var(--ink); letter-spacing: .03em; margin: 0; }
-        .token-badge { display: inline-block; margin-top: 5px; background: var(--navy); color: #fff; font-weight: 800; font-size: 10.5px; padding: 3px 10px; border-radius: 4px; }
-        .token-badge strong { font-size: 13px; letter-spacing: .02em; }
+        @media print {
+            body {
+                background-color: #ffffff;
+            }
+            .page-sheet {
+                box-shadow: none;
+                margin: 0;
+                padding: 9mm 12mm 10mm 12mm;
+                page-break-after: always;
+            }
+        }
 
-        /* ---- Alert banner ---- */
-        .alert-banner {
-            background: var(--danger-bg);
-            border-left: 4px solid var(--danger-border);
-            border-radius: 0 4px 4px 0;
-            padding: 7px 10px;
-            margin-bottom: 12px;
+        .page-break {
+            page-break-before: always;
+        }
+
+        /* --------------------------------------------------------------------------
+           1. HOSPITAL INSTITUTIONAL HEADER & BRANDMARK
+           -------------------------------------------------------------------------- */
+        .hospital-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-bottom: 2.5px solid var(--border-navy);
+            padding-bottom: 7px;
+            margin-bottom: 7px;
         }
-        .alert-title { color: var(--danger-border); font-weight: 900; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
-        .alert-reason { color: #7a1420; font-weight: 600; font-size: 10px; margin-top: 2px; }
-        .alert-tag { background: var(--red); color: #fff; font-weight: 800; font-size: 9px; padding: 3px 8px; border-radius: 3px; letter-spacing: .06em; text-transform: uppercase; }
 
-        /* ---- Demographics ---- */
-        .demo-grid {
+        .header-brand-wrap {
             display: flex;
-            font-size: 11px;
-            border-bottom: 1px solid var(--hairline);
-            padding-bottom: 12px;
-            margin-bottom: 14px;
+            align-items: center;
+            gap: 12px;
+            max-width: 62%;
         }
-        .demo-col { display: grid; grid-template-columns: 128px 1fr; row-gap: 4px; }
-        .demo-col.left { width: 54%; }
-        .demo-col.right { width: 46%; border-left: 1px solid var(--hairline); padding-left: 18px; margin-left: 18px; }
-        .demo-label { color: var(--muted); }
-        .demo-value { font-weight: 700; color: var(--ink); }
-        .follow-up-tag { color: var(--navy); font-weight: 800; }
 
-        /* ---- Left-spine section layout ---- */
-        .section-row { display: flex; page-break-inside: avoid; }
-        .section-label {
-            width: 190px;
-            flex-shrink: 0;
+        .hospital-logo {
+            height: 48px;
+            max-width: 140px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .hospital-logo-fallback {
+            width: 44px;
+            height: 44px;
+            background: var(--border-navy);
+            color: #ffffff;
             font-weight: 800;
-            color: var(--navy);
-            text-transform: uppercase;
-            font-size: 10.5px;
-            letter-spacing: .02em;
-            border-left: 3px solid var(--navy);
-            padding-left: 8px;
-        }
-        .section-body { flex: 1; }
-
-        /* ---- Vitals strip ---- */
-        .vitals-strip {
+            font-size: 22px;
             display: flex;
-            border: 1px solid var(--hairline);
-            border-radius: 6px;
-            overflow: hidden;
-            background: var(--surface);
-            width: 100%;
-            page-break-inside: avoid;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
         }
-        .vitals-cell { flex: 1; padding: 7px 12px; border-right: 1px solid var(--hairline); }
-        .vitals-cell:last-child { border-right: none; }
-        .vitals-label { font-size: 8.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
-        .vitals-value { font-size: 13px; font-weight: 800; color: var(--ink); margin-top: 1px; }
 
-        /* ---- Provenance chips ---- */
-        .chip {
+        .hospital-names {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hospital-name-en {
+            font-family: 'Merriweather', serif;
+            font-size: 15px;
+            font-weight: 900;
+            letter-spacing: 0.02em;
+            color: var(--ink-primary);
+            text-transform: uppercase;
+            line-height: 1.15;
+        }
+
+        .hospital-name-hi {
+            font-size: 9.5px;
+            font-weight: 600;
+            color: var(--accent-teal);
+            letter-spacing: 0.03em;
+            margin-top: 1px;
+        }
+
+        .hospital-accreditation {
+            font-size: 8px;
+            color: var(--ink-muted);
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            margin-top: 2px;
+        }
+
+        .header-meta-wrap {
+            text-align: right;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .casesheet-title-box {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .opd-casesheet-title {
+            font-family: 'Merriweather', serif;
+            font-size: 13.5px;
+            font-weight: 900;
+            color: var(--ink-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .token-callout {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 4px;
+            background: #0f172a;
+            color: #ffffff;
+            font-size: 9.5px;
+            font-weight: 700;
+            padding: 2.5px 8px;
+            border-radius: 3px;
+            letter-spacing: 0.04em;
+        }
+
+        .token-callout strong {
+            font-size: 13px;
+            color: #38bdf8;
+            letter-spacing: 0.05em;
+        }
+
+        .qr-seal {
+            width: 46px;
+            height: 46px;
+            border: 1px solid var(--border-hairline);
+            padding: 2px;
+            border-radius: 3px;
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .qr-seal img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* --------------------------------------------------------------------------
+           2. EMERGENCY TRIAGE ESCALATION BANNER
+           -------------------------------------------------------------------------- */
+        .triage-alert-banner {
+            background-color: var(--danger-bg);
+            border: 1.5px solid var(--danger-border);
+            border-left: 5px solid var(--danger-border);
+            padding: 5px 10px;
+            margin-bottom: 7px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 3px;
+        }
+
+        .triage-alert-title {
+            font-size: 10.5px;
+            font-weight: 800;
+            color: var(--danger-text);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .triage-alert-reason {
+            font-size: 9.5px;
+            font-weight: 600;
+            color: #7f1d1d;
+            margin-top: 1px;
+        }
+
+        .triage-urgent-badge {
+            background: var(--danger-border);
+            color: #ffffff;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 2px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        /* --------------------------------------------------------------------------
+           3. DEMOGRAPHICS & REGISTRATION TABLE
+           -------------------------------------------------------------------------- */
+        .patient-demographics-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1.5px solid var(--border-hairline);
+            margin-bottom: 7px;
+            background: #ffffff;
+        }
+
+        .patient-demographics-table td {
+            padding: 3.5px 7px;
+            font-size: 9.5px;
+            line-height: 1.3;
+            border: 1px solid var(--border-hairline);
+            vertical-align: top;
+        }
+
+        .demo-label {
+            color: var(--ink-muted);
+            font-weight: 700;
+            font-size: 8.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
             display: inline-block;
+            min-width: 65px;
+        }
+
+        .demo-val {
+            font-weight: 700;
+            color: var(--ink-primary);
+        }
+
+        .demo-highlight {
+            color: var(--accent-blue);
+            font-weight: 800;
+        }
+
+        /* --------------------------------------------------------------------------
+           4. VITALS OBSERVATION STRIP (6 PARAMETERS)
+           -------------------------------------------------------------------------- */
+        .vitals-bar-wrap {
+            margin-bottom: 7px;
+        }
+
+        .section-header-compact {
             font-size: 8.5px;
             font-weight: 800;
-            letter-spacing: .04em;
+            color: var(--ink-primary);
             text-transform: uppercase;
-            padding: 2px 7px;
-            border-radius: 3px;
-            margin-bottom: 6px;
+            letter-spacing: 0.06em;
+            margin-bottom: 3px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        .chip-ai { background: var(--chip-ai-bg); color: var(--chip-ai-text); }
-        .chip-ocr { background: var(--chip-ocr-bg); color: var(--chip-ocr-text); }
-        .chip-doc { background: var(--chip-doc-bg); color: var(--chip-doc-text); }
-        .chip-abnormal { background: var(--danger-bg); color: var(--danger-border); margin-left: 6px; margin-bottom: 0; }
 
-        .clinical-text { font-size: 11.5px; line-height: 1.6; color: var(--ink); }
-        .exam-grid { display: grid; grid-template-columns: 150px 1fr; row-gap: 4px; width: 100%; }
-        .exam-label { color: var(--muted); }
-        .exam-value { font-weight: 700; }
+        .section-header-compact::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: var(--border-hairline);
+        }
 
-        /* ---- Footer ---- */
-        .doc-footer { margin-top: 14px; padding-top: 8px; border-top: 2px solid var(--navy); }
-        .footer-meta { display: flex; justify-content: space-between; align-items: flex-end; font-size: 8.5px; color: var(--muted); margin-bottom: 8px; }
-        .signature-box { text-align: center; min-width: 150px; }
-        .signature-line { height: 30px; border-bottom: 1px solid #94a3b8; margin-bottom: 4px; }
-        .institution-bar {
-            background: var(--navy);
-            color: #fff;
-            border-radius: 5px;
-            padding: 8px 10px;
-            border-top: 2px solid var(--red);
+        .vitals-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            border: 1.5px solid var(--border-hairline);
+            background: var(--bg-tint);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .vital-cell {
+            padding: 4px 6px;
+            border-right: 1px solid var(--border-hairline);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .vital-cell:last-child {
+            border-right: none;
+        }
+
+        .vital-cell-label {
+            font-size: 7.5px;
+            font-weight: 700;
+            color: var(--ink-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .vital-cell-value {
+            font-size: 11.5px;
+            font-weight: 800;
+            color: var(--ink-primary);
+            margin-top: 1px;
+            line-height: 1.2;
+        }
+
+        .vital-cell-unit {
+            font-size: 8px;
+            font-weight: 600;
+            color: var(--ink-muted);
+            margin-left: 1px;
+        }
+
+        .vital-tag {
+            display: inline-block;
+            font-size: 7px;
+            font-weight: 700;
+            padding: 0.5px 3.5px;
+            border-radius: 2px;
+            margin-top: 1.5px;
+            width: fit-content;
+        }
+
+        .vital-tag-normal { background: #dcfce7; color: #166534; }
+        .vital-tag-warn { background: #fef3c7; color: #92400e; }
+        .vital-tag-alert { background: #fee2e2; color: #991b1b; }
+        .vital-tag-neutral { background: #f1f5f9; color: #64748b; }
+
+        /* --------------------------------------------------------------------------
+           5. CLINICAL OBSERVATIONS & HPI SECTION
+           -------------------------------------------------------------------------- */
+        .clinical-section-box {
+            border: 1.5px solid var(--border-hairline);
+            border-radius: 3px;
+            margin-bottom: 7px;
+            background: #ffffff;
+            page-break-inside: avoid;
+        }
+
+        .box-title-bar {
+            background: var(--bg-tint-strong);
+            padding: 3px 8px;
+            font-size: 9px;
+            font-weight: 800;
+            color: var(--ink-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border-hairline);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 8px;
         }
-        .institution-bar .hosp-name { font-weight: 800; font-size: 9.5px; letter-spacing: .02em; color: #fff; }
-        .institution-bar .muted-line { color: #b9c6d9; }
-        .compliance-tag { text-align: right; border-right: 1px solid #2b4c73; padding-right: 8px; }
-        .compliance-tag .strong { display: block; font-weight: 700; color: #e6ecf5; }
-        .qr-box { background: #fff; padding: 2px; border-radius: 4px; }
 
-        /* ---- Appendix page ---- */
-        .appendix-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--navy); padding-bottom: 8px; margin-bottom: 14px; }
-        .appendix-title { font-size: 16px; font-weight: 900; color: var(--ink); }
-        .appendix-sub { font-size: 9.5px; font-weight: 700; color: var(--muted); margin-top: 2px; }
-        .appendix-pill { background: var(--surface); color: var(--ink); font-size: 9px; font-weight: 800; padding: 3px 9px; border-radius: 4px; border: 1px solid var(--hairline); }
-        .doc-card { border: 1px solid var(--hairline); border-radius: 6px; padding: 8px; background: var(--surface); margin-bottom: 14px; page-break-inside: avoid; }
-        .doc-card-head { display: flex; justify-content: space-between; font-size: 9px; font-weight: 800; color: var(--muted); border-bottom: 1px solid var(--hairline); padding-bottom: 4px; margin-bottom: 6px; }
-        .appendix-footer { padding-top: 8px; border-top: 1px solid var(--hairline); display: flex; justify-content: space-between; font-size: 8.5px; color: var(--muted); }
+        .box-title-bar .badge-origin {
+            font-size: 7.5px;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 2px;
+            background: #e0e7ff;
+            color: #3730a3;
+            letter-spacing: 0.03em;
+        }
+
+        .box-content {
+            padding: 6px 8px;
+            font-size: 10px;
+            line-height: 1.5;
+            color: var(--ink-secondary);
+        }
+
+        .narrative-paragraph {
+            margin-bottom: 4px;
+            text-align: justify;
+        }
+
+        .narrative-paragraph:last-child {
+            margin-bottom: 0;
+        }
+
+        .ruling-lines-blank {
+            min-height: 52px;
+            background-image: repeating-linear-gradient(
+                to bottom,
+                transparent,
+                transparent 16px,
+                #e2e8f0 16px,
+                #e2e8f0 17px
+            );
+        }
+
+        /* --------------------------------------------------------------------------
+           6. AYUSH / CCRAS INTEGRATIVE ASSESSMENT
+           -------------------------------------------------------------------------- */
+        .ayush-panel {
+            border: 1.5px solid var(--ayush-border);
+            border-radius: 3px;
+            background: var(--ayush-bg);
+            margin-bottom: 7px;
+            padding: 6px 8px;
+            page-break-inside: avoid;
+        }
+
+        .ayush-panel-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #a7f3d0;
+            padding-bottom: 3px;
+            margin-bottom: 4px;
+        }
+
+        .ayush-title {
+            font-size: 9.5px;
+            font-weight: 800;
+            color: var(--ayush-text);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .ayush-badge {
+            background: var(--ayush-border);
+            color: #ffffff;
+            font-size: 8px;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 2px;
+            letter-spacing: 0.03em;
+        }
+
+        .ayush-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            font-size: 9px;
+            line-height: 1.35;
+        }
+
+        .dosha-metric-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 2px;
+        }
+
+        .dosha-label {
+            font-weight: 700;
+            color: var(--ink-primary);
+            min-width: 48px;
+        }
+
+        .dosha-progress-wrap {
+            flex: 1;
+            height: 5px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .dosha-progress-bar {
+            height: 100%;
+            background: var(--ayush-border);
+        }
+
+        .pathya-box {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 3px;
+            padding: 4px 6px;
+            font-size: 8.5px;
+        }
+
+        /* --------------------------------------------------------------------------
+           7. INVESTIGATIONS / LAB REPORT TABLE
+           -------------------------------------------------------------------------- */
+        .labs-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+        }
+
+        .labs-table th {
+            background: var(--bg-tint-strong);
+            text-align: left;
+            padding: 3px 6px;
+            font-weight: 700;
+            color: var(--ink-primary);
+            border: 1px solid var(--border-hairline);
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .labs-table td {
+            padding: 3.5px 6px;
+            border: 1px solid var(--border-hairline);
+            vertical-align: middle;
+        }
+
+        .badge-abnormal {
+            background: #fef2f2;
+            color: #dc2626;
+            font-weight: 800;
+            font-size: 7.5px;
+            padding: 1px 4px;
+            border-radius: 2px;
+            border: 1px solid #fca5a5;
+            text-transform: uppercase;
+        }
+
+        .badge-normal {
+            background: #f0fdf4;
+            color: #16a34a;
+            font-weight: 700;
+            font-size: 7.5px;
+            padding: 1px 4px;
+            border-radius: 2px;
+            border: 1px solid #bbf7d0;
+            text-transform: uppercase;
+        }
+
+        /* --------------------------------------------------------------------------
+           8. PRESCRIPTION & TREATMENT (Rx)
+           -------------------------------------------------------------------------- */
+        .rx-wrapper {
+            border: 1.5px solid var(--border-hairline);
+            border-radius: 3px;
+            margin-bottom: 7px;
+            background: #ffffff;
+            page-break-inside: avoid;
+        }
+
+        .rx-header {
+            background: var(--bg-tint-strong);
+            padding: 3px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-hairline);
+        }
+
+        .rx-symbol-label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 9px;
+            font-weight: 800;
+            color: var(--ink-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .rx-symbol-char {
+            font-family: 'Merriweather', serif;
+            font-size: 14px;
+            font-weight: 900;
+            color: var(--accent-blue);
+            line-height: 1;
+        }
+
+        .meds-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+        }
+
+        .meds-table th {
+            background: var(--bg-tint);
+            text-align: left;
+            padding: 3px 6px;
+            font-weight: 700;
+            color: var(--ink-muted);
+            border-bottom: 1px solid var(--border-hairline);
+            font-size: 7.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .meds-table td {
+            padding: 3.5px 6px;
+            border-bottom: 1px solid var(--border-hairline);
+            vertical-align: top;
+        }
+
+        .meds-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .med-name {
+            font-weight: 700;
+            color: var(--ink-primary);
+        }
+
+        /* --------------------------------------------------------------------------
+           9. AUTHENTIC DIGITAL SIGN-OFF & FOOTER
+           -------------------------------------------------------------------------- */
+        .footer-boundary {
+            margin-top: auto;
+            padding-top: 6px;
+        }
+
+        .signoff-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 6px;
+            padding: 0 4px;
+        }
+
+        .legal-disclaimer {
+            max-width: 58%;
+            font-size: 7.5px;
+            line-height: 1.35;
+            color: var(--ink-muted);
+        }
+
+        .doctor-signature-block {
+            text-align: right;
+            min-width: 160px;
+        }
+
+        .sig-stamp-box {
+            border: 1px dashed #94a3b8;
+            padding: 4px 8px;
+            border-radius: 3px;
+            background: var(--bg-tint);
+            text-align: center;
+        }
+
+        .sig-stamp-verified {
+            font-size: 8px;
+            font-weight: 800;
+            color: var(--accent-teal);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .sig-doctor-name {
+            font-size: 10px;
+            font-weight: 800;
+            color: var(--ink-primary);
+            margin-top: 1px;
+        }
+
+        .sig-doctor-reg {
+            font-size: 7.5px;
+            font-weight: 600;
+            color: var(--ink-muted);
+        }
+
+        .bottom-audit-bar {
+            background: var(--border-navy);
+            color: #ffffff;
+            padding: 5px 8px;
+            border-radius: 3px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 7.5px;
+        }
+
+        .bottom-audit-bar a {
+            color: #93c5fd;
+            text-decoration: none;
+        }
+
+        .audit-tag {
+            font-weight: 700;
+            letter-spacing: 0.03em;
+        }
+
+        /* --------------------------------------------------------------------------
+           10. APPENDIX PAGE (ATTACHED PAST RECORDS)
+           -------------------------------------------------------------------------- */
+        .appendix-sheet {
+            padding: 9mm 12mm 10mm 12mm;
+        }
+
+        .appendix-title-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border-navy);
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+
+        .appendix-h1 {
+            font-family: 'Merriweather', serif;
+            font-size: 13px;
+            font-weight: 900;
+            color: var(--ink-primary);
+            text-transform: uppercase;
+        }
+
+        .appendix-doc-card {
+            border: 1px solid var(--border-hairline);
+            border-radius: 3px;
+            margin-bottom: 10px;
+            background: #ffffff;
+            page-break-inside: avoid;
+            overflow: hidden;
+        }
+
+        .appendix-doc-head {
+            background: var(--bg-tint-strong);
+            padding: 4px 8px;
+            font-size: 8.5px;
+            font-weight: 700;
+            color: var(--ink-secondary);
+            border-bottom: 1px solid var(--border-hairline);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .appendix-doc-body {
+            padding: 8px;
+            text-align: center;
+        }
+
+        .appendix-doc-img {
+            max-height: 190mm;
+            max-width: 100%;
+            object-fit: contain;
+            border: 1px solid var(--border-subtle);
+            border-radius: 2px;
+        }
     </style>
 </head>
 <body>
 
-    <div class="page-container flex flex-col justify-between">
+    <!-- ======================================================================
+         PAGE 1: OFFICIAL OPD CONSULTATION CASESHEET
+         ====================================================================== -->
+    <div class="page-sheet">
         <div>
-            <div class="brand-bar"></div>
-
-            <!-- Header Block: Logo & Title -->
-            <div class="doc-header">
-                <div class="logo-lockup">
+            <!-- 1. Institutional Letterhead Header -->
+            <header class="hospital-header">
+                <div class="header-brand-wrap">
                     {% if logo_b64 %}
-                        <img src="{{ logo_b64 }}" class="logo-img" alt="Hospital Logo" />
+                        <img src="{{ logo_b64 }}" class="hospital-logo" alt="SwasthyaSync Brandmark" />
                     {% else %}
-                        <svg viewBox="0 0 40 40" class="logo-fallback" aria-hidden="true">
-                            <rect width="40" height="40" rx="9" fill="#0d2b52"/>
-                            <rect x="17" y="8" width="6" height="24" rx="2" fill="#ffffff"/>
-                            <rect x="8" y="17" width="24" height="6" rx="2" fill="#ffffff"/>
-                        </svg>
+                        <div class="hospital-logo-fallback">SS</div>
                     {% endif %}
-                    <div class="wordmark">
-                        <span class="wordmark-primary">{{ hospital_name | default('SwasthyaSync Healthcare Academy') }}</span>
-                        <span class="wordmark-tag">Digital OPD Casesheet</span>
+                    <div class="hospital-names">
+                        <h1 class="hospital-name-en">{{ hospital_name | default('SWASTHYASYNC HEALTHCARE') }}</h1>
+                        <span class="hospital-name-hi">स्वास्थ्यसिंक स्वास्थ्य सेवा &bull; आउटपेशेंट विभाग (OPD)</span>
+                        <span class="hospital-accreditation">
+                            NABH Accredited &bull; ABDM Facility ID: IN-WB-700091-01 &bull; DPDP Act 2023 Compliant
+                        </span>
                     </div>
                 </div>
-                <div class="title-block">
-                    <h2 class="doc-title">OP Casesheet</h2>
-                    <div class="token-badge">TOKEN&nbsp;<strong>{{ patient.token }}</strong></div>
-                </div>
-            </div>
 
-            <!-- Priority Emergency Banner -->
-            {% if red_flag_active %}
-            <div class="alert-banner">
-                <div>
-                    <div class="alert-title">Priority triage escalation detected</div>
-                    <p class="alert-reason">{{ triage_reason }}</p>
+                <div class="header-meta-wrap">
+                    <div class="casesheet-title-box">
+                        <div class="opd-casesheet-title">OPD Casesheet</div>
+                        <div class="token-callout">
+                            TOKEN NO: <strong>{{ patient.token }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="qr-seal" title="Scan for Verified ABDM / PHR Record">
+                        {% if qr_b64 %}
+                            <img src="{{ qr_b64 }}" alt="ABDM Offline QR Code" />
+                        {% else %}
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=46x46&data={{ patient.token }}" alt="Token QR" />
+                        {% endif %}
+                    </div>
                 </div>
-                <span class="alert-tag">Urgent</span>
+            </header>
+
+            <!-- 2. Priority Emergency Alert (If Flagged) -->
+            {% if red_flag_active %}
+            <div class="triage-alert-banner">
+                <div>
+                    <div class="triage-alert-title">&#9888; Priority Triage Escalation Flagged</div>
+                    <div class="triage-alert-reason">{{ triage_reason }}</div>
+                </div>
+                <span class="triage-urgent-badge">Urgent Attention</span>
             </div>
             {% endif %}
 
-            <!-- Demographics -->
-            <div class="demo-grid">
-                <div class="demo-col left">
-                    <div class="demo-label">Patient MRN / ABHA</div>
-                    <div class="demo-value">: {{ patient.abha_id | default('91-8273-1928-10') }}</div>
-
-                    <div class="demo-label">Patient Name</div>
-                    <div class="demo-value">: {{ patient.name }}</div>
-
-                    <div class="demo-label">Sex/Age</div>
-                    <div class="demo-value">: {{ patient.gender }}, {{ patient.age }}y</div>
-
-                    <div class="demo-label">Address</div>
-                    <div class="demo-value" style="line-height:1.25;">: {{ patient.address | default('Kolkata, West Bengal, India, 700039') }}</div>
-
-                    <div class="demo-label" style="margin-top:6px;">Visit Number</div>
-                    <div class="demo-value" style="margin-top:6px;">: {{ patient.token }}</div>
-
-                    <div class="demo-label">Consultation Type</div>
-                    <div class="demo-value">: {{ patient.visit_type | default('OP, New Visit') }}
-                        {% if previous_history %}<span class="follow-up-tag"> (Follow-Up)</span>{% endif %}
-                    </div>
-
-                    <div class="demo-label">Mobile Number</div>
-                    <div class="demo-value">: {{ patient.phone }}</div>
-                </div>
-
-                <div class="demo-col right">
-                    <div class="demo-label">Date</div>
-                    <div class="demo-value">: {{ timestamp }}</div>
-
-                    <div class="demo-label">Department</div>
-                    <div class="demo-value">: {{ department | default('NEPHROLOGY') }}</div>
-
-                    <div class="demo-label">Consultant</div>
-                    <div class="demo-value">: {{ doctor_name | default('Dr. Deepak Shankar Ray') }}</div>
-
-                    <div class="demo-label">Ref. Hospital</div>
-                    <div class="demo-value">: -</div>
-
-                    <div class="demo-label">Ref. Doctor</div>
-                    <div class="demo-value">: -</div>
-
-                    <div class="demo-label">Sponsor Name</div>
-                    <div class="demo-value">: -</div>
-                </div>
-            </div>
-
-            <!-- The Classic Left-Spine Layout -->
-            <div class="space-y-5">
-
-                <!-- Vitals -->
-                <div class="section-row">
-                    <div class="section-label">Vitals</div>
-                    <div class="section-body">
-                        <div class="vitals-strip">
-                            <div class="vitals-cell">
-                                <div class="vitals-label">BP (mmHg)</div>
-                                <div class="vitals-value">{{ vitals.bp | default('&nbsp;&nbsp;/&nbsp;&nbsp;') }}</div>
-                            </div>
-                            <div class="vitals-cell">
-                                <div class="vitals-label">Heart Rate (bpm)</div>
-                                <div class="vitals-value">{{ vitals.hr | default('&nbsp;&nbsp;') }}</div>
-                            </div>
-                            <div class="vitals-cell">
-                                <div class="vitals-label">Weight (kg)</div>
-                                <div class="vitals-value">{{ vitals.weight | default('&nbsp;&nbsp;') }}</div>
-                            </div>
-                            <div class="vitals-cell">
-                                <div class="vitals-label">Temp (&deg;F)</div>
-                                <div class="vitals-value">{{ vitals.temp | default('&nbsp;&nbsp;') }}</div>
-                            </div>
-                            <div class="vitals-cell">
-                                <div class="vitals-label">SpO2</div>
-                                <div class="vitals-value">{{ vitals.spo2 | default('&nbsp;&nbsp;') }}%</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- HPI (AI Injected) -->
-                <div class="section-row">
-                    <div class="section-label">Chief Complaints and HPI</div>
-                    <div class="section-body clinical-text font-mono">
-                        {% if ai_summary.clinical_narrative %}
-                            <span class="chip chip-ai">AI Synthesized Triage</span><br>
-                            {{ ai_summary.clinical_narrative }}
-                        {% else %}
-                            <br><br><br> <!-- Blank space for doctor to write -->
+            <!-- 3. Demographic & Registration Grid (Authentic Hospital Structure) -->
+            <table class="patient-demographics-table">
+                <tr>
+                    <td style="width: 28%;">
+                        <span class="demo-label">UHID / ID</span>: 
+                        <span class="demo-val">{{ patient.id | default(patient.token) }}</span>
+                    </td>
+                    <td style="width: 27%;">
+                        <span class="demo-label">ABHA ID</span>: 
+                        <span class="demo-val demo-highlight">{{ patient.abha_id if (patient.abha_id and patient.abha_id != 'None') else 'Not Linked / N/A' }}</span>
+                    </td>
+                    <td style="width: 25%;">
+                        <span class="demo-label">Date &amp; Time</span>: 
+                        <span class="demo-val">{{ timestamp }}</span>
+                    </td>
+                    <td style="width: 20%;">
+                        <span class="demo-label">Visit Type</span>: 
+                        <span class="demo-val">{{ patient.visit_type | default('New OPD') }}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <span class="demo-label">Patient Name</span>: 
+                        <span class="demo-val" style="font-size:10px;">{{ patient.name }}</span>
+                    </td>
+                    <td>
+                        <span class="demo-label">Age / Sex</span>: 
+                        <span class="demo-val">{{ patient.age }} Y / {{ patient.gender }}</span>
+                    </td>
+                    <td>
+                        <span class="demo-label">Contact</span>: 
+                        <span class="demo-val">{{ patient.phone | default('Not Provided') }}</span>
+                    </td>
+                    <td>
+                        <span class="demo-label">Room No</span>: 
+                        <span class="demo-val demo-highlight">{{ room_no | default('OPD Room') }}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2">
+                        <span class="demo-label">Department</span>: 
+                        <span class="demo-val" style="color:var(--accent-blue);">{{ department | default('General Medicine') | upper }}</span>
+                    </td>
+                    <td colspan="2">
+                        <span class="demo-label">Consultant</span>: 
+                        <span class="demo-val">{{ doctor_name | default('Attending Medical Officer') }}</span>
+                        {% if doctor_license and doctor_license != 'N/A' %}
+                        <span style="font-size:8px; color:var(--ink-muted); margin-left:4px;">(Reg: {{ doctor_license }})</span>
                         {% endif %}
-                    </div>
-                </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="4">
+                        <span class="demo-label">Residential Address</span>: 
+                        <span class="demo-val" style="font-weight:500;">{{ patient.address | default('Not Provided') }}</span>
+                    </td>
+                </tr>
+            </table>
 
-                <!-- General Exam -->
-                <div class="section-row">
-                    <div class="section-label">General Examination</div>
-                    <div class="section-body exam-grid">
-                        <div class="exam-label">Allergies Status</div>
-                        <div class="exam-value">: Known/Unknown</div>
-                        <div class="exam-label">Built Status</div>
-                        <div class="exam-value">: Cachectic/ Thin Built/ Average Built/ Obese/ Normal</div>
-                    </div>
-                </div>
-
-                <div class="section-row">
-                    <div class="section-label">Systemic Examination</div>
-                    <div class="section-body" style="min-height:40px;"></div>
-                </div>
-
-                <!-- Investigations (OCR Injected Labs) -->
-                <div class="section-row">
-                    <div class="section-label">Investigations</div>
-                    <div class="section-body clinical-text font-mono">
-                        {% if ocr_data.extracted_labs %}
-                            <span class="chip chip-ocr">OCR Extracted &middot; Past Records</span><br>
-                            {% for lab in ocr_data.extracted_labs %}
-                                {{ lab.parameter }} - {{ lab.value }}{% if lab.is_abnormal %} <span class="chip chip-abnormal">Abnormal</span>{% endif %}<br>
-                            {% endfor %}
-                        {% else %}
-                            <br><br><br> <!-- Blank space for handwriting -->
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Treatment (OCR Injected Meds & Final Prescription) -->
-                <div class="section-row">
-                    <div class="section-label">Treatment Suggested</div>
-                    <div class="section-body clinical-text font-mono">
-                        {% if doctor_prescription %}
-                            <span class="chip chip-doc">Physician Final Note</span><br>
-                            {{ doctor_prescription }}
-                            <br><br>
-                        {% endif %}
-
-                        {% if ocr_data.extracted_medications %}
-                            <span class="chip chip-ocr">OCR &middot; Active Medications</span><br>
-                            {% for med in ocr_data.extracted_medications %}
-                                {{ med.name }} {{ med.dosage }} ({{ med.frequency }})<br>
-                            {% endfor %}
-                        {% elif not doctor_prescription %}
-                            <br><br><br><br> <!-- Blank space for handwriting -->
-                        {% endif %}
-                    </div>
-                </div>
-
-            </div>
-        </div>
-
-        <!-- Document Footer Block -->
-        <div class="doc-footer">
-            <div class="footer-meta">
-                <div>
-                    <p>Generated By: <span style="font-weight:700;color:var(--ink);">SwasthyaSync MediKiosk Engine</span></p>
-                    <p>Generated On: <span style="font-weight:700;color:var(--ink);">{{ timestamp }}</span></p>
-                </div>
-                <div class="signature-box">
-                    <div class="signature-line"></div>
-                    <p style="font-weight:700;color:var(--ink);text-transform:uppercase;font-size:9px;">Attending Physician Signature</p>
-                </div>
-                <div style="text-align:right;">
-                    <p style="font-weight:700;color:var(--ink);">Page 1 of {% if uploaded_images %}2{% else %}1{% endif %}</p>
-                </div>
-            </div>
-
-            <!-- Footer Accreditation & Institution Bar -->
-            <div class="institution-bar">
-                <div>
-                    <p class="hosp-name">{{ hospital_name | default('SWASTHYASYNC HEALTHCARE ACADEMY') }}</p>
-                    <p class="muted-line">Premises No. 1489, Sector V, Salt Lake, Kolkata, WB - 700091</p>
-                    <p class="muted-line">ABDM Facility ID: IN192830192 | Contact: 1800-123-4567</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="compliance-tag">
-                        <span class="strong">ABDM &amp; DPDP</span>
-                        <span class="muted-line">Compliant Platform</span>
-                    </div>
-                    <div class="qr-box">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=36x36&data={{ patient.token }}" class="h-8 w-8" alt="QR Code" />
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Page 2+: Chronological Source Document Appendices -->
-    {% if uploaded_images %}
-    <div class="page-container page-break flex flex-col justify-between">
-        <div>
-            <div class="brand-bar"></div>
-            <!-- Appendix Header -->
-            <div class="appendix-header">
-                <div>
-                    <h2 class="appendix-title">Appendix: Uploaded Source Documents</h2>
-                    <p class="appendix-sub">
-                        TOKEN: {{ patient.token }} | PATIENT: {{ patient.name }} (ABHA: {{ patient.abha_id | default('N/A') }})
-                    </p>
-                </div>
-                <span class="appendix-pill">Chronological Order</span>
-            </div>
-
-            <!-- Image Grid -->
-            <div class="space-y-6">
-                {% for img in uploaded_images %}
-                <div class="doc-card">
-                    <div class="doc-card-head">
-                        <span>Document #{{ loop.index }}</span>
-                        <span>
-                            {% if image_dates is defined and image_dates[loop.index0] is defined and image_dates[loop.index0] != '9999-12-31' %}
-                                Clinical Date: {{ image_dates[loop.index0] }}
+            <!-- 4. Six-Parameter Standard Vitals Observation Strip -->
+            <div class="vitals-bar-wrap">
+                <div class="section-header-compact">Baseline Physiological Vitals</div>
+                <div class="vitals-grid">
+                    <!-- 1. BP -->
+                    <div class="vital-cell">
+                        <span class="vital-cell-label">Blood Pressure</span>
+                        <div class="vital-cell-value">
+                            {% if vitals.bp %}
+                            {{ vitals.bp }} <span class="vital-cell-unit">mmHg</span>
                             {% else %}
-                                Date Unknown
+                            <span style="color:#94a3b8; font-size:10px; font-weight:600;">Not Recorded</span>
                             {% endif %}
-                            &nbsp;|&nbsp; Source: Patient Kiosk Scanner
+                        </div>
+                        <span class="vital-tag {% if vitals.bp and ('140' in vitals.bp or '150' in vitals.bp or '160' in vitals.bp) %}vital-tag-warn{% elif vitals.bp %}vital-tag-normal{% else %}vital-tag-neutral{% endif %}">
+                            {% if vitals.bp and ('140' in vitals.bp or '150' in vitals.bp or '160' in vitals.bp) %}Elevated{% elif vitals.bp %}Standard{% else %}Unrecorded{% endif %}
                         </span>
                     </div>
-                    <div class="flex justify-center">
-                        <img src="{{ img }}" class="max-h-[220mm] w-auto object-contain rounded border border-slate-200" alt="Source Document {{ loop.index }}" />
+
+                    <!-- 2. Pulse / HR -->
+                    <div class="vital-cell">
+                        <span class="vital-cell-label">Heart Rate</span>
+                        <div class="vital-cell-value">
+                            {% if vitals.hr %}
+                            {{ vitals.hr | replace('bpm', '') | trim }} <span class="vital-cell-unit">bpm</span>
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:10px; font-weight:600;">Not Recorded</span>
+                            {% endif %}
+                        </div>
+                        {% if vitals.hr %}
+                        {% set hr_val = (vitals.hr | replace('bpm', '') | trim | int) %}
+                        <span class="vital-tag {% if hr_val > 100 %}vital-tag-alert{% elif hr_val > 0 and hr_val < 55 %}vital-tag-warn{% else %}vital-tag-normal{% endif %}">
+                            {% if hr_val > 100 %}Tachycardia{% elif hr_val > 0 and hr_val < 55 %}Bradycardia{% else %}Regular{% endif %}
+                        </span>
+                        {% else %}
+                        <span class="vital-tag vital-tag-neutral">Unrecorded</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- 3. Temp -->
+                    <div class="vital-cell">
+                        <span class="vital-cell-label">Temperature</span>
+                        <div class="vital-cell-value">
+                            {% if vitals.temp %}
+                            {{ vitals.temp | replace('°F', '') | replace('F', '') | replace('°C', '') | replace('C', '') | trim }} <span class="vital-cell-unit">&deg;F</span>
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:10px; font-weight:600;">Not Recorded</span>
+                            {% endif %}
+                        </div>
+                        {% if vitals.temp %}
+                        {% set temp_val = (vitals.temp | replace('°F', '') | replace('F', '') | replace('°C', '') | replace('C', '') | trim | float) %}
+                        <span class="vital-tag {% if temp_val >= 99.5 %}vital-tag-alert{% else %}vital-tag-normal{% endif %}">
+                            {% if temp_val >= 99.5 %}Febrile{% else %}Normal{% endif %}
+                        </span>
+                        {% else %}
+                        <span class="vital-tag vital-tag-neutral">Unrecorded</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- 4. SpO2 -->
+                    <div class="vital-cell">
+                        <span class="vital-cell-label">Oxygen (SpO2)</span>
+                        <div class="vital-cell-value">
+                            {% if vitals.spo2 %}
+                            {{ vitals.spo2 | replace('%', '') | trim }} <span class="vital-cell-unit">%</span>
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:10px; font-weight:600;">Not Recorded</span>
+                            {% endif %}
+                        </div>
+                        {% if vitals.spo2 %}
+                        {% set spo2_val = (vitals.spo2 | replace('%', '') | trim | int) %}
+                        <span class="vital-tag {% if spo2_val > 0 and spo2_val < 95 %}vital-tag-alert{% else %}vital-tag-normal{% endif %}">
+                            {% if spo2_val > 0 and spo2_val < 95 %}Attention{% else %}Ambient Air{% endif %}
+                        </span>
+                        {% else %}
+                        <span class="vital-tag vital-tag-neutral">Unrecorded</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- 5. Weight & Height -->
+                    <div class="vital-cell">
+                        <span class="vital-cell-label">Weight / Height</span>
+                        <div class="vital-cell-value" style="font-size:10.5px;">
+                            {% if vitals.weight or vitals.height %}
+                            {{ vitals.weight | default('--') }}<span class="vital-cell-unit">kg</span>
+                            <span style="color:#94a3b8; font-weight:400;">/</span>
+                            {{ vitals.height | default('--') }}
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:10px; font-weight:600;">Not Recorded</span>
+                            {% endif %}
+                        </div>
+                        {% if vitals.weight or vitals.height %}
+                        <span class="vital-tag vital-tag-normal">Measured</span>
+                        {% else %}
+                        <span class="vital-tag vital-tag-neutral">Unrecorded</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- 6. BMI -->
+                    <div class="vital-cell">
+                        <span class="vital-cell-label">Body Mass Index</span>
+                        <div class="vital-cell-value">
+                            {% if vitals.bmi %}
+                            {{ vitals.bmi }} <span class="vital-cell-unit">kg/m&sup2;</span>
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:10px; font-weight:600;">--</span>
+                            {% endif %}
+                        </div>
+                        {% if vitals.bmi %}
+                        <span class="vital-tag {% if vitals.bmi_status == 'Overweight' or vitals.bmi_status == 'Obese' %}vital-tag-warn{% else %}vital-tag-normal{% endif %}">
+                            {{ vitals.bmi_status | default('Normal') }}
+                        </span>
+                        {% else %}
+                        <span class="vital-tag vital-tag-neutral">Unrecorded</span>
+                        {% endif %}
                     </div>
                 </div>
-                {% endfor %}
+            </div>
+
+            <!-- 5. Chief Complaints & History of Present Illness (HPI) -->
+            <div class="clinical-section-box">
+                <div class="box-title-bar">
+                    <span>Chief Complaints &amp; History of Present Illness (HPI)</span>
+                    <span class="badge-origin">AI Kiosk Synthesized Intake</span>
+                </div>
+                <div class="box-content">
+                    {% if ai_summary.clinical_narrative %}
+                        <p class="narrative-paragraph">{{ ai_summary.clinical_narrative }}</p>
+                    {% elif ai_summary.Narrative %}
+                        <p class="narrative-paragraph">{{ ai_summary.Narrative }}</p>
+                    {% else %}
+                        <div class="ruling-lines-blank"></div>
+                    {% endif %}
+
+                    {% if ai_summary.Assessment and ai_summary.Assessment is iterable and ai_summary.Assessment is not string %}
+                        <div style="margin-top: 5px; padding-top: 4px; border-top: 1px dashed var(--border-hairline);">
+                            <span style="font-weight: 700; font-size: 8.5px; color: var(--ink-primary); text-transform: uppercase;">
+                                Preliminary Triage Findings:
+                            </span>
+                            <span style="font-size: 9px; color: var(--ink-secondary);">
+                                {{ ai_summary.Assessment | join('; ') }}
+                            </span>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 6. AYUSH Prakriti & Vikriti Assessment (When Active) -->
+            {% if clinic_mode in ['ayush', 'integrative'] or ayush_summary %}
+            <div class="ayush-panel">
+                <div class="ayush-panel-head">
+                    <span class="ayush-title">Ayurvedic Assessment &bull; CCRAS Prakriti Profiling</span>
+                    <span class="ayush-badge">{{ ayush_summary.namaste_code | default('AYU-PRA-01') }}</span>
+                </div>
+                <div class="ayush-grid">
+                    <div>
+                        <div style="font-weight: 800; font-size: 10.5px; color: var(--ayush-text); margin-bottom: 3px;">
+                            {{ ayush_summary.dominant_dosha | default('Vataja Prakriti (Vata Dominant)') }}
+                        </div>
+                        <div class="dosha-metric-row">
+                            <span class="dosha-label">Vata:</span>
+                            <div class="dosha-progress-wrap">
+                                <div class="dosha-progress-bar" style="width: {{ ayush_summary.dosha_percentages.vata | default(50) }}%;"></div>
+                            </div>
+                            <span style="font-weight:700; min-width:24px;">{{ ayush_summary.dosha_percentages.vata | default(50) }}%</span>
+                        </div>
+                        <div class="dosha-metric-row">
+                            <span class="dosha-label">Pitta:</span>
+                            <div class="dosha-progress-wrap">
+                                <div class="dosha-progress-bar" style="width: {{ ayush_summary.dosha_percentages.pitta | default(30) }}%;"></div>
+                            </div>
+                            <span style="font-weight:700; min-width:24px;">{{ ayush_summary.dosha_percentages.pitta | default(30) }}%</span>
+                        </div>
+                        <div class="dosha-metric-row">
+                            <span class="dosha-label">Kapha:</span>
+                            <div class="dosha-progress-wrap">
+                                <div class="dosha-progress-bar" style="width: {{ ayush_summary.dosha_percentages.kapha | default(20) }}%;"></div>
+                            </div>
+                            <span style="font-weight:700; min-width:24px;">{{ ayush_summary.dosha_percentages.kapha | default(20) }}%</span>
+                        </div>
+                        {% if ayush_summary.vikriti and ayush_summary.vikriti.ayurvedic_name %}
+                        <div style="font-size: 8px; color: #475569; margin-top: 3px;">
+                            <strong>Vikriti Imbalance:</strong> {{ ayush_summary.vikriti.ayurvedic_name }} (NAMC: {{ ayush_summary.vikriti.namc_code }})
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="pathya-box">
+                        {% if ayush_summary.pathya_apathya %}
+                            <div style="color: #047857; margin-bottom: 2px;">
+                                <strong>&#10003; Pathya (Recommended Diet/Lifestyle):</strong>
+                                {{ ayush_summary.pathya_apathya.pathya_diet }} {{ ayush_summary.pathya_apathya.pathya_lifestyle }}
+                            </div>
+                            <div style="color: #b91c1c;">
+                                <strong>&#10007; Apathya (Strictly to Avoid):</strong>
+                                {{ ayush_summary.pathya_apathya.apathya_avoid }}
+                            </div>
+                        {% else %}
+                            <div style="color: #047857; margin-bottom: 2px;">
+                                <strong>&#10003; Pathya Advisory:</strong> Light, freshly prepared warm diet, adequate hydration, regular sleep schedule.
+                            </div>
+                            <div style="color: #b91c1c;">
+                                <strong>&#10007; Apathya Warning:</strong> Avoid cold/stale food, excessive pungent spices, and erratic meal timings.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 7. Investigations & Laboratory Observations -->
+            <div class="clinical-section-box">
+                <div class="box-title-bar">
+                    <span>Diagnostic Investigations &amp; Laboratory Findings</span>
+                    <span class="badge-origin">OCR Extracted Prior Records</span>
+                </div>
+                <div>
+                    {% if ocr_data.extracted_labs and ocr_data.extracted_labs|length > 0 %}
+                        <table class="labs-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 42%;">Investigation Parameter</th>
+                                    <th style="width: 25%;">Observed Result</th>
+                                    <th style="width: 20%;">Standard Range</th>
+                                    <th style="width: 13%; text-align: center;">Clinical Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for lab in ocr_data.extracted_labs %}
+                                <tr>
+                                    <td style="font-weight:600; color:var(--ink-primary);">{{ lab.parameter }}</td>
+                                    <td style="font-weight:700;">{{ lab.value }}</td>
+                                    <td style="color:var(--ink-muted);">{{ lab.reference_range | default('Standard Lab Range') }}</td>
+                                    <td style="text-align:center;">
+                                        {% if lab.is_abnormal %}
+                                            <span class="badge-abnormal">Abnormal</span>
+                                        {% else %}
+                                            <span class="badge-normal">Normal</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="box-content">
+                            <div style="display:flex; justify-content:space-between; font-size:8px; color:var(--ink-muted); margin-bottom:4px;">
+                                <span>No prior laboratory record scanned at kiosk. Blank ruled area for attending physician:</span>
+                                <span>Tests Advised: CBC / LFT / KFT / RBS / USG / ECG</span>
+                            </div>
+                            <div class="ruling-lines-blank" style="min-height:36px;"></div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 8. Prescription & Management Plan (Rx) -->
+            <div class="rx-wrapper">
+                <div class="rx-header">
+                    <div class="rx-symbol-label">
+                        <span class="rx-symbol-char">&#8478;</span>
+                        <span>Treatment &amp; Prescription Management</span>
+                    </div>
+                    {% if doctor_prescription %}
+                        <span class="badge-origin" style="background:#dcfce7; color:#166534;">Attending Physician Prescribed</span>
+                    {% elif ocr_data.extracted_medications %}
+                        <span class="badge-origin">OCR Past Medications Transcribed</span>
+                    {% else %}
+                        <span class="badge-origin" style="background:#f1f5f9; color:#475569;">Doctor Writing Area</span>
+                    {% endif %}
+                </div>
+
+                <div style="padding: 6px 8px;">
+                    {% if doctor_prescription %}
+                        <div class="doctor-prescription-box" style="background: #f8fafc; border: 1px solid #cbd5e1; border-left: 3.5px solid #2563eb; border-radius: 4px; padding: 7px 10px; margin-bottom: 7px;">
+                            <div style="font-size: 8.5px; font-weight: 800; text-transform: uppercase; color: #1e40af; letter-spacing: 0.04em; margin-bottom: 3px; display: flex; align-items: center; justify-content: space-between;">
+                                <span>&#10003; Attending Physician Consultation Orders &amp; Rx</span>
+                                <span style="color:#64748b; font-weight:600;">Status: Formally Signed</span>
+                            </div>
+                            <div style="font-size: 10.5px; line-height: 1.55; color: #0f172a; font-weight: 600; white-space: pre-line;">
+                                {{ doctor_prescription }}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if ocr_data.extracted_medications and ocr_data.extracted_medications|length > 0 %}
+                        <table class="meds-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40%;">Medication / Formulation</th>
+                                    <th style="width: 20%;">Dosage</th>
+                                    <th style="width: 25%;">Frequency &amp; Timing</th>
+                                    <th style="width: 15%;">Duration</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for med in ocr_data.extracted_medications %}
+                                <tr>
+                                    <td class="med-name">{{ med.name }}</td>
+                                    <td>{{ med.dosage | default('-') }}</td>
+                                    <td>{{ med.frequency | default('As Directed') }}</td>
+                                    <td>{{ med.duration | default('Till Review') }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% elif not doctor_prescription %}
+                        <div class="ruling-lines-blank" style="min-height: 58px;"></div>
+                    {% endif %}
+                </div>
             </div>
         </div>
 
-        <!-- Appendix Footer -->
-        <div class="appendix-footer">
-            <span>SwasthyaSync Optical Audit Verification</span>
-            <span>Page 2 of 2</span>
+        <!-- 9. Institutional Authentication & Bottom Sign-off -->
+        <div class="footer-boundary">
+            <div class="signoff-section">
+                <div class="legal-disclaimer">
+                    <p style="font-weight:700; color:var(--ink-primary); margin-bottom:1px;">CLINICAL RECORD AUTHENTICITY NOTICE</p>
+                    <p>
+                        Generated via SwasthyaSync Smart Kiosk Architecture in accordance with Ministry of Health &amp; Family Welfare (MoHFW) 
+                        guidelines and ABDM Health Data Interchange Specifications. Patient consented under DPDP Act 2023.
+                    </p>
+                </div>
+
+                <div class="doctor-signature-block">
+                    <div class="sig-stamp-box">
+                        <div class="sig-stamp-verified">&#10003; Digitally Signed &amp; Approved</div>
+                        <div class="sig-doctor-name">{{ doctor_name | default('Attending Medical Officer') }}</div>
+                        <div class="sig-doctor-reg">{% if doctor_license and doctor_license != 'N/A' %}Reg No: {{ doctor_license }} &bull; {% endif %}{{ department | default('General Medicine') }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Hospital Address & Compliance Bar -->
+            <div class="bottom-audit-bar">
+                <div>
+                    <span class="audit-tag">SWASTHYASYNC HEALTHCARE</span> &bull; 
+                    Premises No. 1489, Sector V, Salt Lake, Kolkata - 700091 &bull; 
+                    Emergency: 1800-123-4567
+                </div>
+                <div>
+                    <span>ABDM MI-ID: IN192830192</span> &bull; 
+                    <span>Page 1 of {% if uploaded_images and uploaded_images|length > 0 %}{{ uploaded_images|length + 1 }}{% else %}1{% endif %}</span>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- ======================================================================
+         PAGE 2+: CHRONOLOGICAL SOURCE DOCUMENT APPENDICES (ALL IMAGES BELOW PAGE 1)
+         ====================================================================== -->
+    {% if uploaded_images and uploaded_images|length > 0 %}
+    {% for img in uploaded_images %}
+    <div class="page-sheet page-break appendix-sheet">
+        <div>
+            <div class="appendix-title-bar">
+                <div>
+                    <h2 class="appendix-h1">Appendix: Uploaded Clinical Record ({{ loop.index }} of {{ uploaded_images|length }})</h2>
+                    <p style="font-size:8.5px; color:var(--ink-muted); margin-top:2px;">
+                        TOKEN: {{ patient.token }} &bull; PATIENT: {{ patient.name }} &bull; ABHA ID: {{ patient.abha_id | default('N/A') }}
+                    </p>
+                </div>
+                <div class="token-callout" style="background:var(--accent-blue);">
+                    CHRONOLOGICAL AUDIT &bull; DOC #{{ loop.index }}
+                </div>
+            </div>
+
+            <div class="appendix-doc-card">
+                <div class="appendix-doc-head">
+                    <span>Clinical Source Document #{{ loop.index }}</span>
+                    <span>
+                        {% if image_dates is defined and image_dates[loop.index0] is defined and image_dates[loop.index0] != '9999-12-31' %}
+                            Document Date: {{ image_dates[loop.index0] }}
+                        {% else %}
+                            Date Unspecified
+                        {% endif %}
+                        &bull; Captured via Optical Scanner
+                    </span>
+                </div>
+                <div class="appendix-doc-body">
+                    <img src="{{ img }}" class="appendix-doc-img" alt="Source Document {{ loop.index }}" />
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-boundary">
+            <div class="bottom-audit-bar" style="background:#334155;">
+                <div>SwasthyaSync Document Audit Trail &bull; Chronological OCR Verification</div>
+                <div>Page {{ loop.index + 1 }} of {{ uploaded_images|length + 1 }}</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
     {% endif %}
 
 </body>

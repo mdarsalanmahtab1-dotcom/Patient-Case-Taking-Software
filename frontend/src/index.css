@@ -46,6 +46,22 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+
+/* Prevent iOS Safari automatic page-zoom bug on input focus */
+input, textarea, select {
+  font-size: 16px;
+}
+
+/* Eliminate 300ms tap delay and control text-selection flash */
+button, a, [role="button"], .tappable {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -88,15 +104,18 @@ html {
 
 body {
   margin: 0;
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
   min-width: 320px;
   overflow: hidden;
 }
 
 #root {
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
   width: 100%;
   display: flex;
+  flex-direction: column;
 }
 
 /* Scrollbar styling */

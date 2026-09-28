@@ -217,56 +217,56 @@ export const DoctorQueue: React.FC = () => {
   }
 
   return (
-    <div className="h-screen w-full font-sans p-4 sm:p-8 flex flex-col overflow-hidden bg-slate-50">
-      <div className="max-w-5xl mx-auto flex-1 flex flex-col overflow-hidden">
-        <header className="flex-none flex flex-col md:flex-row items-start md:items-center justify-between mb-6 pb-4 gap-4 bg-slate-50 border-b border-slate-200">
+    <div className="min-h-[100dvh] md:h-screen w-full font-sans p-3 sm:p-8 flex flex-col overflow-x-hidden bg-slate-50">
+      <div className="max-w-5xl mx-auto flex-1 flex flex-col overflow-hidden w-full">
+        <header className="flex-none flex flex-col md:flex-row items-start md:items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 gap-3 sm:gap-4 bg-slate-50 border-b border-slate-200">
           <div className="flex items-center space-x-3">
-            <div className="p-3 bg-white shadow-sm border border-slate-200 rounded-xl">
-              <Stethoscope className="w-6 h-6 text-blue-600" />
+            <div className="p-2.5 sm:p-3 bg-white shadow-sm border border-slate-200 rounded-xl shrink-0">
+              <Stethoscope className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-slate-900">Dr. {doctorAuth.full_name}</h1>
-                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Dr. {doctorAuth.full_name}</h1>
+                <span className="text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
                   {queue.length} Active {queue.length === 1 ? 'Patient' : 'Patients'}
                 </span>
               </div>
-              <p className="text-slate-500 text-sm font-medium">Room {doctorAuth.room_number} • {doctorAuth.current_status}</p>
+              <p className="text-slate-500 text-xs sm:text-sm font-medium">Room {doctorAuth.room_number} • {doctorAuth.current_status}</p>
             </div>
           </div>
-          <div className="flex gap-2 w-full md:w-auto">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2 w-full md:w-auto">
             <button
               onClick={openSettings}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm"
             >
-              <Settings className="w-4 h-4 text-slate-500" />
+              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
               <span>Preferences</span>
             </button>
             <button
               onClick={() => handleStatusChange('Available')}
-              className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm ${
+              className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm ${
                 doctorAuth.current_status === 'Available' 
                   ? 'bg-blue-50 text-blue-700 border-2 border-blue-200' 
                   : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
               }`}
             >
-              <CheckCircle className="w-4 h-4 mr-1.5" /> Available
+              <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" /> Available
             </button>
             <button
               onClick={() => handleStatusChange('On Break')}
-              className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm ${
+              className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm ${
                 doctorAuth.current_status === 'On Break' 
                   ? 'bg-amber-50 text-amber-700 border-2 border-amber-200' 
                   : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
               }`}
             >
-              <Coffee className="w-4 h-4 mr-1.5" /> Break
+              <Coffee className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" /> Break
             </button>
             <button
               onClick={() => setShowLogoutDialog(true)}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm"
             >
-              <LogOut className="w-4 h-4 text-slate-500" />
+              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
               <span>Exit</span>
             </button>
           </div>
@@ -274,7 +274,7 @@ export const DoctorQueue: React.FC = () => {
 
         <div className="flex-1 overflow-y-auto scroll-smooth space-y-4 pb-4">
           {queue.length === 0 ? (
-            <div className="text-center p-12 bg-white border border-slate-200 rounded-2xl text-slate-500 shadow-card font-medium">
+            <div className="text-center p-8 sm:p-12 bg-white border border-slate-200 rounded-2xl text-slate-500 shadow-card font-medium text-sm sm:text-base">
               No patients currently waiting in your queue.
             </div>
           ) : (
@@ -287,19 +287,19 @@ export const DoctorQueue: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                  className={`p-5 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between transition-[box-shadow,transform] duration-200 hover:shadow-card-hover hover:-translate-y-[1px] gap-4 ${
+                  className={`p-4 sm:p-5 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between transition-[box-shadow,transform] duration-200 hover:shadow-card-hover hover:-translate-y-[1px] gap-3 sm:gap-4 ${
                     patient.priority_flag ? 'bg-red-50/50 border-red-200 shadow-card' : 'bg-white border-slate-200 shadow-card'
                   }`}
                 >
-                  <div className="flex items-center space-x-4">
-                    <div className={`p-3 rounded-2xl ${patient.priority_flag ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'}`}>
-                      <User className="w-6 h-6" />
+                  <div className="flex items-start sm:items-center space-x-3 sm:space-x-4">
+                    <div className={`p-2.5 sm:p-3 rounded-2xl shrink-0 ${patient.priority_flag ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'}`}>
+                      <User className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-xl font-bold text-slate-900">{patient.full_name}</h2>
-                        <span className="text-sm font-medium text-slate-500">Age: {patient.age} • {patient.gender}</span>
-                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                        <h2 className="text-base sm:text-xl font-bold text-slate-900">{patient.full_name}</h2>
+                        <span className="text-xs sm:text-sm font-medium text-slate-500">Age: {patient.age} • {patient.gender}</span>
+                        <span className={`text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 rounded-full border ${
                           patient.session_status === 'WAITING' 
                             ? 'bg-amber-50 text-amber-700 border-amber-200' 
                             : 'bg-blue-50 text-blue-700 border-blue-200'
@@ -307,44 +307,44 @@ export const DoctorQueue: React.FC = () => {
                           {patient.session_status === 'WAITING' ? '⏳ Waiting' : '🩺 In Consultation'}
                         </span>
                       </div>
-                      <p className="text-sm text-slate-600 mt-1 font-medium">Token: <span className="text-blue-600 font-bold">{patient.token_id || patient.token_number}</span> | Complaint: {patient.chief_complaint || 'Pending AI Intake'}</p>
+                      <p className="text-xs sm:text-sm text-slate-600 mt-1 font-medium">Token: <span className="text-blue-600 font-bold">{patient.token_id || patient.token_number}</span> | Complaint: {patient.chief_complaint || 'Pending AI Intake'}</p>
                       {patient.nurse_triage_notes && (
-                        <p className="text-sm text-amber-700 mt-2 p-2.5 bg-amber-50 rounded-xl border border-amber-200 font-medium">
+                        <p className="text-xs sm:text-sm text-amber-700 mt-2 p-2 sm:p-2.5 bg-amber-50 rounded-xl border border-amber-200 font-medium">
                           <span className="font-bold">Triage Note:</span> {patient.nurse_triage_notes}
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-3">
+                  <div className="flex flex-wrap items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
                     {patient.priority_flag && (
                       <div className="flex flex-col items-end gap-1">
                         <button
                           onClick={() => toggleFlag(patient.session_id)}
-                          className="flex items-center text-xs font-extrabold text-red-600 bg-red-100 px-3 py-1.5 rounded-full border border-red-200 hover:bg-red-200 transition-colors cursor-pointer active:scale-[0.97]"
+                          className="flex items-center text-[10px] sm:text-xs font-extrabold text-red-600 bg-red-100 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-red-200 hover:bg-red-200 transition-colors cursor-pointer active:scale-[0.97]"
                         >
-                          <ShieldAlert className="w-4 h-4 mr-1" /> HIGH PRIORITY
+                          <ShieldAlert className="w-3.5 h-3.5 mr-1" /> HIGH PRIORITY
                           {expandedFlags.has(patient.session_id) ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
                         </button>
                       </div>
                     )}
                     <LiquidButton
                       onClick={() => openSummary(patient.session_id)}
-                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center transition shadow-card whitespace-nowrap text-xs"
+                      className="flex-1 sm:flex-initial px-3 sm:px-4 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center justify-center transition shadow-card whitespace-nowrap text-xs"
                     >
-                      <FileText className="w-4 h-4 mr-1" /> Summary
+                      <FileText className="w-3.5 h-3.5 mr-1" /> Summary
                     </LiquidButton>
                     <LiquidButton
                       onClick={() => openHistory(patient.patient_id)}
-                      className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold rounded-xl flex items-center transition shadow-card whitespace-nowrap text-xs"
+                      className="flex-1 sm:flex-initial px-3 sm:px-4 py-2 sm:py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold rounded-xl flex items-center justify-center transition shadow-card whitespace-nowrap text-xs"
                     >
-                      <History className="w-4 h-4 mr-1" /> History
+                      <History className="w-3.5 h-3.5 mr-1" /> History
                     </LiquidButton>
                     <LiquidButton
                       onClick={() => navigate(`/doctor/encounter/${patient.session_id}`)}
-                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center transition shadow-card whitespace-nowrap text-xs"
+                      className="flex-1 sm:flex-initial px-4 sm:px-5 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center justify-center transition shadow-card whitespace-nowrap text-xs"
                     >
-                      Open <ArrowRight className="w-4 h-4 ml-2" />
+                      Open <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
                     </LiquidButton>
                   </div>
 

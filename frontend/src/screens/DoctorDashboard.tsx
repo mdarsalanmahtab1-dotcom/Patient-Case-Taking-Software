@@ -3,7 +3,7 @@ import { LogoutDialog } from '../components/LogoutDialog';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getApiBaseUrl } from '../config';
-import { ArrowLeft, Save, FileText, CheckCircle, Activity, HeartPulse, LogOut, Loader2, User } from 'lucide-react';
+import { ArrowLeft, FileText, CheckCircle, Activity, HeartPulse, LogOut, Loader2, User, Download } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export const DoctorDashboard: React.FC = () => {
@@ -36,6 +36,8 @@ export const DoctorDashboard: React.FC = () => {
             setError('Encounter not found or already completed.');
           }
         }
+        // Mark session as IN_PROGRESS if it was WAITING
+        fetch(`${getApiBaseUrl()}/api/session/${session_id}/start`, { method: 'POST' }).catch(() => {});
       })
       .catch(err => {
         console.error(err);
@@ -56,8 +58,49 @@ export const DoctorDashboard: React.FC = () => {
       });
       
       if (res.ok) {
-        // Pop open the unified AI + Doctor prescription PDF with a cache buster
-        window.open(`${getApiBaseUrl()}/api/summary/${session_id}/pdf?t=${Date.now()}`, '_blank');
+        const data = await res.json().catch(() => ({}));
+        const downloadUrl = `${getApiBaseUrl()}/api/summary/${session_id}/pdf?download=true&regenerate=true&t=${Date.now()}`;
+        const previewUrl = data.pdf_url && data.pdf_url.startsWith('http')
+          ? data.pdf_url
+          : `${getApiBaseUrl()}/api/summary/${session_id}/pdf?regenerate=true&t=${Date.now()}`;
+
+        const rawToken = patient?.token_number || patient?.token_id || session_id || 'Encounter';
+        const filename = `OPD_Casesheet_${String(rawToken).replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+
+        // 1. Direct file download via blob fetch
+        try {
+          const fileResp = await fetch(downloadUrl);
+          if (fileResp.ok) {
+            const blob = await fileResp.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = blobUrl;
+            downloadLink.download = filename;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            setTimeout(() => window.URL.revokeObjectURL(blobUrl), 3000);
+          } else {
+            throw new Error('Direct blob fetch returned error');
+          }
+        } catch (fetchErr) {
+          console.warn('Blob download error, falling back to direct anchor download:', fetchErr);
+          const link = document.createElement('a');
+          link.href = downloadUrl;
+          link.download = filename;
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+
+        // 2. Also open preview window/tab
+        try {
+          window.open(previewUrl, '_blank');
+        } catch {}
+
+        // Small delay to allow the browser to initiate the download stream before page navigation
+        await new Promise(r => setTimeout(r, 600));
       }
       
       navigate('/doctor'); // back to queue
@@ -88,26 +131,26 @@ export const DoctorDashboard: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen w-full font-sans flex flex-col overflow-hidden bg-slate-50">
-      <div className="flex-1 overflow-y-auto scroll-smooth p-4 sm:p-8">
+    <div className="min-h-[100dvh] w-full font-sans flex flex-col overflow-x-hidden bg-slate-50">
+      <div className="flex-1 overflow-y-auto scroll-smooth p-3 sm:p-8">
         <motion.div 
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="max-w-6xl mx-auto flex flex-col md:flex-row gap-6"
+          className="max-w-6xl mx-auto flex flex-col md:flex-row gap-4 sm:gap-6"
         >
         
         {/* Left Column: Patient Context */}
-        <div className="md:w-1/3 flex flex-col gap-6">
-          <div className="flex items-center gap-4">
-            <LiquidButton onClick={() => navigate('/doctor')} className="bg-white shadow-card hover:shadow-card-hover text-slate-600 hover:text-slate-900 font-bold px-4 py-2 rounded-xl transition border border-slate-200 flex items-center text-xs">
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back to Queue
+        <div className="md:w-1/3 flex flex-col gap-4 sm:gap-6">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <LiquidButton onClick={() => navigate('/doctor')} className="bg-white shadow-card hover:shadow-card-hover text-slate-600 hover:text-slate-900 font-bold px-3 sm:px-4 py-2 rounded-xl transition border border-slate-200 flex items-center text-xs">
+              <ArrowLeft className="w-4 h-4 mr-1.5 sm:mr-2" /> Back to Queue
             </LiquidButton>
             <LiquidButton 
               onClick={() => setShowLogoutDialog(true)} 
-              className="bg-white shadow-card hover:shadow-card-hover text-red-600 hover:text-red-700 font-bold px-4 py-2 rounded-xl transition ml-auto border border-slate-200 flex items-center text-xs"
+              className="bg-white shadow-card hover:shadow-card-hover text-red-600 hover:text-red-700 font-bold px-3 sm:px-4 py-2 rounded-xl transition ml-auto border border-slate-200 flex items-center text-xs"
             >
-              <LogOut className="w-4 h-4 mr-2" /> Exit
+              <LogOut className="w-4 h-4 mr-1.5 sm:mr-2" /> Exit
             </LiquidButton>
           </div>
           
@@ -115,14 +158,14 @@ export const DoctorDashboard: React.FC = () => {
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1], delay: 0.05 }}
-            className="bg-white shadow-card border border-slate-200 rounded-3xl p-6"
+            className="bg-white shadow-card border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6"
           >
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
-                <User className="w-6 h-6" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                <User className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">{patient.full_name}</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900">{patient.full_name}</h2>
                 <div className="text-xs font-semibold text-slate-500">
                   Age: {patient.age} • {patient.gender} • Token: <span className="text-blue-600 font-black">{patient.token_id || patient.token_number}</span>
                 </div>
@@ -130,28 +173,28 @@ export const DoctorDashboard: React.FC = () => {
             </div>
 
             {!!patient.priority_flag && (
-              <div className="mb-4 inline-block bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-extrabold border border-red-200 animate-pulse">
+              <div className="mb-3 sm:mb-4 inline-block bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-extrabold border border-red-200 animate-pulse">
                 HIGH PRIORITY
               </div>
             )}
             
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div>
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><Activity className="w-3.5 h-3.5 text-blue-600"/> Chief Complaint</h3>
-                <p className="text-slate-800 bg-slate-50 border border-slate-200/80 p-3.5 rounded-2xl font-medium text-sm leading-relaxed">{patient.chief_complaint || 'N/A'}</p>
+                <p className="text-slate-800 bg-slate-50 border border-slate-200/80 p-3 sm:p-3.5 rounded-2xl font-medium text-xs sm:text-sm leading-relaxed">{patient.chief_complaint || 'N/A'}</p>
               </div>
               
               {patient.nurse_triage_notes && (
                 <div>
                   <h3 className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1 flex items-center gap-1.5"><HeartPulse className="w-3.5 h-3.5 text-amber-600"/> Nurse Triage Notes</h3>
-                  <p className="text-amber-900 bg-amber-50 border border-amber-200/80 p-3.5 rounded-2xl font-medium text-sm leading-relaxed">{patient.nurse_triage_notes}</p>
+                  <p className="text-amber-900 bg-amber-50 border border-amber-200/80 p-3 sm:p-3.5 rounded-2xl font-medium text-xs sm:text-sm leading-relaxed">{patient.nurse_triage_notes}</p>
                 </div>
               )}
             </div>
 
             <LiquidButton 
               onClick={() => window.open(`${getApiBaseUrl()}/api/summary/${patient.session_id}/pdf`, '_blank')}
-              className="mt-6 w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-2xl transition border border-slate-200 flex items-center justify-center text-xs"
+              className="mt-4 sm:mt-6 w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 sm:py-3 rounded-2xl transition border border-slate-200 flex items-center justify-center text-xs"
             >
               <FileText className="w-4 h-4 mr-2" /> View Full AI Summary
             </LiquidButton>
@@ -159,26 +202,26 @@ export const DoctorDashboard: React.FC = () => {
         </div>
 
         {/* Right Column: Doctor Workspace */}
-        <div className="md:w-2/3 flex flex-col gap-6">
+        <div className="md:w-2/3 flex flex-col gap-4 sm:gap-6">
           <motion.div 
             initial={{ opacity: 0, x: 12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
-            className="bg-white shadow-card border border-slate-200 rounded-3xl p-6 flex-1 flex flex-col"
+            className="bg-white shadow-card border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex-1 flex flex-col"
           >
-            <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 mb-4 sm:mb-6 flex items-center">
               <CheckCircle className="w-5 h-5 text-blue-600 mr-2" /> Clinical Encounter
             </h2>
             
             <div className="flex-1 flex flex-col gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Disposition / Action</label>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                   {['Prescribe Meds', 'Order Labs', 'Admit Patient', 'Refer to Specialist', 'Discharge'].map(act => (
                     <button
                       key={act}
                       onClick={() => setAction(act)}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border active:scale-[0.97] cursor-pointer ${
+                      className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all border active:scale-[0.97] cursor-pointer ${
                         action === act 
                         ? 'bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-500/30' 
                         : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 shadow-card'
@@ -190,10 +233,10 @@ export const DoctorDashboard: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex-1 flex flex-col mt-4">
+              <div className="flex-1 flex flex-col mt-3 sm:mt-4">
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Prescription & Notes</label>
                 <textarea
-                  className="flex-1 w-full bg-slate-50/60 border border-slate-200 rounded-2xl p-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-[border-color,box-shadow] resize-none min-h-[220px] font-medium text-sm leading-relaxed"
+                  className="flex-1 w-full bg-slate-50/60 border border-slate-200 rounded-2xl p-3 sm:p-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-[border-color,box-shadow] resize-none min-h-[180px] sm:min-h-[220px] font-medium text-xs sm:text-sm leading-relaxed"
                   placeholder="Enter final diagnosis, prescription, and follow-up instructions..."
                   value={prescription}
                   onChange={e => setPrescription(e.target.value)}
@@ -201,21 +244,21 @@ export const DoctorDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-6 pt-6 border-t border-slate-200 flex justify-end">
+            <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-slate-200 flex justify-end">
               <LiquidButton
                 onClick={handleComplete}
                 disabled={isSaving}
-                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-3.5 px-8 rounded-2xl transition flex items-center shadow-card text-sm"
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-3 sm:py-3.5 px-6 sm:px-8 rounded-2xl transition flex items-center justify-center shadow-card text-xs sm:text-sm cursor-pointer"
               >
                 {isSaving ? (
                   <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Generating & Signing PDF...
+                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2 animate-spin" />
+                    Signing & Downloading PDF...
                   </>
                 ) : (
                   <>
-                    <Save className="w-5 h-5 mr-2" />
-                    Sign & Complete Encounter
+                    <Download className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                    Proceed & Download Signed Casesheet
                   </>
                 )}
               </LiquidButton>

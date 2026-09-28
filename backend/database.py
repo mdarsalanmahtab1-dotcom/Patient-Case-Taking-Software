@@ -7,6 +7,9 @@ import logging
 import os
 from typing import Optional, List, Dict, Any
 from urllib.parse import quote_plus
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import asyncpg
 
@@ -31,8 +34,9 @@ async def init_db_pool():
     async with _pool.acquire() as conn:
         try:
             await conn.execute("ALTER TABLE patients ADD COLUMN IF NOT EXISTS vitals TEXT")
+            await conn.execute("ALTER TABLE staff_sessions DROP CONSTRAINT IF EXISTS staff_sessions_staff_id_fkey")
         except Exception as e:
-            logger.warning(f"Could not add vitals column: {e}")
+            logger.warning(f"Could not apply startup schema patches: {e}")
     logger.info("Database pool initialized.")
 
 async def close_db_pool():
@@ -111,9 +115,9 @@ async def start_kiosk_session(patient_data: dict, department: str = "General Med
     if not _pool: return {}
     async with _pool.acquire() as conn:
         patient_id = patient_data.get("patient_id")
+        abha_id = patient_data.get("abha_id")
         
         if not patient_id:
-            abha_id = patient_data.get("abha_id")
             if abha_id:
                 existing = await conn.fetchrow("SELECT patient_id FROM patients WHERE abha_id = $1", abha_id)
                 if existing:
@@ -122,20 +126,29 @@ async def start_kiosk_session(patient_data: dict, department: str = "General Med
                     patient_id = abha_id
             else:
                 patient_id = f"pat_{uuid.uuid4().hex[:8]}"
-            await conn.execute("""
-                INSERT INTO patients (patient_id, full_name, phone_number, age, gender, date_of_birth, weight, height, address, abha_id, vitals)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                ON CONFLICT (patient_id) DO UPDATE SET
-                    weight = COALESCE(EXCLUDED.weight, patients.weight),
-                    height = COALESCE(EXCLUDED.height, patients.height),
-                    vitals = COALESCE(EXCLUDED.vitals, patients.vitals),
-                    address = COALESCE(EXCLUDED.address, patients.address)
-            """, 
-                patient_id, patient_data.get("full_name"), patient_data.get("phone_number"),
-                patient_data.get("age"), patient_data.get("gender"), patient_data.get("date_of_birth"),
-                patient_data.get("weight"), patient_data.get("height"), patient_data.get("address"), 
-                patient_data.get("abha_id"), patient_data.get("vitals")
-            )
+
+        # Always upsert patient record so that any changes to name, phone, age, gender, address, vitals, etc.
+        # are accurately stored and never frozen to an outdated or collided record!
+        await conn.execute("""
+            INSERT INTO patients (patient_id, full_name, phone_number, age, gender, date_of_birth, weight, height, address, abha_id, vitals)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            ON CONFLICT (patient_id) DO UPDATE SET
+                full_name = CASE WHEN EXCLUDED.full_name IS NOT NULL AND TRIM(EXCLUDED.full_name) != '' THEN EXCLUDED.full_name ELSE patients.full_name END,
+                phone_number = CASE WHEN EXCLUDED.phone_number IS NOT NULL AND TRIM(EXCLUDED.phone_number) != '' THEN EXCLUDED.phone_number ELSE patients.phone_number END,
+                age = COALESCE(EXCLUDED.age, patients.age),
+                gender = CASE WHEN EXCLUDED.gender IS NOT NULL AND TRIM(EXCLUDED.gender) != '' THEN EXCLUDED.gender ELSE patients.gender END,
+                date_of_birth = COALESCE(EXCLUDED.date_of_birth, patients.date_of_birth),
+                weight = COALESCE(EXCLUDED.weight, patients.weight),
+                height = COALESCE(EXCLUDED.height, patients.height),
+                vitals = COALESCE(EXCLUDED.vitals, patients.vitals),
+                address = CASE WHEN EXCLUDED.address IS NOT NULL AND TRIM(EXCLUDED.address) != '' THEN EXCLUDED.address ELSE patients.address END,
+                abha_id = COALESCE(EXCLUDED.abha_id, patients.abha_id)
+        """, 
+            patient_id, patient_data.get("full_name"), patient_data.get("phone_number"),
+            patient_data.get("age"), patient_data.get("gender"), patient_data.get("date_of_birth"),
+            patient_data.get("weight"), patient_data.get("height"), patient_data.get("address"), 
+            abha_id, patient_data.get("vitals")
+        )
             
         token_number = None
         room_number = "TBD"
@@ -143,6 +156,19 @@ async def start_kiosk_session(patient_data: dict, department: str = "General Med
             doc_row = await conn.fetchrow("SELECT room_number FROM doctors WHERE doctor_id = $1", doctor_id)
             if doc_row:
                 room_number = doc_row["room_number"]
+        else:
+            # Auto-assign first available active doctor in the chosen department
+            dept_doc = await conn.fetchrow("""
+                SELECT d.doctor_id, d.full_name, d.room_number
+                FROM doctors d
+                LEFT JOIN departments dept ON d.dept_id = dept.dept_id
+                WHERE LOWER(dept.name) = LOWER($1) AND (d.status = 'Active' OR d.status IS NULL)
+                ORDER BY d.doctor_id LIMIT 1
+            """, department)
+            if dept_doc:
+                doctor_id = dept_doc["doctor_id"]
+                room_number = dept_doc["room_number"] or "OPD Consultation Room"
+                logger.info(f"Auto-assigned doctor {dept_doc['full_name']} (room {room_number}) for department '{department}'")
             
         # GUARANTEE NO TOKEN DUPLICATION (Active Session Lock) applies universally
         existing_session = await conn.fetchrow("""
@@ -223,25 +249,32 @@ async def save_uploaded_document(session_id: str, file_path: str, document_type:
     return doc_id
 
 async def save_clinical_summary(session_id: str, small_summary: str, full_detailed_summary: dict, 
-                          critical_highlights: list, contradictions_found: list, pdf_file_path: str) -> str:
-    """Uses INSERT ON CONFLICT on clinical_summaries to store generated AI narratives, PDF paths, and contradiction audits."""
+                          critical_highlights: list, contradictions_found: list, pdf_file_path: str,
+                          doctor_consultation_notes: str = None, doctor_id: str = None) -> str:
+    """Uses INSERT ON CONFLICT on clinical_summaries to store generated AI narratives, PDF paths, doctor notes, and contradiction audits."""
     summary_id = f"sum_{uuid.uuid4().hex[:8]}"
     if not _pool: return summary_id
     async with _pool.acquire() as conn:
         await conn.execute("""
             INSERT INTO clinical_summaries 
-            (summary_id, session_id, small_summary, full_detailed_summary, critical_highlights, contradictions_found, pdf_file_path)
-            VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7)
+            (summary_id, session_id, small_summary, full_detailed_summary, critical_highlights, contradictions_found, pdf_file_path, doctor_consultation_notes, doctor_id, doctor_signed_at, generated_at)
+            VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7, $8::text, $9::text, CASE WHEN $8::text IS NOT NULL THEN CURRENT_TIMESTAMP ELSE NULL END, CURRENT_TIMESTAMP)
             ON CONFLICT (session_id) DO UPDATE SET
                 small_summary = EXCLUDED.small_summary,
                 full_detailed_summary = EXCLUDED.full_detailed_summary,
                 critical_highlights = EXCLUDED.critical_highlights,
                 contradictions_found = EXCLUDED.contradictions_found,
-                pdf_file_path = EXCLUDED.pdf_file_path
+                pdf_file_path = EXCLUDED.pdf_file_path,
+                doctor_consultation_notes = COALESCE(EXCLUDED.doctor_consultation_notes, clinical_summaries.doctor_consultation_notes),
+                doctor_id = COALESCE(EXCLUDED.doctor_id, clinical_summaries.doctor_id),
+                doctor_signed_at = CASE WHEN EXCLUDED.doctor_consultation_notes IS NOT NULL THEN CURRENT_TIMESTAMP ELSE clinical_summaries.doctor_signed_at END,
+                generated_at = CURRENT_TIMESTAMP
         """, summary_id, session_id, small_summary, json.dumps(full_detailed_summary),
             json.dumps(critical_highlights or []), 
             json.dumps(contradictions_found or []),
-            pdf_file_path
+            pdf_file_path,
+            doctor_consultation_notes,
+            doctor_id
         )
     return summary_id
 
@@ -272,14 +305,26 @@ async def fetch_triage_queue(doctor_id: str = None) -> list[dict]:
                    ps.department, ps.nurse_triage_notes
             FROM patient_sessions ps
             JOIN patients p ON ps.patient_id = p.patient_id
-            WHERE (
+            WHERE ps.session_status != 'ARCHIVED'
+              AND (
                 (ps.created_at AT TIME ZONE 'Asia/Kolkata')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::date
                 OR (ps.session_status IN ('WAITING', 'IN_PROGRESS') AND ps.created_at >= CURRENT_TIMESTAMP - INTERVAL '24 hours')
             )
         """
         params = []
         if doctor_id:
-            query += " AND ps.doctor_id = $1"
+            # Include both directly assigned patients AND unassigned patients
+            # whose department matches the querying doctor's department
+            query += """ AND (
+                ps.doctor_id = $1
+                OR (
+                    ps.doctor_id IS NULL AND LOWER(ps.department) = (
+                        SELECT LOWER(dept.name) FROM doctors d
+                        JOIN departments dept ON d.dept_id = dept.dept_id
+                        WHERE d.doctor_id = $1
+                    )
+                )
+            )"""
             params.append(doctor_id)
             
         query += " ORDER BY ps.priority_flag DESC, ps.created_at ASC"
@@ -540,7 +585,7 @@ async def downgrade_priority(session_id: str, admin_email: str):
 async def archive_active_queues(admin_email: str):
     if not _pool: return
     async with _pool.acquire() as conn:
-        await conn.execute("UPDATE patient_sessions SET session_status = 'ARCHIVED' WHERE session_status = 'IN_PROGRESS'")
+        await conn.execute("UPDATE patient_sessions SET session_status = 'ARCHIVED' WHERE session_status != 'ARCHIVED'")
     await log_system_action(admin_email, "EOD_RESET", "ALL_QUEUES")
 
 async def get_all_patients() -> list[dict]:

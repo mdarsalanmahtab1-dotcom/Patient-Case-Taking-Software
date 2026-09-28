@@ -76,8 +76,22 @@ CRITICAL RULES:
    - "Do you have vision changes?" → if YES, fork: "Which eye?" + "When did it start?"
    - "Any previous surgeries?" → if YES, fork: "What surgery?" + "When?"
    Most fields should be fork_eligible: false. Only tag 3-5 fields max per schema.
-7. Use conditional_on for fields that only matter given a previous answer (format: "field_id:value").
+7. Use conditional_on for fields that only matter given a previous answer (format: "field_id:value" or "field_id:*" for any value).
 8. Generate 15-30 fields total — enough for a thorough but not exhausting interview.
+
+ANTI-ASSUMPTION RULES (CRITICAL — violating these causes wrong questions):
+9. NEVER assume the anatomical location or subtype of pain from a vague complaint.
+   - If the chief complaint is "pain" or "ache" WITHOUT a specified location:
+     a. The FIRST field in the schema MUST be pain_location (anchor=true, conditional_on=null).
+     b. ALL other pain-characterization fields (radiation, character, onset, severity, etc.)
+        MUST have conditional_on="pain_location:*" so they only unlock after location is known.
+     c. Do NOT generate location-specific fields (e.g., joint_swelling, morning_stiffness)
+        without knowing the location first.
+   - If the chief complaint already specifies the location (e.g., "chest pain", "knee pain"),
+     you may generate location-specific fields directly.
+10. Mark anchor: true ONLY on fields that are universal prerequisites for the complaint type —
+    fields that must be answered before ANY other question makes clinical sense.
+    For pain: pain_location. For rash: rash_location. Never mark red_flag fields as anchor.
 
 The following fields are MANDATORY red-flag safety requirements for this complaint category. They MUST appear in your schema:
 {safety_floor_text}
@@ -93,6 +107,7 @@ Output ONLY a JSON object with this exact structure:
       "priority": "critical|high|medium|optional",
       "red_flag": true/false,
       "fork_eligible": true/false,
+      "anchor": true/false,
       "category": "HPI|PMH|DH|FH|SH|ROS|red_flag_check",
       "conditional_on": null
     }}
@@ -118,15 +133,22 @@ def generate_schema(
     patient_sex: str,
     category: str,
     doctor_custom_instructions: str | None = None,
+    clinic_mode: str = "allopathic",
 ) -> dict:
     """
     Generate a complaint-specific clinical interview schema.
     
     Called ONCE per encounter after chief complaint capture.
     Uses a heavier model for quality, with fallback to a static schema.
+    For AYUSH mode, loads deterministic CCRAS 14-predictor schema with zero LLM calls.
     
     Returns: A validated schema dict with "chief_complaint" and "fields" keys.
     """
+    if str(clinic_mode).lower().strip() in ("ayush", "ayurveda"):
+        from ayush_templates import get_ayush_schema
+        raw_schema = get_ayush_schema(chief_complaint, category)
+        return _validate_schema(raw_schema, chief_complaint)
+
     safety_floor_text = get_safety_floor_as_text(category)
     system_prompt, user_prompt = _build_schema_generation_prompt(
         chief_complaint, patient_age, patient_sex, category, safety_floor_text, doctor_custom_instructions
@@ -245,6 +267,7 @@ def _validate_schema(schema: dict, chief_complaint: str) -> dict:
         f.setdefault("priority", "medium")
         f.setdefault("red_flag", False)
         f.setdefault("fork_eligible", False)
+        f.setdefault("anchor", False)  # Preserve anchor flag
         f.setdefault("category", "HPI")
         f.setdefault("conditional_on", None)
 

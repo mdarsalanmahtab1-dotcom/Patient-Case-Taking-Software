@@ -52,7 +52,7 @@ export function Screen5_DocumentScanner({ onNext, onSkip }: Props) {
   const { speak, stop } = useAudioGuide();
   
   useEffect(() => {
-    speak('upload_docs');
+    speak('upload_docs', undefined, 1);
     return () => stop();
   }, [speak, stop]);
   
@@ -93,6 +93,7 @@ export function Screen5_DocumentScanner({ onNext, onSkip }: Props) {
   };
 
   const handleSubmit = async () => {
+    stop();
     if (files.length > 0) {
       setIsProcessing(true);
       setErrorMsg(null);
@@ -140,7 +141,7 @@ export function Screen5_DocumentScanner({ onNext, onSkip }: Props) {
         />
 
         {files.length === 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 h-full max-h-[400px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 h-full max-h-[400px]">
             {/* Camera Option — Slides from left */}
             <motion.div
               initial={{ opacity: 0, x: -16 }}
@@ -149,13 +150,13 @@ export function Screen5_DocumentScanner({ onNext, onSkip }: Props) {
             >
               <LiquidButton
                 onClick={() => cameraInputRef.current?.click()}
-                className="group w-full h-full flex flex-col items-center justify-center bg-white border border-slate-200/80 rounded-[2rem] p-8 shadow-card hover:shadow-card-hover hover:-translate-y-1 active:scale-[0.97] transition-[transform,box-shadow,background-color] duration-150 cursor-pointer"
+                className="group w-full h-full flex flex-col items-center justify-center bg-white border border-slate-200/80 rounded-2xl sm:rounded-[2rem] p-5 sm:p-8 shadow-card hover:shadow-card-hover hover:-translate-y-1 active:scale-[0.97] transition-[transform,box-shadow,background-color] duration-150 cursor-pointer"
               >
-                <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6 group-hover:scale-105 transition-transform duration-200 shadow-inner">
-                  <Camera className="w-10 h-10 text-blue-600" />
+                <div className="w-14 h-14 sm:w-20 sm:h-20 bg-blue-50 rounded-full flex items-center justify-center mb-3 sm:mb-6 group-hover:scale-105 transition-transform duration-200 shadow-inner">
+                  <Camera className="w-7 h-7 sm:w-10 sm:h-10 text-blue-600" />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-800 mb-2">{t('docs.take_photo')}</h3>
-                <p className="text-slate-500 font-medium">{t('docs.hold_document')}</p>
+                <h3 className="text-lg sm:text-2xl font-bold text-slate-800 mb-1 sm:mb-2">{t('docs.take_photo')}</h3>
+                <p className="text-xs sm:text-base text-slate-500 font-medium">{t('docs.hold_document')}</p>
               </LiquidButton>
             </motion.div>
 
@@ -167,13 +168,13 @@ export function Screen5_DocumentScanner({ onNext, onSkip }: Props) {
             >
               <LiquidButton
                 onClick={() => fileInputRef.current?.click()}
-                className="group w-full h-full flex flex-col items-center justify-center bg-white border border-slate-200/80 rounded-[2rem] p-8 shadow-card hover:shadow-card-hover hover:-translate-y-1 active:scale-[0.97] transition-[transform,box-shadow,background-color] duration-150 cursor-pointer"
+                className="group w-full h-full flex flex-col items-center justify-center bg-white border border-slate-200/80 rounded-2xl sm:rounded-[2rem] p-5 sm:p-8 shadow-card hover:shadow-card-hover hover:-translate-y-1 active:scale-[0.97] transition-[transform,box-shadow,background-color] duration-150 cursor-pointer"
               >
-                <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mb-6 group-hover:scale-105 transition-transform duration-200 shadow-inner">
-                  <UploadCloud className="w-10 h-10 text-emerald-600" />
+                <div className="w-14 h-14 sm:w-20 sm:h-20 bg-emerald-50 rounded-full flex items-center justify-center mb-3 sm:mb-6 group-hover:scale-105 transition-transform duration-200 shadow-inner">
+                  <UploadCloud className="w-7 h-7 sm:w-10 sm:h-10 text-emerald-600" />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-800 mb-2">{t('docs.upload_file')}</h3>
-                <p className="text-slate-500 font-medium">{t('docs.pdf_or_image')} (Max 5)</p>
+                <h3 className="text-lg sm:text-2xl font-bold text-slate-800 mb-1 sm:mb-2">{t('docs.upload_file')}</h3>
+                <p className="text-xs sm:text-base text-slate-500 font-medium">{t('docs.pdf_or_image')} (Max 5)</p>
               </LiquidButton>
             </motion.div>
           </div>
@@ -230,33 +231,36 @@ export function Screen5_DocumentScanner({ onNext, onSkip }: Props) {
         )}
       </div>
 
-      <div className="mt-auto pt-8 sm:pt-10 w-full max-w-4xl flex gap-4 sm:gap-6">
+      <div className="mt-auto pt-4 sm:pt-10 w-full max-w-4xl flex gap-3 sm:gap-6">
         <LiquidButton
-          onClick={onSkip}
+          onClick={() => {
+            stop();
+            onSkip();
+          }}
           disabled={isProcessing}
-          className="group flex items-center justify-center gap-2 px-6 sm:px-8 py-4 sm:py-5 rounded-full font-extrabold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-[transform,background-color] duration-150 active:scale-[0.97] w-1/3 text-base sm:text-lg disabled:opacity-50 cursor-pointer shadow-2xs"
+          className="group flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-8 py-3 sm:py-5 rounded-full font-extrabold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-[transform,background-color] duration-150 active:scale-[0.97] w-1/3 text-sm sm:text-lg disabled:opacity-50 cursor-pointer shadow-2xs"
         >
           {t('docs.skip')}
         </LiquidButton>
         <LiquidButton
           onClick={handleSubmit}
           disabled={files.length === 0 || isProcessing}
-          className={`group relative flex-1 overflow-hidden flex items-center justify-center gap-3 rounded-full py-4 sm:py-5 font-extrabold shadow-card-hover transition-[transform,background-color,box-shadow] duration-150 transform active:scale-[0.97] text-lg sm:text-xl cursor-pointer ${
+          className={`group relative flex-1 overflow-hidden flex items-center justify-center gap-2 sm:gap-3 rounded-full py-3 sm:py-5 font-extrabold shadow-card-hover transition-[transform,background-color,box-shadow] duration-150 transform active:scale-[0.97] text-base sm:text-xl cursor-pointer ${
             files.length > 0 && !isProcessing
               ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20 hover:shadow-blue-600/30'
               : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
           }`}
         >
           {isProcessing ? (
-             <span className="relative z-10 flex items-center gap-3">
-                <Loader2 className="w-6 h-6 animate-spin" />
+             <span className="relative z-10 flex items-center gap-2 sm:gap-3 text-sm sm:text-base">
+                <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" />
                 {t('docs.analyzing_document')}
              </span>
           ) : (
             <>
               <span className="relative z-10 flex items-center gap-2">
                 {t('docs.process_document')}
-                <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 group-hover:translate-x-1.5 transition-transform" />
+                <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6 group-hover:translate-x-1.5 transition-transform" />
               </span>
             </>
           )}

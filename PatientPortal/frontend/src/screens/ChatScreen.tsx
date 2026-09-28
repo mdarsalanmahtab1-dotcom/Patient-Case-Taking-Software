@@ -3,14 +3,68 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_BASE } from '../config';
-import { ChevronLeft, Send, Pill, Clock, Stethoscope, RotateCcw } from 'lucide-react';
+import { ChevronLeft, Send, Pill, Clock, Stethoscope, RotateCcw, HelpCircle, PhoneCall } from 'lucide-react';
 import { useTranslation } from '../i18n/LanguageContext';
 import logoPNG from '../assets/logoPNG.png';
+
+interface SourceMeta {
+  type: string;
+  id?: string;
+  label?: string;
+}
 
 interface Message {
   id: string;
   sender: 'user' | 'ai';
   text: string;
+  sources?: SourceMeta[];
+  emergency?: boolean;
+  needs_clinician?: boolean;
+  suggested_followups?: string[];
+}
+
+function cleanAiResponse(raw: any): { text: string; parsedData?: any } {
+  if (!raw) return { text: '' };
+  let str = typeof raw === 'string' ? raw.trim() : JSON.stringify(raw);
+
+  // Strip markdown code fences if present
+  if (str.startsWith('```json')) {
+    str = str.substring(7);
+  } else if (str.startsWith('```')) {
+    str = str.substring(3);
+  }
+  if (str.endsWith('```')) {
+    str = str.substring(0, str.length - 3);
+  }
+  str = str.trim();
+
+  // If it's a JSON string, try to parse
+  if (str.startsWith('{') && str.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(str);
+      if (parsed && typeof parsed === 'object') {
+        const innerText = parsed.response || parsed.reply || '';
+        if (innerText) {
+          const nested = cleanAiResponse(innerText);
+          return { text: nested.text || innerText, parsedData: parsed };
+        }
+        return { text: str, parsedData: parsed };
+      }
+    } catch {
+      // Ignore parse failure
+    }
+  }
+
+  // Regex fallback: check if there is an embedded JSON inside the string: { "response": "..." }
+  const jsonMatch = str.match(/\{[\s\S]*"response"\s*:\s*"([\s\S]*?)"[\s\S]*\}/);
+  if (jsonMatch && jsonMatch[1]) {
+    try {
+      const unescaped = jsonMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+      return { text: unescaped };
+    } catch {}
+  }
+
+  return { text: str };
 }
 
 export const ChatScreen: React.FC = () => {
@@ -26,7 +80,12 @@ export const ChatScreen: React.FC = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          return parsed.map((m: Message) => {
+            if (m.sender === 'ai' && m.text && (m.text.includes('```json') || m.text.trim().startsWith('{'))) {
+              return { ...m, text: cleanAiResponse(m.text).text || m.text };
+            }
+            return m;
+          });
         }
       }
     } catch {}
@@ -35,6 +94,7 @@ export const ChatScreen: React.FC = () => {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [recordAvailable, setRecordAvailable] = useState<boolean | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(() => messages.length <= 1);
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
@@ -44,10 +104,23 @@ export const ChatScreen: React.FC = () => {
     { icon: <Pill className="w-3.5 h-3.5 text-blue-600" />, text: t.chat.sugMedications },
     { icon: <Clock className="w-3.5 h-3.5 text-emerald-600" />, text: t.chat.sugNextDose },
     { icon: <Stethoscope className="w-3.5 h-3.5 text-purple-600" />, text: t.chat.sugDiagnosis },
+    { icon: <HelpCircle className="w-3.5 h-3.5 text-cyan-600" />, text: (t.chat as any).sugKiosk || 'What does the SwasthyaSync kiosk do?' },
   ];
 
   useEffect(() => {
-    if (!token) navigate('/login');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    // Check dynamic clinical record status
+    axios.get(`${API_BASE}/api/portal/chat/status`, { headers })
+      .then(res => {
+        setRecordAvailable(Boolean(res.data.record_available));
+      })
+      .catch(() => {
+        setRecordAvailable(false);
+      });
   }, [token, navigate]);
 
   // Persist messages across page changes & reloads for this login session
@@ -94,7 +167,24 @@ export const ChatScreen: React.FC = () => {
         { headers }
       );
 
-      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), sender: 'ai', text: response.data.reply }]);
+      let data = response.data || {};
+      let rawReply = data.reply || data.response || 'I am ready to help with your health questions.';
+      const { text: cleanReply, parsedData } = cleanAiResponse(rawReply);
+      if (parsedData) {
+        data = { ...data, ...parsedData };
+      }
+
+      const aiMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        sender: 'ai',
+        text: cleanReply || 'I am ready to help with your health questions.',
+        sources: data.sources || [],
+        emergency: Boolean(data.emergency),
+        needs_clinician: Boolean(data.needs_clinician),
+        suggested_followups: data.suggested_followups || []
+      };
+
+      setMessages(prev => [...prev, aiMsg]);
     } catch (err: any) {
       if (err.response?.status === 401) {
         localStorage.clear();
@@ -139,10 +229,17 @@ export const ChatScreen: React.FC = () => {
                 SwasthyaSync AI
                 <span className="px-1.5 py-0.2 text-[9px] font-extrabold bg-blue-50 text-blue-700 rounded border border-blue-200/60 uppercase">Assistant</span>
               </h1>
-              <p className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                {t.chat.subtitle}
-              </p>
+              {recordAvailable === true ? (
+                <p className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  {(t.chat as any).statusConnected || 'Online • Record Connected'}
+                </p>
+              ) : (
+                <p className="text-[10px] font-bold text-blue-600 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                  {(t.chat as any).statusGeneral || 'Online • Health & Hospital Assistant'}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -181,7 +278,50 @@ export const ChatScreen: React.FC = () => {
                   ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-tr-md shadow-blue-600/15'
                   : 'bg-white text-slate-800 border border-slate-200/80 rounded-tl-md shadow-2xs'
               }`}>
-                {msg.text}
+                <div>{msg.sender === 'ai' ? cleanAiResponse(msg.text).text : msg.text}</div>
+
+                {/* Emergency Urgent Callout Banner */}
+                {msg.emergency && (
+                  <div className="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-bold text-red-800">Immediate Ambulance: 108</span>
+                    <a
+                      href="tel:108"
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded-lg text-xs font-bold shadow-xs hover:bg-red-700 transition-colors"
+                    >
+                      <PhoneCall className="w-3 h-3" />
+                      <span>Call 108</span>
+                    </a>
+                  </div>
+                )}
+
+                {/* Verified Source Badges */}
+                {msg.sources && msg.sources.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-slate-100">
+                    {msg.sources.map((src, sIdx) => (
+                      <span
+                        key={sIdx}
+                        className="inline-flex items-center text-[9px] font-bold text-slate-600 bg-slate-100/90 border border-slate-200/60 px-2 py-0.5 rounded-md"
+                      >
+                        {src.label || src.type}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Suggested Follow-up Quick Chips */}
+                {msg.suggested_followups && msg.suggested_followups.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2.5 pt-2 border-t border-slate-100">
+                    {msg.suggested_followups.map((fText, fIdx) => (
+                      <button
+                        key={fIdx}
+                        onClick={() => sendMessage(fText)}
+                        className="text-[10px] font-bold text-blue-700 bg-blue-50/80 hover:bg-blue-100 border border-blue-200/60 px-2.5 py-1 rounded-full text-left transition-colors cursor-pointer"
+                      >
+                        {fText}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           ))}
@@ -262,4 +402,3 @@ export const ChatScreen: React.FC = () => {
     </div>
   );
 };
-

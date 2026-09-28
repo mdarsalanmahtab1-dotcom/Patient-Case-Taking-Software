@@ -8,8 +8,9 @@ import {
   Activity, Users, LayoutList, Stethoscope, Settings, List, AlertTriangle, X, Search, DownloadCloud, TrendingUp, ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getApiBaseUrl } from '../config';
 
-const API_BASE = 'http://localhost:8000/api/admin';
+const API_BASE = `${getApiBaseUrl()}/api/admin`;
 const ADMIN_EMAIL = 'mdzeeshan08886@gmail.com';
 const ADMIN_PASS = 'zeeshan';
 
@@ -98,7 +99,7 @@ export const AdminPanel: React.FC = () => {
       setLogs(Array.isArray(logRes) ? logRes : []);
 
       // Also fetch notifications
-      fetch(`http://localhost:8000/api/admin/notifications`)
+      fetch(`${API_BASE}/notifications`)
         .then(r => r.json())
         .then(d => setNotifications(d.notifications || []))
         .catch(() => {});
@@ -118,7 +119,7 @@ export const AdminPanel: React.FC = () => {
   }, [isAuthenticated]);
 
   const handleMarkNotificationRead = async (notif_id: string) => {
-    await fetch(`http://localhost:8000/api/admin/notifications/${notif_id}/read`, { method: 'PUT' });
+    await fetch(`${API_BASE}/notifications/${notif_id}/read`, { method: 'PUT' });
     setNotifications(prev => prev.filter(n => n.notif_id !== notif_id));
   };
 
@@ -309,34 +310,34 @@ export const AdminPanel: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-full bg-slate-50 text-slate-900 font-sans p-6 flex flex-col overflow-hidden">
-      <header className="flex-none flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
+    <div className="min-h-[100dvh] md:h-screen w-full bg-slate-50 text-slate-900 font-sans p-3 sm:p-6 flex flex-col overflow-x-hidden">
+      <header className="flex-none flex flex-col md:flex-row items-start md:items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-slate-200 gap-3 sm:gap-4">
         <div className="flex items-center space-x-3">
-          <div className="p-3 bg-purple-50 border border-purple-200/30 rounded-lg">
-            <ShieldCheck className="w-6 h-6 text-purple-600" />
+          <div className="p-2.5 sm:p-3 bg-purple-50 border border-purple-200/30 rounded-xl shrink-0">
+            <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">System Administration</h1>
-            <p className="text-[#8b949e] text-sm flex items-center mt-1">
-              <Calendar className="w-4 h-4 mr-1.5 text-blue-600" /> {todayDate}
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">System Administration</h1>
+            <p className="text-[#8b949e] text-xs sm:text-sm flex items-center mt-0.5 sm:mt-1">
+              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 text-blue-600" /> {todayDate}
             </p>
           </div>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full md:w-auto justify-between md:justify-end">
           <div className="relative">
             <LiquidButton 
               onClick={() => setShowNotifications(!showNotifications)}
-              className="p-2 bg-white hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-700 transition relative"
+              className="p-2 bg-white hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-700 transition relative cursor-pointer"
             >
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
+              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
               {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-slate-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-slate-900">
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                   {notifications.length}
                 </span>
               )}
             </LiquidButton>
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-300 rounded-xl shadow-2xl z-50 overflow-hidden">
+              <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white border border-slate-300 rounded-xl shadow-2xl z-50 overflow-hidden">
                 <div className="bg-slate-100 px-4 py-3 border-b border-slate-300">
                   <h3 className="font-bold text-slate-900 text-sm">Doctor Notifications</h3>
                 </div>
@@ -347,13 +348,13 @@ export const AdminPanel: React.FC = () => {
                     notifications.map(n => (
                       <div key={n.notif_id} className="p-4 border-b border-slate-200 hover:bg-slate-100/50 transition">
                         <div className="flex justify-between items-start mb-1">
-                          <span className="font-bold text-cyan-400 text-sm">{n.doctor_name}</span>
+                          <span className="font-bold text-blue-600 text-sm">{n.doctor_name}</span>
                           <span className="text-[10px] text-slate-500">{new Date(n.timestamp + 'Z').toLocaleTimeString()}</span>
                         </div>
                         <p className="text-slate-700 text-xs mb-2">{n.message}</p>
                         <LiquidButton 
                           onClick={() => handleMarkNotificationRead(n.notif_id)}
-                          className="text-xs text-blue-400 hover:text-blue-300 font-medium"
+                          className="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
                         >
                           Mark as read
                         </LiquidButton>
@@ -364,71 +365,71 @@ export const AdminPanel: React.FC = () => {
               </div>
             )}
           </div>
-          <span className="text-sm font-semibold text-purple-600 bg-purple-50 px-3 py-1 rounded-full border border-purple-200/30">
+          <span className="text-xs sm:text-sm font-semibold text-purple-600 bg-purple-50 px-2.5 sm:px-3 py-1 rounded-full border border-purple-200/30 hidden xs:inline truncate max-w-[180px] sm:max-w-none">
             Admin: {ADMIN_EMAIL}
           </span>
-          <LiquidButton onClick={handleExportDB} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white font-bold transition flex items-center shadow-lg shadow-emerald-600/20 active:scale-95">
-            <DownloadCloud className="w-4 h-4 mr-2" /> Download DB
+          <LiquidButton onClick={handleExportDB} className="px-3 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white text-xs sm:text-sm font-bold transition flex items-center shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer">
+            <DownloadCloud className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" /> Download DB
           </LiquidButton>
-          <LiquidButton onClick={() => setShowLogoutDialog(true)} className="px-4 py-2 bg-white hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-700 transition flex items-center">
-            <LogOut className="w-4 h-4 mr-2 text-slate-500" /> Secure Logout
+          <LiquidButton onClick={() => setShowLogoutDialog(true)} className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-700 text-xs sm:text-sm transition flex items-center cursor-pointer">
+            <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-slate-500" /> Logout
           </LiquidButton>
         </div>
       </header>
 
       {/* Analytics Row */}
-      <div className="flex-none grid grid-cols-3 gap-6 mb-6">
-        <div className="bg-white border border-slate-200/80 p-5 rounded-2xl flex items-center justify-between shadow-card hover:shadow-card-hover transition-shadow">
+      <div className="flex-none grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 mb-4 sm:mb-6">
+        <div className="bg-white border border-slate-200/80 p-4 sm:p-5 rounded-2xl flex items-center justify-between shadow-card hover:shadow-card-hover transition-shadow">
           <div>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Footfall</p>
-            <h3 className="text-2xl font-black text-slate-900 mt-1">{analytics.total_footfall}</h3>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 sm:mt-1">{analytics.total_footfall}</h3>
           </div>
-          <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
-            <Users className="w-6 h-6" />
+          <div className="p-2.5 sm:p-3 bg-blue-50 rounded-xl text-blue-600">
+            <Users className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
         </div>
-        <div className="bg-white border border-slate-200/80 p-5 rounded-2xl flex items-center justify-between shadow-card hover:shadow-card-hover transition-shadow">
+        <div className="bg-white border border-slate-200/80 p-4 sm:p-5 rounded-2xl flex items-center justify-between shadow-card hover:shadow-card-hover transition-shadow">
           <div>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Avg Wait Time</p>
-            <h3 className="text-2xl font-black text-slate-900 mt-1">{analytics.avg_wait_time}</h3>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 sm:mt-1">{analytics.avg_wait_time}</h3>
           </div>
-          <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
-            <Activity className="w-6 h-6" />
+          <div className="p-2.5 sm:p-3 bg-emerald-50 rounded-xl text-emerald-600">
+            <Activity className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
         </div>
-        <div className="bg-white border border-slate-200/80 p-5 rounded-2xl flex items-center justify-between shadow-card hover:shadow-card-hover transition-shadow">
+        <div className="bg-white border border-slate-200/80 p-4 sm:p-5 rounded-2xl flex items-center justify-between shadow-card hover:shadow-card-hover transition-shadow">
           <div>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Active Emergencies</p>
-            <h3 className="text-2xl font-black text-slate-900 mt-1">{analytics.emergency_active}</h3>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 sm:mt-1">{analytics.emergency_active}</h3>
           </div>
-          <div className={`p-3 rounded-xl ${analytics.emergency_active > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-400'}`}>
-            <AlertTriangle className={`w-6 h-6 ${analytics.emergency_active > 0 ? 'animate-pulse' : ''}`} />
+          <div className={`p-2.5 sm:p-3 rounded-xl ${analytics.emergency_active > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-400'}`}>
+            <AlertTriangle className={`w-5 h-5 sm:w-6 sm:h-6 ${analytics.emergency_active > 0 ? 'animate-pulse' : ''}`} />
           </div>
         </div>
       </div>
 
-      <div className="flex-1 flex gap-6 overflow-hidden">
-        {/* Sidebar Tabs */}
-        <div className="w-64 bg-white shadow-card border border-slate-200/80 rounded-3xl p-3 flex flex-col h-[calc(100vh-140px)] overflow-y-auto gap-1">
+      <div className="flex-1 flex flex-col md:flex-row gap-4 sm:gap-6 overflow-hidden">
+        {/* Sidebar Tabs (Horizontal scroll on mobile, vertical on desktop) */}
+        <div className="w-full md:w-64 bg-white shadow-card border border-slate-200/80 rounded-2xl sm:rounded-3xl p-2 sm:p-3 flex md:flex-col overflow-x-auto md:overflow-y-auto shrink-0 gap-1 md:h-[calc(100vh-140px)] scrollbar-none">
           {tabs.map(tab => (
             <button 
               key={tab.id} 
               onClick={() => setActiveTab(tab.id)} 
-              className={`w-full flex items-center px-3.5 py-2.5 rounded-2xl text-left transition-all duration-150 cursor-pointer active:scale-[0.97] ${
+              className={`flex items-center px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-left transition-all duration-150 cursor-pointer active:scale-[0.97] whitespace-nowrap shrink-0 md:shrink md:w-full ${
                 activeTab === tab.id 
                   ? 'bg-blue-50/80 text-blue-700 font-bold border border-blue-200/60 shadow-sm' 
                   : 'hover:bg-slate-50 text-slate-600 font-medium border border-transparent'
               }`}
             >
-              <tab.icon className={`w-4 h-4 mr-2.5 shrink-0 ${activeTab === tab.id ? 'text-blue-600' : tab.color}`} />
+              <tab.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2 sm:mr-2.5 shrink-0 ${activeTab === tab.id ? 'text-blue-600' : tab.color}`} />
               <span className="text-xs truncate">{tab.label}</span>
             </button>
           ))}
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 bg-white border border-slate-200/80 rounded-3xl overflow-hidden flex flex-col shadow-card">
-          <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 bg-white border border-slate-200/80 rounded-2xl sm:rounded-3xl overflow-hidden flex flex-col shadow-card">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}

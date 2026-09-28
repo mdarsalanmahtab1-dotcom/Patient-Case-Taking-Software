@@ -78,10 +78,14 @@ async def lifespan(app: FastAPI):
     logger.info("SwasthyaSync backend starting...")
     from database import setup_database
     await setup_database()
-    from pdf_generator import pdf_engine
+    _pdf_engine = None
     try:
-        await pdf_engine.start()
+        from pdf_generator import pdf_engine as _pe
+        _pdf_engine = _pe
+        await _pdf_engine.start()
         logger.info("PDFEngine started.")
+    except ImportError as e:
+        logger.warning(f"PDFEngine unavailable (missing dependency: {e}). PDF generation disabled.")
     except Exception as e:
         logger.error(f"Failed to start PDFEngine: {e}")
         
@@ -95,11 +99,12 @@ async def lifespan(app: FastAPI):
         await cleanup_task
     except asyncio.CancelledError:
         pass
-    try:
-        await pdf_engine.stop()
-        logger.info("PDFEngine stopped.")
-    except Exception as e:
-        logger.error(f"Failed to stop PDFEngine: {e}")
+    if _pdf_engine is not None:
+        try:
+            await _pdf_engine.stop()
+            logger.info("PDFEngine stopped.")
+        except Exception as e:
+            logger.error(f"Failed to stop PDFEngine: {e}")
 
 app = FastAPI(
     title="SwasthyaSync API",
@@ -129,6 +134,12 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # ──────────────────────────────────────────────────────────────────────
 # REST Endpoints
 # ──────────────────────────────────────────────────────────────────────
+
+@app.get("/")
+@app.get("/health")
+async def health_check():
+    """Deployment health probe endpoint."""
+    return {"status": "healthy", "service": "SwasthyaSync API", "version": "2.0.0"}
 
 @app.post("/api/session")
 async def create_session(
@@ -183,8 +194,13 @@ async def upload_document(
         url_resp = supabase.storage.from_("patient-records").create_signed_url(storage_path, 2592000)
         storage_path = url_resp.get("signedURL", storage_path)
     except Exception as e:
-        logger.error(f"Supabase upload error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to upload document to cloud storage.")
+        logger.warning(f"Supabase upload failed ({e}), falling back to local storage.")
+        local_dir = os.path.join(os.path.dirname(__file__), "uploads")
+        os.makedirs(local_dir, exist_ok=True)
+        local_path = os.path.join(local_dir, safe_filename)
+        with open(local_path, "wb") as f:
+            f.write(image_bytes)
+        storage_path = f"/uploads/{safe_filename}"
         
     result = await process_document(image_bytes, filename=file.filename or "doc.jpg", media_type=content_type)
     result["image_url"] = storage_path
@@ -263,8 +279,13 @@ async def upload_document_batch(
             url_resp = supabase.storage.from_("patient-records").create_signed_url(storage_path, 2592000)
             storage_paths.append(url_resp.get("signedURL", storage_path))
         except Exception as e:
-            logger.error(f"Supabase upload error: {e}")
-            raise HTTPException(status_code=500, detail="Failed to upload document to cloud storage.")
+            logger.warning(f"Supabase upload failed ({e}), falling back to local storage.")
+            local_dir = os.path.join(os.path.dirname(__file__), "uploads")
+            os.makedirs(local_dir, exist_ok=True)
+            local_path = os.path.join(local_dir, safe_filename)
+            with open(local_path, "wb") as f:
+                f.write(img_bytes)
+            storage_paths.append(f"/uploads/{safe_filename}")
 
     from ocr_pipeline import process_batch_ocr
     result = await process_batch_ocr(image_bytes_list, media_types, patient_name)
@@ -597,13 +618,14 @@ async def websocket_session(ws: WebSocket, session_id: str = Query(None)):
                         "red_flags": [r.model_dump() for r in dm.record.red_flags]
                     }
                     has_red_flags = len(dm.record.red_flags) > 0
+                    checkpoint_status = "WAITING" if dm.fsm.state == "COMPLETE" else "IN_PROGRESS"
                     await database.commit_fsm_checkpoint(
                         session_id=dm.record.session_id,
                         filled_state=record_payload,
                         chief_complaint=str(dm.record.chief_complaint.value or "") if dm.record.chief_complaint else "",
                         interview_qa=dm.record.conversation_history,
                         priority_flag=has_red_flags,
-                        status="IN_PROGRESS"
+                        status=checkpoint_status
                     )
                 except Exception as e:
                     logger.error(f"🚨 Checkpoint failed for session {dm.record.session_id} - {e}")

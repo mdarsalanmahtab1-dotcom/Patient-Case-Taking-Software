@@ -25,6 +25,7 @@ import llm_client
 import schema_generator
 import field_selector
 from red_flag_library import check_safety
+from complaint_qualifier import needs_qualification, build_enriched_complaint
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,11 @@ class DialogueManager:
         self.record = PatientRecord(clinic_mode=clinic_mode, language=language)
         self.language = language
         self.last_active_time = time.time()
+        # Qualifier state: if the chief complaint is vague, we hold
+        # the pending qualifier here and ask ONE clarifying question
+        # before generating the schema.
+        self._pending_qualifier: dict | None = None
+        self._raw_chief_complaint: str = ""
 
     # ──────────────────────────────────────────────────────────────────
     # PUBLIC API
@@ -223,26 +229,86 @@ class DialogueManager:
     # ──────────────────────────────────────────────────────────────────
 
     def _handle_chief_complaint(self, value: str) -> dict:
-        """Capture chief complaint → classify → generate schema → advance."""
-        # Store chief complaint
-        self.record.chief_complaint = SlotValue(
-            value=value, confidence=0.95, source="direct"
-        )
+        """
+        Capture chief complaint → qualify if vague → classify → generate schema → advance.
+
+        Two-turn flow for vague complaints:
+          Turn 1: Patient says 'pain' → we detect it's vague → ask 'where is the pain?'
+          Turn 2: Patient says 'chest' → enriched complaint = 'pain in the Chest'
+                  → schema generated with full context → cardiac questions, not joint questions
+        """
+        # ── TURN 2: Qualifier answer arrived ──
+        if self._pending_qualifier is not None:
+            qualifier = self._pending_qualifier
+            self._pending_qualifier = None
+            enriched = build_enriched_complaint(self._raw_chief_complaint, qualifier, value)
+            logger.info(f"Qualifier answer: '{value}' → enriched complaint: '{enriched}'")
+            # Store the enriched complaint and proceed to schema generation
+            return self._generate_schema_and_advance(enriched)
+
+        # ── TURN 1: Fresh chief complaint ──
+        self._raw_chief_complaint = value
         self.record.add_conversation_message("patient", value, "CHIEF_COMPLAINT")
 
+        # Check if this complaint is too vague to generate a good schema
+        qualifier = needs_qualification(value)
+        if qualifier:
+            # Hold the qualifier, ask the clarifying question now
+            self._pending_qualifier = qualifier
+            logger.info(f"Chief complaint '{value}' is vague — asking qualifier: {qualifier['id']}")
+
+            # Translate options for non-English sessions
+            options_out = []
+            for opt in qualifier["options"]:
+                options_out.append({
+                    "label": opt.get("label_translated", opt.get("label", "")),
+                    "value": opt.get("label", ""),
+                    "icon": None,
+                })
+
+            self.record.add_conversation_message(
+                "assistant", qualifier["question"], "CHIEF_COMPLAINT"
+            )
+            return {
+                "macro_state": "CHIEF_COMPLAINT",
+                "clinic_mode": self.record.clinic_mode,
+                "session_id": self.record.session_id,
+                "language": self.language,
+                "screen": "conversation",
+                "orb_state": "idle",
+                "prompt": qualifier["question"],
+                "options": options_out,
+                "section_label": "Chief Complaint",
+                "can_skip": False,
+                "progress": {"done": 0, "total": 1, "percent": 0, "label": "Getting started"},
+                "section_summary": "",
+                "conversation_history": self.record.conversation_history[-4:],
+            }
+
+        # Complaint is already specific — go straight to schema generation
+        return self._generate_schema_and_advance(value)
+
+    def _generate_schema_and_advance(self, enriched_complaint: str) -> dict:
+        """Classify complaint, generate schema, advance FSM to DYNAMIC_INTERVIEW."""
+        # Store the (possibly enriched) chief complaint
+        self.record.chief_complaint = SlotValue(
+            value=enriched_complaint, confidence=0.95, source="direct"
+        )
+
         # Classify
-        category = llm_client.classify_complaint(value, self.language)
+        category = llm_client.classify_complaint(enriched_complaint, self.language)
         self.record.complaint_category = category
-        logger.info(f"Chief complaint classified: '{value}' → {category}")
+        logger.info(f"Chief complaint classified: '{enriched_complaint}' → {category}")
 
         # Generate dynamic schema (Stage 1)
         logger.info("Starting Stage 1: dynamic schema generation...")
         schema = schema_generator.generate_schema(
-            chief_complaint=value,
+            chief_complaint=enriched_complaint,
             patient_age=self.record.patient_age,
             patient_sex=self.record.patient_sex,
             category=category,
             doctor_custom_instructions=self.record.doctor_custom_instructions,
+            clinic_mode=self.record.clinic_mode,
         )
         self.record.dynamic_schema = schema
 
@@ -253,11 +319,30 @@ class DialogueManager:
         field_count = len(schema.get("fields", []))
         logger.info(f"Schema generated: {field_count} fields for category '{category}'")
 
+        # Pre-fill schema slots directly volunteered in chief complaint
+        if self.record.clinic_mode != "ayush":
+            try:
+                pre_extracted = conversation_engine.extract_from_response(
+                    patient_message=enriched_complaint,
+                    unfilled_fields=schema.get("fields", []),
+                    filled_summary="",
+                    conversation_history=self.record.conversation_history,
+                    language=self.language,
+                    doctor_custom_instructions=self.record.doctor_custom_instructions,
+                )
+                for fid, entry in pre_extracted.items():
+                    if entry.get("value"):
+                        self.record.update_filled_state(
+                            fid,
+                            entry.get("value"),
+                            entry.get("confidence", 0.8),
+                        )
+            except Exception as e:
+                logger.warning(f"Chief complaint pre-extraction failed: {e}")
+
         # Skip SCHEMA_GENERATION state and go directly to DYNAMIC_INTERVIEW
         self.fsm.set_state("DYNAMIC_INTERVIEW")
         self.record.macro_state = "DYNAMIC_INTERVIEW"
-
-        # Removed db checkpoint here, handled in main.py
 
         return self._build_ui_instruction()
 

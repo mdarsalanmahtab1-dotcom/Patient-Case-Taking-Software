@@ -85,6 +85,8 @@ export interface Translations {
   chat: {
     title: string;
     subtitle: string;
+    statusConnected: string;
+    statusGeneral: string;
     welcomeMessage: string;
     inputPlaceholder: string;
     assistantTyping: string;
@@ -92,6 +94,7 @@ export interface Translations {
     sugMedications: string;
     sugNextDose: string;
     sugDiagnosis: string;
+    sugKiosk: string;
   };
 }
 
@@ -179,15 +182,18 @@ export const translations: Record<Language, Translations> = {
       logout: 'Log Out of Portal',
     },
     chat: {
-      title: 'Medical AI Assistant',
-      subtitle: 'Online • Context-Aware RAG',
-      welcomeMessage: 'Hello! I am your AI Medical Assistant. I have access to your latest medical record from SwasthyaSync. How can I help you today?',
-      inputPlaceholder: 'Ask about your prescription, dosage, or advice...',
-      assistantTyping: 'Assistant is reviewing your record...',
-      disclaimer: 'AI can make mistakes. Always follow your doctor’s direct instructions for medical emergencies.',
+      title: 'SwasthyaSync AI',
+      subtitle: 'Online • Health & Medical Assistant',
+      statusConnected: 'Online • Record Connected',
+      statusGeneral: 'Online • Health & Hospital Assistant',
+      welcomeMessage: "Hello! I'm SwasthyaSync AI. I can help you understand your medical records, explain lab reports and prescriptions, answer hospital and kiosk questions, or guide you on general health. How can I help you today?",
+      inputPlaceholder: 'Ask about reports, medicines, hospital services, or health...',
+      assistantTyping: 'SwasthyaSync AI is thinking...',
+      disclaimer: 'AI is an educational assistant and not a doctor. In an emergency, please call 108 or consult your clinician immediately.',
       sugMedications: 'What medications am I prescribed?',
       sugNextDose: 'When should I take my medicines?',
-      sugDiagnosis: 'Explain my diagnosis in simple terms',
+      sugDiagnosis: 'Explain my latest report or visit',
+      sugKiosk: 'What does the SwasthyaSync kiosk do?',
     },
   },
 
@@ -274,15 +280,18 @@ export const translations: Record<Language, Translations> = {
       logout: 'लॉग आउट करें',
     },
     chat: {
-      title: 'चिकित्सा एआई सहायक',
-      subtitle: 'ऑनलाइन • संदर्भ-जागरूक RAG',
-      welcomeMessage: 'नमस्ते! मैं आपका एआई चिकित्सा सहायक हूँ। मेरे पास आपके नवीनतम स्वास्थ्यसिंक रिकॉर्ड का विवरण है। मैं आपकी क्या सहायता कर सकता हूँ?',
-      inputPlaceholder: 'दवा, खुराक या डॉक्टर की सलाह के बारे में पूछें...',
-      assistantTyping: 'सहायक रिकॉर्ड की जांच कर रहा है...',
-      disclaimer: 'एआई त्रुटि कर सकता है। किसी भी गंभीर लक्षण के लिए हमेशा सीधे डॉक्टर से परामर्श करें।',
+      title: 'स्वास्थ्यसिंक एआई',
+      subtitle: 'ऑनलाइन • स्वास्थ्य एवं चिकित्सा सहायक',
+      statusConnected: 'ऑनलाइन • रिकॉर्ड उपलब्ध',
+      statusGeneral: 'ऑनलाइन • अस्पताल एवं स्वास्थ्य सहायक',
+      welcomeMessage: 'नमस्ते! मैं स्वास्थ्यसिंक एआई हूँ। मैं आपके मेडिकल रिकॉर्ड, जांच रिपोर्ट और दवाइयों को समझने, अस्पताल और कियोस्क की जानकारी देने, या सामान्य स्वास्थ्य मार्गदर्शन में आपकी मदद कर सकता हूँ। आज मैं आपकी क्या सहायता करूँ?',
+      inputPlaceholder: 'दवा, रिपोर्ट, अस्पताल सेवा या स्वास्थ्य के बारे में पूछें...',
+      assistantTyping: 'स्वास्थ्यसिंक एआई विचार कर रहा है...',
+      disclaimer: 'एआई एक सहायक है और डॉक्टर का विकल्प नहीं है। आपातकाल में तुरंत 108 पर संपर्क करें या डॉक्टर से मिलें।',
       sugMedications: 'मुझे कौन सी दवाएं दी गई हैं?',
       sugNextDose: 'मुझे दवा किस समय लेनी चाहिए?',
-      sugDiagnosis: 'मेरी बीमारी को सरल शब्दों में समझाएं',
+      sugDiagnosis: 'मेरी पिछली रिपोर्ट या सलाह समझाएं',
+      sugKiosk: 'स्वास्थ्यसिंक कियोस्क कैसे काम करता है?',
     },
   },
 
@@ -369,15 +378,18 @@ export const translations: Record<Language, Translations> = {
       logout: 'লগ আউট করুন',
     },
     chat: {
-      title: 'মেডিক্যাল এআই সহকারী',
-      subtitle: 'অনলাইন • কনটেক্সট সমৃদ্ধ RAG',
-      welcomeMessage: 'নমস্কার! আমি আপনার এআই সহকারী। আপনার সাম্প্রতিক প্রেসক্রিপশন সংক্রান্ত কোনো প্রশ্ন থাকলে আমাকে জিজ্ঞাসা করুন।',
-      inputPlaceholder: 'ওষুধের নিয়ম বা পরামর্শ জানতে লিখুন...',
-      assistantTyping: 'সহকারী আপনার রেকর্ড যাচাই করছে...',
-      disclaimer: 'এআই ভুল করতে পারে। গুরুতর উপসর্গের ক্ষেত্রে সরাসরি ডাক্তারের পরামর্শ নিন।',
+      title: 'স্বাস্থ্যসিঙ্ক এআই',
+      subtitle: 'অনলাইন • স্বাস্থ্য ও চিকিৎসা সহকারী',
+      statusConnected: 'অনলাইন • রেকর্ড যুক্ত রয়েছে',
+      statusGeneral: 'অনলাইন • হাসপাতাল ও স্বাস্থ্য সহকারী',
+      welcomeMessage: 'নমস্কার! আমি স্বাস্থ্যসিঙ্ক এআই। আমি আপনার প্রেসক্রিপশন ও ল্যাব রিপোর্ট বুঝতে, হাসপাতালের তথ্য পেতে এবং সাধারণ স্বাস্থ্য বিষয়ে সাহায্য করতে পারি। আজ আপনাকে কীভাবে সাহায্য করতে পারি?',
+      inputPlaceholder: 'ওষুধ, রিপোর্ট বা হাসপাতালের তথ্য জানতে লিখুন...',
+      assistantTyping: 'স্বাস্থ্যসিঙ্ক এআই বিশ্লেষণ করছে...',
+      disclaimer: 'এআই কোনো চিকিৎসকের বিকল্প নয়। জরুরি পরিস্থিতিতে অবিলম্বে ১০৮ নম্বরে যোগাযোগ করুন।',
       sugMedications: 'আমার কি কি ওষুধ প্রেসক্রাইব করা হয়েছে?',
       sugNextDose: 'ওষুধগুলো কখন কীভাবে খাব?',
-      sugDiagnosis: 'আমার রোগটি সহজ ভাষায় বুঝিয়ে দিন',
+      sugDiagnosis: 'আমার সাম্প্রতিক রিপোর্টটি সহজ ভাষায় বুঝিয়ে দিন',
+      sugKiosk: 'স্বাস্থ্যসিঙ্ক কিয়স্ক কীভাবে কাজ করে?',
     },
   },
 };

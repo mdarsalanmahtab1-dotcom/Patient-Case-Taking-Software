@@ -61,7 +61,7 @@ export function OtpInput({ value, onChange, hasError = false, disabled = false, 
 
   return (
     <motion.div
-      className="flex gap-2 sm:gap-3 justify-center"
+      className="flex gap-1.5 xs:gap-2 sm:gap-3 justify-center w-full max-w-sm mx-auto"
       animate={hasError ? { x: [0, -8, 8, -8, 8, 0] } : {}}
       transition={{ duration: 0.4 }}
     >
@@ -84,7 +84,7 @@ export function OtpInput({ value, onChange, hasError = false, disabled = false, 
             if (onFocus) onFocus();
           }}
           className={`
-            w-11 h-14 sm:w-14 sm:h-16 text-center text-xl sm:text-2xl font-bold rounded-2xl
+            w-9 h-12 xs:w-11 xs:h-14 sm:w-14 sm:h-16 text-center text-lg sm:text-2xl font-bold rounded-xl sm:rounded-2xl
             border-2 outline-none transition-[transform,border-color,background-color,box-shadow] duration-150 select-none
             ${hasError
               ? 'border-red-400 bg-red-50 text-red-600'

@@ -24,6 +24,7 @@ export interface STTResult {
 
 interface UseSarvamSTTReturn {
   isRecording: boolean;
+  isTranscribing: boolean;
   startRecording: (e?: React.TouchEvent | React.MouseEvent) => Promise<void>;
   stopRecording: (e?: React.TouchEvent | React.MouseEvent) => void;
   lastResult: STTResult | null;
@@ -39,6 +40,7 @@ export function useSarvamSTT(
   onResult?: (result: STTResult) => void,
 ): UseSarvamSTTReturn {
   const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [lastResult, setLastResult] = useState<STTResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
@@ -142,6 +144,7 @@ export function useSarvamSTT(
         }
 
         try {
+          setIsTranscribing(true);
           const formData = new FormData();
           formData.append('audio', blob, `recording.${extension}`);
           formData.append('language', hintLanguage);
@@ -177,6 +180,8 @@ export function useSarvamSTT(
           const msg = err instanceof Error ? err.message : 'STT request failed';
           console.error('[STT] Error:', msg);
           setError(msg);
+        } finally {
+          setIsTranscribing(false);
         }
       };
 
@@ -202,5 +207,5 @@ export function useSarvamSTT(
     }
   }, []);
 
-  return { isRecording, startRecording, stopRecording, lastResult, error, audioLevel };
+  return { isRecording, isTranscribing, startRecording, stopRecording, lastResult, error, audioLevel };
 }
