@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 # Models tested and working in this environment
-MODELS_TO_TRY = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-2.5-flash"]
+# gemini-2.5-flash returns 404 for this key; gemini-3.6-flash is often 503 under load
+MODELS_TO_TRY = ["gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.6-flash"]
 
 _client_instance = None
 

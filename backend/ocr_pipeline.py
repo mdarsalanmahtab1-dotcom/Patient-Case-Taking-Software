@@ -8,16 +8,27 @@ import os
 import io
 import uuid
 import logging
+import asyncio
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 from google import genai
 from google.genai import types
+from dotenv import load_dotenv
 
+load_dotenv()
 logger = logging.getLogger(__name__)
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+
+# Multimodal Model Cascade for Batch Document & Prescription OCR
+OCR_MODELS_CASCADE = [
+    "gemini-3.5-flash-lite",     # fastest reliably-available model (multimodal)
+    "gemini-flash-lite-latest",  # alias backup
+    "gemini-3.6-flash",          # stronger, but frequently 503 under load
+    "gemini-3.1-flash-lite",     # last resort
+]
 
 # ------------------------------------------------------------------
 # 1. New Prompt & Models for Batch OCR & Validation
@@ -1288,22 +1299,48 @@ async def process_batch_ocr(image_bytes_list: List[bytes], media_types: List[str
     
     contents.append("Analyze these medical document images. Extract all clinical entities following your instruction rules. Return structured JSON.")
 
-    model_name = "gemini-3.5-flash-lite"
     import time
     start_time = time.time()
-    try:
-        response = await client.aio.models.generate_content(
-            model=model_name,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=BatchExtractionResponse,
-                system_instruction=system_prompt,
-                temperature=0.0
+    parsed = None
+    last_err = None
+
+    # Skip models that are cooling down after 503/404 (shared with llm_client) and cap the total wait.
+    import llm_client as _llm
+    OCR_TOTAL_BUDGET_S = 45.0
+    for model_name in _llm.available_models(OCR_MODELS_CASCADE):
+        remaining = OCR_TOTAL_BUDGET_S - (time.time() - start_time)
+        if remaining < 3.0:
+            last_err = last_err or "OCR time budget used up"
+            break
+        try:
+            logger.info(f"Attempting batch OCR with model {model_name}...")
+            call_coro = client.aio.models.generate_content(
+                model=model_name,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=BatchExtractionResponse,
+                    system_instruction=system_prompt,
+                    temperature=0.0
+                )
             )
-        )
-        parsed = response.parsed
-        if parsed:
+            response = await asyncio.wait_for(call_coro, timeout=min(20.0, remaining))
+            parsed = response.parsed
+            if parsed:
+                logger.info(f"Batch OCR succeeded with model {model_name} in {time.time()-start_time:.2f}s")
+                break
+        except asyncio.TimeoutError:
+            logger.warning(f"⚡ Batch OCR timed out on {model_name} (20s limit) — cascading to backup")
+            last_err = "Model timeout"
+            _llm._cool_down(model_name, "timeout")
+            continue
+        except Exception as e:
+            last_err = str(e)
+            logger.warning(f"⚡ Batch OCR failed on {model_name}: {e} — cascading to backup")
+            _llm._cool_down(model_name, _llm._failure_reason(last_err))
+            continue
+
+    if parsed:
             # Map back to old expected DigitizedDocument format at the top level
             # so we don't break main.py or DB
             legacy_dict = {
@@ -1355,12 +1392,18 @@ async def process_batch_ocr(image_bytes_list: List[bytes], media_types: List[str
 
             logger.info(f"Batch OCR succeeded in {time.time()-start_time:.2f}s")
             return legacy_dict
-            
-    except Exception as e:
-        logger.error(f"Batch OCR failed: {e}")
-        return {"doc_id": "error", "is_valid_medical_document": False, "rejection_reason": str(e)}
-        
-    return {"doc_id": "error", "is_valid_medical_document": False, "rejection_reason": "No response parsed"}
+
+    logger.error(f"Batch OCR failed across all candidate models: {last_err}")
+    return {
+        "doc_id": "error",
+        "is_valid_medical_document": False,
+        "rejection_reason": f"OCR extraction temporarily unavailable ({last_err or 'all models failed'})",
+        "medications": [],
+        "lab_values": [],
+        "diagnoses": [],
+        "consolidated_summary_json": {},
+        "clinical_summary": "Document processing temporarily unavailable."
+    }
 
 # For backward compatibility with tests/fallback, keep process_document
 async def process_document(image_bytes: bytes, filename: str = "doc.jpg", media_type: str = "image/jpeg") -> dict:

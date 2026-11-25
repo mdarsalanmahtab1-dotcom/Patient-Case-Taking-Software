@@ -24,10 +24,17 @@ from red_flag_library import get_safety_floor, get_safety_floor_as_text, merge_s
 logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────────
-# Stage 1 Model — heavier model called once per encounter
+# Stage 1 Model Cascade — clinical reasoning models for dynamic interview schema
 # ──────────────────────────────────────────────────────────────────────
-SCHEMA_MODEL_PRIMARY = "gemini-3.5-flash-lite"
-SCHEMA_MODEL_FALLBACK = "gemini-3.6-flash"
+SCHEMA_MODELS_CASCADE = [
+    "gemini-3.5-flash-lite",     # fastest reliably-available model (multimodal)
+    "gemini-flash-lite-latest",  # alias backup
+    "gemini-3.6-flash",          # stronger, but frequently 503 under load
+    "gemini-3.1-flash-lite",     # last resort
+]
+
+SCHEMA_MODEL_PRIMARY = SCHEMA_MODELS_CASCADE[0]
+SCHEMA_MODEL_FALLBACK = SCHEMA_MODELS_CASCADE[1]
 
 # Language names for demographic context
 LANGUAGE_NAMES = {
@@ -156,17 +163,24 @@ def generate_schema(
 
     t0 = time.time()
 
-    # Try the primary heavy model first
-    schema = _call_model_for_schema(SCHEMA_MODEL_PRIMARY, system_prompt, user_prompt)
-
-    # Fallback to lighter model if primary fails
-    if schema is None:
-        logger.warning(f"Primary schema model ({SCHEMA_MODEL_PRIMARY}) failed, trying fallback ({SCHEMA_MODEL_FALLBACK})")
-        schema = _call_model_for_schema(SCHEMA_MODEL_FALLBACK, system_prompt, user_prompt)
+    # Try models in cascade order (high reasoning first, then fast fallbacks)
+    # Patients wait on this screen, so cap the total time. Overloaded models (503) are skipped via the
+    # shared cool-down in llm_client; after the budget the safe static questionnaire is used.
+    SCHEMA_TOTAL_BUDGET_S = 15.0
+    schema = None
+    for model in llm_client.available_models(SCHEMA_MODELS_CASCADE):
+        remaining = SCHEMA_TOTAL_BUDGET_S - (time.time() - t0)
+        if remaining < 2.0:
+            logger.warning("Schema generation time budget used up — using static fallback schema")
+            break
+        schema = _call_model_for_schema(model, system_prompt, user_prompt, timeout_seconds=min(10.0, remaining))
+        if schema:
+            break
+        logger.warning(f"⚡ Schema model ({model}) failed or timed out — cascading to backup")
 
     # Fallback to static schema if all LLM calls fail
     if schema is None:
-        logger.error("All schema generation models failed — using static fallback schema")
+        logger.error("All schema generation models failed — using static safety-floor fallback schema")
         schema = _build_static_fallback(chief_complaint, category)
 
     # SAFETY: Merge the must-ask safety floor into the schema
@@ -182,26 +196,42 @@ def generate_schema(
     return schema
 
 
-def _call_model_for_schema(model: str, system_prompt: str, user_prompt: str) -> dict | None:
-    """Call a specific model for schema generation. Returns None on failure."""
+def _call_model_for_schema(model: str, system_prompt: str, user_prompt: str, timeout_seconds: float = 25.0) -> dict | None:
+    """Call a specific model for schema generation with timeout protection. Returns None on failure."""
     try:
         from google import genai
         from google.genai import types as genai_types
         import os
 
         client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
-        response = client.models.generate_content(
-            model=model,
-            contents=user_prompt,
-            config=genai_types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                response_mime_type="application/json",
-                temperature=0.3,
-                max_output_tokens=2048,
-                automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(disable=True),
-            ),
-        )
-        result = json.loads(response.text)
+
+        def _invoke():
+            return client.models.generate_content(
+                model=model,
+                contents=user_prompt,
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    response_mime_type="application/json",
+                    temperature=0.3,
+                    max_output_tokens=4096,
+                    automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(disable=True),
+                ),
+            )
+
+        if hasattr(llm_client, "_call_model_with_timeout"):
+            response = llm_client._call_model_with_timeout(_invoke, timeout_seconds=timeout_seconds)
+        else:
+            response = _invoke()
+
+        raw_text = (response.text or "").strip()
+        if raw_text.startswith("```json"):
+            raw_text = raw_text[7:]
+        elif raw_text.startswith("```"):
+            raw_text = raw_text[3:]
+        if raw_text.endswith("```"):
+            raw_text = raw_text[:-3]
+
+        result = json.loads(raw_text.strip())
 
         # Basic validation
         if "fields" in result and isinstance(result["fields"], list):
@@ -212,7 +242,10 @@ def _call_model_for_schema(model: str, system_prompt: str, user_prompt: str) -> 
             return None
 
     except Exception as e:
-        logger.error(f"Schema generation with {model} failed: {e}")
+        err = str(e)
+        logger.error(f"Schema generation with {model} failed: {err[:160] or type(e).__name__}")
+        if hasattr(llm_client, "_cool_down"):
+            llm_client._cool_down(model, llm_client._failure_reason(err) or ("timeout" if not err else ""))
         return None
 
 

@@ -380,6 +380,20 @@ class DialogueManager:
             doctor_custom_instructions=self.record.doctor_custom_instructions,
         )
 
+        # 2.5 Keep the patient's own words for the field we just asked about if extraction
+        # didn't fill it (AI unavailable or answer not parsed). Without this the same field
+        # stays empty and the same question is asked again and again.
+        last_fid = getattr(self, "_last_asked_field_id", None)
+        if (
+            last_fid
+            and last_fid not in extracted
+            and value
+            and str(value).strip()
+            and any(f["id"] == last_fid for f in unfilled_fields)
+        ):
+            extracted[last_fid] = {"value": str(value).strip(), "confidence": 0.5}
+            logger.info(f"Kept verbatim answer for '{last_fid}' (extraction did not fill it)")
+
         # 3. Update filled_state with extracted data
         for fid, entry in extracted.items():
             self.record.update_filled_state(
@@ -441,6 +455,7 @@ class DialogueManager:
             return self._build_ui_instruction()
 
         # 7. GENERATE QUESTION for the selected field
+        self._last_asked_field_id = next_field.get("id")
         result = conversation_engine.generate_question(
             target_field=next_field,
             filled_summary=self.record.get_filled_summary(),
@@ -591,6 +606,7 @@ class DialogueManager:
                 self.record.macro_state = self.fsm.state
                 return self._build_ui_instruction()
 
+            self._last_asked_field_id = next_f.get("id")
             result = conversation_engine.generate_question(
                 target_field=next_f,
                 filled_summary=self.record.get_filled_summary(),

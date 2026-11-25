@@ -2,7 +2,7 @@
 SwasthyaSync — Ultra-Low Latency Resilient LLM Client (google.genai SDK)
 
 Features:
-  - Valid Gemini Model Cascade (gemini-2.5-flash -> gemini-1.5-flash)
+  - Gemini model cascades below; models that return 503/404 are skipped for a cool-down period
   - Circuit Breaker Pattern (fast fail on 503/throttling)
   - Retry with Exponential Backoff
   - Disabled AFC (Automatic Function Calling) to prevent multi-call latency loops
@@ -15,6 +15,7 @@ import os
 import logging
 import time
 import asyncio
+import concurrent.futures
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -32,9 +33,71 @@ except ImportError:
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
-# High-throughput sub-second models
-PRIMARY_MODEL = "gemini-3.5-flash-lite"
-FALLBACK_MODEL = "gemini-3.6-flash"
+# ──────────────────────────────────────────────────────────────────────
+# Multi-Tier Resilient Model Cascades
+# ──────────────────────────────────────────────────────────────────────
+
+# Ordered by measured availability + latency (Nov 2026): gemini-3.5-flash-lite answered in ~1.1s,
+# gemini-flash-lite-latest in ~3-4s, while gemini-3.1-flash-lite and gemini-3.6-flash were returning
+# 503 "high demand". Overloaded models stay as last resorts and are skipped while cooling down.
+
+# Speed-optimized cascade (low-latency kiosk turns & portal chat)
+FAST_MODELS_CASCADE = [
+    "gemini-3.5-flash-lite",     # primary: fastest model that is reliably available
+    "gemini-flash-lite-latest",  # alias backup
+    "gemini-3.1-flash-lite",     # often 503 under load
+    "gemini-3.6-flash",          # often 503 under load
+]
+
+# Reasoning-optimized cascade (clinical summaries, document entity extraction)
+REASONING_MODELS_CASCADE = [
+    "gemini-3.5-flash-lite",
+    "gemini-flash-lite-latest",
+    "gemini-3.6-flash",          # better reasoning, but frequently overloaded
+]
+
+PRIMARY_MODEL = FAST_MODELS_CASCADE[0]
+FALLBACK_MODEL = FAST_MODELS_CASCADE[1]
+
+# Shared thread pool for timeout-bounded LLM calls
+_llm_executor = concurrent.futures.ThreadPoolExecutor(max_workers=8, thread_name_prefix="gemini_worker")
+
+
+# Models that recently returned 503 (overloaded) or 404 (not available to this key) are skipped
+# for a while, so each turn doesn't pay several seconds waiting on a model that is known to fail.
+_model_cooldown_until: dict = {}
+_COOLDOWN_SECONDS = {"503": 60.0, "429": 60.0, "404": 3600.0, "timeout": 30.0}
+
+
+def _cool_down(model: str, reason: str) -> None:
+    secs = _COOLDOWN_SECONDS.get(reason)
+    if secs:
+        _model_cooldown_until[model] = time.time() + secs
+        logger.warning(f"⏸ Skipping {model} for {int(secs)}s ({reason})")
+
+
+def available_models(models: list) -> list:
+    """Models not currently cooling down. If every model is cooling down, try them all anyway."""
+    now = time.time()
+    ready = [m for m in models if _model_cooldown_until.get(m, 0) <= now]
+    return ready or list(models)
+
+
+def _failure_reason(err: str) -> str:
+    for code in ("503", "429", "404"):
+        if code in err:
+            return code
+    return ""
+
+
+class LLMUnavailable(RuntimeError):
+    """Raised when every model in the cascade failed, so callers use their own step-specific fallback."""
+
+
+def _call_model_with_timeout(fn, timeout_seconds: float = 7.0):
+    """Execute a synchronous SDK call with a strict timeout."""
+    future = _llm_executor.submit(fn)
+    return future.result(timeout=timeout_seconds)
 
 # Complaint categories for classification
 COMPLAINT_CATEGORIES = [
@@ -115,95 +178,116 @@ def _get_client():
 
 
 def _generate_json_with_retry(
-    client, system_prompt: str, user_prompt: str, temperature: float = 0.3
+    client,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.3,
+    models_to_try: list[str] | None = None,
+    timeout_seconds: float = 7.0,
 ) -> dict:
-    """Call Gemini with model fallback, retries, and disabled AFC for fast turns."""
+    """Call Gemini with model cascade fallback, timeout protection, and disabled AFC."""
     if not circuit_breaker.allow_request():
         raise RuntimeError("Circuit breaker is OPEN — bypassing LLM call for immediate fallback")
 
-    models_to_try = [PRIMARY_MODEL, FALLBACK_MODEL]
+    candidate_models = available_models(list(models_to_try or FAST_MODELS_CASCADE))
     last_exception = None
+    # Total wait across the whole cascade for one call. The patient is waiting at the kiosk, so after
+    # this budget we stop and let the caller's fallback question run instead of trying more models.
+    total_budget = timeout_seconds + 2.0
+    started = time.time()
 
-    for model in models_to_try:
-        max_retries = 2
-        for attempt in range(max_retries):
-            t0 = time.time()
-            try:
-                # Explicitly disable AFC to stop 10-step remote execution loops
-                config = genai_types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    response_mime_type="application/json",
-                    temperature=temperature,
-                    max_output_tokens=1024,
-                    automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(disable=True),
-                )
-                
-                response = client.models.generate_content(
+    for model in candidate_models:
+        remaining = total_budget - (time.time() - started)
+        if remaining < 1.5:
+            last_exception = last_exception or TimeoutError("LLM time budget used up")
+            break
+        t0 = time.time()
+        try:
+            config = genai_types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json",
+                temperature=temperature,
+                # Newer Gemini models spend output tokens on internal "thinking"; 1024 could leave the JSON
+                # truncated or empty, which then counted as a failure and cascaded to the next model.
+                max_output_tokens=4096,
+                automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(disable=True),
+            )
+
+            def _invoke():
+                return client.models.generate_content(
                     model=model,
                     contents=user_prompt,
                     config=config,
                 )
-                
-                elapsed = time.time() - t0
-                logger.info(f"Gemini call took {elapsed:.2f}s (model={model})")
-                
-                parsed = json.loads(response.text)
-                circuit_breaker.record_success()
-                return parsed
 
-            except Exception as e:
-                elapsed = time.time() - t0
-                err_msg = str(e)
-                last_exception = e
-                logger.warning(f"Gemini call attempt {attempt+1} failed on {model} after {elapsed:.2f}s: {err_msg[:120]}")
-                
-                # Check for 503 or quota errors
-                if "503" in err_msg or "UNAVAILABLE" in err_msg or "high demand" in err_msg:
-                    circuit_breaker.record_failure(err_msg[:80])
-                    break  # Break retry loop for this model, try fallback model
-                
-                if attempt < max_retries - 1:
-                    time.sleep(0.2 * (2 ** attempt))
+            response = _call_model_with_timeout(_invoke, timeout_seconds=min(timeout_seconds, remaining))
+            elapsed = time.time() - t0
+            logger.info(f"Gemini call took {elapsed:.2f}s (model={model})")
+
+            parsed = json.loads(response.text)
+            circuit_breaker.record_success()
+            return parsed
+
+        except concurrent.futures.TimeoutError:
+            elapsed = time.time() - t0
+            logger.warning(f"⚡ Gemini model {model} timed out after {elapsed:.2f}s (limit {timeout_seconds}s) — cascading to next backup")
+            last_exception = TimeoutError(f"Model {model} timed out after {timeout_seconds}s")
+            _cool_down(model, "timeout")
+            continue
+
+        except Exception as e:
+            elapsed = time.time() - t0
+            err_msg = str(e)
+            last_exception = e
+            logger.warning(f"⚡ Gemini model {model} failed after {elapsed:.2f}s: {err_msg[:100]} — cascading to next backup")
+            _cool_down(model, _failure_reason(err_msg))
+            continue
 
     circuit_breaker.record_failure(str(last_exception)[:80])
-    raise last_exception or RuntimeError("All Gemini model attempts failed")
+    raise LLMUnavailable(f"All Gemini models failed: {str(last_exception)[:120]}")
+
 
 def generate_portal_chat_reply(system_prompt: str, user_prompt: str, temperature: float = 0.5) -> str:
-    """Standard text generation for the Patient Portal Chatbot with retry logic."""
+    """Standard text generation for the Patient Portal Chatbot with multi-model cascade & timeout."""
     client = _get_client()
     if not client:
         return "I'm sorry, my AI systems are currently offline. Please try again later."
-        
+
     if not circuit_breaker.allow_request():
         return "The system is currently experiencing high load. Please try again in a few moments."
 
-    models_to_try = [PRIMARY_MODEL, FALLBACK_MODEL]
     last_exception = None
+    for model in available_models(FAST_MODELS_CASCADE):
+        t0 = time.time()
+        try:
+            config = genai_types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="text/plain",
+                temperature=temperature,
+                max_output_tokens=512,
+                automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(disable=True),
+            )
 
-    for model in models_to_try:
-        for attempt in range(2):
-            try:
-                config = genai_types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    response_mime_type="text/plain",
-                    temperature=temperature,
-                    max_output_tokens=512,
-                )
-                response = client.models.generate_content(
+            def _invoke():
+                return client.models.generate_content(
                     model=model,
                     contents=user_prompt,
                     config=config,
                 )
-                circuit_breaker.record_success()
-                return response.text
-            except Exception as e:
-                last_exception = e
-                err_msg = str(e)
-                if "503" in err_msg or "UNAVAILABLE" in err_msg:
-                    break
-                if attempt < 1:
-                    time.sleep(0.5)
-                    
+
+            response = _call_model_with_timeout(_invoke, timeout_seconds=7.0)
+            elapsed = time.time() - t0
+            logger.info(f"Portal chat reply took {elapsed:.2f}s (model={model})")
+            circuit_breaker.record_success()
+            return response.text
+        except concurrent.futures.TimeoutError:
+            logger.warning(f"⚡ Portal chat timed out on {model} — cascading to next backup")
+            continue
+        except Exception as e:
+            last_exception = e
+            logger.warning(f"⚡ Portal chat failed on {model}: {e} — cascading to next backup")
+            continue
+
     circuit_breaker.record_failure(str(last_exception)[:80])
     return "I apologize, but I encountered an error while processing your request. Please ask your doctor for specific medical advice."
 
@@ -222,11 +306,13 @@ def conversation_turn(
     if client is None:
         return _mock_conversation_turn(user_prompt)
 
-    try:
-        return _generate_json_with_retry(client, system_prompt, user_prompt, temperature)
-    except Exception as e:
-        logger.error(f"conversation_turn failed gracefully: {e}")
-        return _mock_conversation_turn(user_prompt)
+    if not circuit_breaker.allow_request():
+        # Recently failed across every model: fail fast so the caller's step-specific fallback runs.
+        raise LLMUnavailable("Circuit open: Gemini recently unavailable")
+    # Errors propagate (LLMUnavailable / parse errors): every caller in conversation_engine catches them
+    # and falls back to a question specific to the field being asked. The old generic mock reply
+    # ("Could you tell me more about your symptoms?") replaced those and made the interview loop.
+    return _generate_json_with_retry(client, system_prompt, user_prompt, temperature)
 
 
 def _mock_conversation_turn(user_prompt: str) -> dict:
@@ -318,6 +404,8 @@ Only extract what is clearly present. Mark uncertain extractions."""
             system_prompt,
             f"Document type: {doc_type}\nOCR text:\n{ocr_text}",
             temperature=0.1,
+            models_to_try=REASONING_MODELS_CASCADE,
+            timeout_seconds=10.0,
         )
     except Exception as e:
         logger.error(f"LLM extract_document_entities failed: {e}")
@@ -367,6 +455,8 @@ Keep it objective and medically accurate."""
             system_prompt,
             user_prompt,
             temperature=0.2,
+            models_to_try=REASONING_MODELS_CASCADE,
+            timeout_seconds=10.0,
         )
     except Exception as e:
         logger.error(f"LLM generate_clinical_summary failed: {e}")

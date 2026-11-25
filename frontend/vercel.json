@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:match*",
-      "destination": "https://swasthyasync-production.up.railway.app/api/:match*"
+      "destination": "https://swasthyasync-production-7a69c221.up.railway.app/api/:match*"
     },
     {
       "source": "/(.*)",
