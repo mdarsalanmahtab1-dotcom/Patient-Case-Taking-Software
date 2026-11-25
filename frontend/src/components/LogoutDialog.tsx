@@ -16,7 +16,7 @@ export function LogoutDialog({ isOpen, onClose, onConfirm }: LogoutDialogProps) 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 z-50 bg-black/40"
             onClick={onClose}
           />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">

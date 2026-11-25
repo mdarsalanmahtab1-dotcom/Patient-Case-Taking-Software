@@ -1,8 +1,9 @@
-import { LiquidButton } from '../components/ui/button';
 import { LogoutDialog } from '../components/LogoutDialog';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Stethoscope, ArrowRight, User, LogOut, Coffee, CheckCircle, Settings, X, History, FileText, ChevronDown, ChevronUp, ShieldAlert } from 'lucide-react';
+import { Stethoscope, ArrowRight, LogOut, Coffee, CheckCircle, Settings, X, History, FileText, ChevronDown, ChevronUp, ShieldAlert, Inbox } from 'lucide-react';
+import { StaffSignIn } from '../components/StaffSignIn';
+import { EmptyState, Skeleton } from '../components/ui/states';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getApiBaseUrl } from '../config';
 
@@ -23,9 +24,8 @@ export const DoctorQueue: React.FC = () => {
   const [summarySessionId, setSummarySessionId] = useState<string | null>(null);
   const [summaryData, setSummaryData] = useState<any>(null);
   const [expandedFlags, setExpandedFlags] = useState<Set<string>>(new Set());
+  const [panelTab, setPanelTab] = useState<'summary' | 'history'>('summary');
 
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
   const navigate = useNavigate();
@@ -53,8 +53,7 @@ export const DoctorQueue: React.FC = () => {
     }
   }, [doctorAuth]);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (username: string, password: string) => {
     setLoginError('');
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/doctor/login`, {
@@ -68,10 +67,10 @@ export const DoctorQueue: React.FC = () => {
         setDoctorAuth(data);
       } else {
         const err = await res.json();
-        setLoginError(err.detail || 'Invalid credentials');
+        setLoginError(err.detail || "That username and password don't match. Check them and try again.");
       }
     } catch (e) {
-      setLoginError('Network error');
+      setLoginError("Can't reach the hospital server. Check the connection and try again.");
     }
   };
 
@@ -168,439 +167,388 @@ export const DoctorQueue: React.FC = () => {
 
   if (!doctorAuth) {
     return (
-      <div className="h-screen w-full flex items-center justify-center p-8 font-sans bg-slate-50">
-        <motion.div 
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="bg-white border border-slate-200 rounded-3xl p-8 w-full max-w-md shadow-elevated"
-        >
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 border border-blue-100 mb-4 shadow-sm">
-              <Stethoscope className="w-8 h-8 text-blue-600" />
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900">Physician Portal</h1>
-            <p className="text-slate-500 mt-2 font-medium">Sign in to access your patient queue</p>
-          </div>
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1.5">Username</label>
-              <input
-                type="text"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all font-medium"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1.5">Password</label>
-              <input
-                type="password"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all font-medium"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            {loginError && <p className="text-red-500 text-sm font-bold bg-red-50 p-3 rounded-lg border border-red-100">{loginError}</p>}
-            <LiquidButton type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition shadow-md mt-6">
-              Access Workspace
-            </LiquidButton>
-            <LiquidButton type="button" onClick={() => navigate('/')} className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold py-3.5 rounded-xl transition shadow-sm">
-              Return to Home
-            </LiquidButton>
-          </form>
-        </motion.div>
-      </div>
+      <StaffSignIn
+        title="Doctor sign in"
+        subtitle="Open your patient queue"
+        icon={<Stethoscope className="h-6 w-6" aria-hidden="true" />}
+        accent="blue"
+        idLabel="Username"
+        error={loginError}
+        onSubmit={handleLogin}
+        onBack={() => navigate('/')}
+      />
     );
   }
 
-  return (
-    <div className="min-h-[100dvh] md:h-screen w-full font-sans p-3 sm:p-8 flex flex-col overflow-x-hidden bg-slate-50">
-      <div className="max-w-5xl mx-auto flex-1 flex flex-col overflow-hidden w-full">
-        <header className="flex-none flex flex-col md:flex-row items-start md:items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 gap-3 sm:gap-4 bg-slate-50 border-b border-slate-200">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 sm:p-3 bg-white shadow-sm border border-slate-200 rounded-xl shrink-0">
-              <Stethoscope className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Dr. {doctorAuth.full_name}</h1>
-                <span className="text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
-                  {queue.length} Active {queue.length === 1 ? 'Patient' : 'Patients'}
-                </span>
-              </div>
-              <p className="text-slate-500 text-xs sm:text-sm font-medium">Room {doctorAuth.room_number} • {doctorAuth.current_status}</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-1.5 sm:gap-2 w-full md:w-auto">
-            <button
-              onClick={openSettings}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm"
-            >
-              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
-              <span>Preferences</span>
-            </button>
-            <button
-              onClick={() => handleStatusChange('Available')}
-              className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm ${
-                doctorAuth.current_status === 'Available' 
-                  ? 'bg-blue-50 text-blue-700 border-2 border-blue-200' 
-                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" /> Available
-            </button>
-            <button
-              onClick={() => handleStatusChange('On Break')}
-              className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm ${
-                doctorAuth.current_status === 'On Break' 
-                  ? 'bg-amber-50 text-amber-700 border-2 border-amber-200' 
-                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <Coffee className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" /> Break
-            </button>
-            <button
-              onClick={() => setShowLogoutDialog(true)}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm"
-            >
-              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
-              <span>Exit</span>
-            </button>
-          </div>
-        </header>
+  const drName = (name: string) => (/^(dr\.?|vaidya)\s/i.test(name || '') ? name : `Dr. ${name}`);
+  const selected = queue.find(p => p.session_id === summarySessionId) || null;
+  const closePanel = () => { setSummarySessionId(null); setSummaryData(null); setHistoryPatientId(null); setHistoryData([]); };
+  const selectPatient = (p: any) => {
+    setPanelTab('summary');
+    setHistoryPatientId(null);
+    setHistoryData([]);
+    openSummary(p.session_id);
+  };
+  const showHistory = (p: any) => {
+    setPanelTab('history');
+    if (summarySessionId !== p.session_id) { setSummaryData(null); openSummary(p.session_id); }
+    openHistory(p.patient_id);
+  };
+  const isAvailable = doctorAuth.current_status === 'Available';
 
-        <div className="flex-1 overflow-y-auto scroll-smooth space-y-4 pb-4">
+  return (
+    <div className="h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-50">
+      <header className="shrink-0 border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+              <Stethoscope className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <h1 className="truncate text-xl font-bold text-slate-900">{drName(doctorAuth.full_name)}</h1>
+              <p className="text-sm text-slate-500">
+                {doctorAuth.room_number ? (/^room/i.test(String(doctorAuth.room_number)) ? doctorAuth.room_number : `Room ${doctorAuth.room_number}`) : 'No room set'}
+                {' · '}<span className="tabular-nums">{queue.length}</span> {queue.length === 1 ? 'patient' : 'patients'} waiting
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div role="radiogroup" aria-label="Your status" className="inline-flex rounded-xl border border-slate-300 bg-white p-1">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={isAvailable}
+                onClick={() => handleStatusChange('Available')}
+                className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold cursor-pointer ${isAvailable ? 'bg-emerald-600 text-white' : 'text-slate-700 hover:bg-slate-100'}`}
+              >
+                <CheckCircle className="h-4 w-4" aria-hidden="true" /> Available
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!isAvailable}
+                onClick={() => handleStatusChange('On Break')}
+                className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold cursor-pointer ${!isAvailable ? 'bg-amber-500 text-white' : 'text-slate-700 hover:bg-slate-100'}`}
+              >
+                <Coffee className="h-4 w-4" aria-hidden="true" /> On break
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={openSettings}
+              className="tap inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+            >
+              <Settings className="h-4 w-4" aria-hidden="true" /> Preferences
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowLogoutDialog(true)}
+              className="tap inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+            >
+              <LogOut className="h-4 w-4" aria-hidden="true" /> Sign out
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto flex w-full max-w-7xl flex-1 gap-5 overflow-hidden px-4 py-4 sm:px-6">
+        {/* ── Queue ─────────────────────────────────────────────── */}
+        <section aria-label="Patient queue" className="flex min-w-0 flex-1 flex-col overflow-y-auto lg:max-w-[46%]">
           {queue.length === 0 ? (
-            <div className="text-center p-8 sm:p-12 bg-white border border-slate-200 rounded-2xl text-slate-500 shadow-card font-medium text-sm sm:text-base">
-              No patients currently waiting in your queue.
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-card">
+              <EmptyState
+                icon={<Inbox />}
+                title="No patients waiting"
+                description="Patients who choose you at the kiosk appear here once their intake is done."
+              />
             </div>
           ) : (
-            <AnimatePresence mode="popLayout">
-              {queue.map((patient) => (
-                <motion.div 
-                  key={patient.session_id} 
-                  layout
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                  className={`p-4 sm:p-5 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between transition-[box-shadow,transform] duration-200 hover:shadow-card-hover hover:-translate-y-[1px] gap-3 sm:gap-4 ${
-                    patient.priority_flag ? 'bg-red-50/50 border-red-200 shadow-card' : 'bg-white border-slate-200 shadow-card'
-                  }`}
-                >
-                  <div className="flex items-start sm:items-center space-x-3 sm:space-x-4">
-                    <div className={`p-2.5 sm:p-3 rounded-2xl shrink-0 ${patient.priority_flag ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'}`}>
-                      <User className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                        <h2 className="text-base sm:text-xl font-bold text-slate-900">{patient.full_name}</h2>
-                        <span className="text-xs sm:text-sm font-medium text-slate-500">Age: {patient.age} • {patient.gender}</span>
-                        <span className={`text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 rounded-full border ${
-                          patient.session_status === 'WAITING' 
-                            ? 'bg-amber-50 text-amber-700 border-amber-200' 
-                            : 'bg-blue-50 text-blue-700 border-blue-200'
-                        }`}>
-                          {patient.session_status === 'WAITING' ? '⏳ Waiting' : '🩺 In Consultation'}
-                        </span>
-                      </div>
-                      <p className="text-xs sm:text-sm text-slate-600 mt-1 font-medium">Token: <span className="text-blue-600 font-bold">{patient.token_id || patient.token_number}</span> | Complaint: {patient.chief_complaint || 'Pending AI Intake'}</p>
-                      {patient.nurse_triage_notes && (
-                        <p className="text-xs sm:text-sm text-amber-700 mt-2 p-2 sm:p-2.5 bg-amber-50 rounded-xl border border-amber-200 font-medium">
-                          <span className="font-bold">Triage Note:</span> {patient.nurse_triage_notes}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+            <ul className="space-y-3 pb-4">
+              <AnimatePresence initial={false}>
+                {queue.map((patient) => {
+                  const isSel = patient.session_id === summarySessionId;
+                  return (
+                    <motion.li
+                      key={patient.session_id}
+                      layout
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.18 }}
+                      className={`rounded-xl border-2 border-l-[6px] bg-white shadow-card ${
+                        isSel ? 'border-blue-600' : 'border-slate-200'
+                      } ${patient.priority_flag ? '!border-l-red-600' : patient.session_status === 'WAITING' ? '!border-l-amber-500' : '!border-l-blue-600'}`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => selectPatient(patient)}
+                        aria-pressed={isSel}
+                        className="w-full p-4 text-left cursor-pointer"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="flex flex-wrap items-center gap-2">
+                              <span className="truncate text-base font-bold text-slate-900">{patient.full_name}</span>
+                              <span className="text-sm text-slate-500">{[patient.age && `${patient.age} y`, patient.gender].filter(Boolean).join(' · ')}</span>
+                            </p>
+                            <p className="mt-0.5 text-sm text-slate-700">{patient.chief_complaint || 'Intake still in progress'}</p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-xs text-slate-500">Token</p>
+                            <p className="text-lg font-bold leading-tight tabular-nums text-slate-900">{patient.token_id || patient.token_number}</p>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          {patient.priority_flag ? (
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700 border border-red-200">
+                              <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" /> High priority
+                            </span>
+                          ) : null}
+                          <span className={`rounded-lg border px-2 py-0.5 text-xs font-semibold ${patient.session_status === 'WAITING' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-blue-200 bg-blue-50 text-blue-700'}`}>
+                            {patient.session_status === 'WAITING' ? 'Waiting' : 'In consultation'}
+                          </span>
+                        </div>
+                        {patient.nurse_triage_notes && (
+                          <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-sm text-amber-900">
+                            <span className="font-semibold">Nurse note:</span> {patient.nurse_triage_notes}
+                          </p>
+                        )}
+                      </button>
 
-                  <div className="flex flex-wrap items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
-                    {patient.priority_flag && (
-                      <div className="flex flex-col items-end gap-1">
+                      {patient.priority_flag && patient.priority_reason && (
+                        <div className="border-t border-slate-100 px-4 pb-3">
+                          <button
+                            type="button"
+                            onClick={() => toggleFlag(patient.session_id)}
+                            aria-expanded={expandedFlags.has(patient.session_id)}
+                            className="tap inline-flex items-center gap-1 text-sm font-semibold text-red-700 cursor-pointer"
+                          >
+                            Why flagged
+                            {expandedFlags.has(patient.session_id) ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
+                          </button>
+                          {expandedFlags.has(patient.session_id) && (
+                            <ul className="mt-1 space-y-1.5 rounded-lg border border-red-200 bg-red-50 p-3">
+                              {patient.priority_reason.split('; ').map((reason: string, i: number) => {
+                                const { ruleId, description } = parseReason(reason);
+                                const isDoc = ['document', 'lab', 'ocr', 'troponin', 'creatinine'].some(kw => reason.toLowerCase().includes(kw));
+                                return (
+                                  <li key={i} className="flex items-start gap-2 text-sm">
+                                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold ${isDoc ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700'}`}>
+                                      {isDoc ? 'Report' : 'Interview'}
+                                    </span>
+                                    <span className="text-slate-700"><span className="font-semibold">{ruleId}:</span> {description}</span>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 border-t border-slate-100 p-3">
                         <button
-                          onClick={() => toggleFlag(patient.session_id)}
-                          className="flex items-center text-[10px] sm:text-xs font-extrabold text-red-600 bg-red-100 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-red-200 hover:bg-red-200 transition-colors cursor-pointer active:scale-[0.97]"
+                          type="button"
+                          onClick={() => showHistory(patient)}
+                          className="tap flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
                         >
-                          <ShieldAlert className="w-3.5 h-3.5 mr-1" /> HIGH PRIORITY
-                          {expandedFlags.has(patient.session_id) ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                          <History className="h-4 w-4" aria-hidden="true" /> Past visits
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/doctor/encounter/${patient.session_id}`)}
+                          className="tap flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700 cursor-pointer"
+                        >
+                          Start consult <ArrowRight className="h-4 w-4" aria-hidden="true" />
                         </button>
                       </div>
-                    )}
-                    <LiquidButton
-                      onClick={() => openSummary(patient.session_id)}
-                      className="flex-1 sm:flex-initial px-3 sm:px-4 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center justify-center transition shadow-card whitespace-nowrap text-xs"
-                    >
-                      <FileText className="w-3.5 h-3.5 mr-1" /> Summary
-                    </LiquidButton>
-                    <LiquidButton
-                      onClick={() => openHistory(patient.patient_id)}
-                      className="flex-1 sm:flex-initial px-3 sm:px-4 py-2 sm:py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold rounded-xl flex items-center justify-center transition shadow-card whitespace-nowrap text-xs"
-                    >
-                      <History className="w-3.5 h-3.5 mr-1" /> History
-                    </LiquidButton>
-                    <LiquidButton
-                      onClick={() => navigate(`/doctor/encounter/${patient.session_id}`)}
-                      className="flex-1 sm:flex-initial px-4 sm:px-5 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center justify-center transition shadow-card whitespace-nowrap text-xs"
-                    >
-                      Open <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                    </LiquidButton>
-                  </div>
-
-                  {/* Expanded Red-Flag Reasoning with smooth accordion */}
-                  <AnimatePresence>
-                    {patient.priority_flag && expandedFlags.has(patient.session_id) && patient.priority_reason && (
-                      <motion.div 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                        className="overflow-hidden w-full"
-                      >
-                        <div className="mt-3 p-4 bg-red-50 rounded-xl border border-red-200 w-full">
-                          <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-2 flex items-center gap-1">
-                            <ShieldAlert className="w-3.5 h-3.5" /> Clinical Reasoning
-                          </p>
-                          {patient.priority_reason.split('; ').map((reason: string, i: number) => {
-                            const { ruleId, description } = parseReason(reason);
-                            const isDoc = ['document', 'lab', 'ocr', 'troponin', 'creatinine'].some(kw => reason.toLowerCase().includes(kw));
-                            return (
-                              <div key={i} className="flex items-start gap-2 mb-1.5">
-                                <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${isDoc ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-                                  {isDoc ? 'DOC' : 'CONV'}
-                                </span>
-                                <span className="text-xs font-bold text-slate-700">{ruleId}:</span>
-                                <span className="text-xs text-slate-600">{description}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                    </motion.li>
+                  );
+                })}
+              </AnimatePresence>
+            </ul>
           )}
-        </div>
+        </section>
+
+        {/* ── Selected patient panel (side panel on desktop, full sheet on small screens) ── */}
+        <aside
+          aria-label="Selected patient"
+          className={`${summarySessionId ? 'fixed inset-0 z-40 flex' : 'hidden'} flex-col bg-white lg:static lg:z-auto lg:flex lg:flex-1 lg:rounded-2xl lg:border lg:border-slate-200 lg:shadow-card overflow-hidden`}
+        >
+          {!summarySessionId ? (
+            <EmptyState
+              className="h-full"
+              icon={<FileText />}
+              title="Select a patient"
+              description="Their intake summary, red flags and past visits open here, so you can read them without leaving the queue."
+            />
+          ) : (
+            <>
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-5 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-lg font-bold text-slate-900">{summaryData?.full_name || selected?.full_name || 'Patient'}</p>
+                  <p className="text-sm text-slate-500">
+                    {[summaryData?.age && `${summaryData.age} y`, summaryData?.gender, (summaryData?.token_id || selected?.token_id) && `Token ${summaryData?.token_id || selected?.token_id}`].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <button type="button" onClick={closePanel} aria-label="Close patient panel" className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 lg:hidden cursor-pointer">
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
+              <div role="tablist" aria-label="Patient details" className="flex shrink-0 gap-1 border-b border-slate-200 px-3">
+                {(['summary', 'history'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    aria-selected={panelTab === tab}
+                    onClick={() => (tab === 'history' && selected ? showHistory(selected) : setPanelTab(tab))}
+                    className={`tap -mb-px border-b-2 px-3 text-sm font-semibold cursor-pointer ${panelTab === tab ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
+                  >
+                    {tab === 'summary' ? 'Intake summary' : 'Past visits'}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-5">
+                {panelTab === 'summary' ? (
+                  !summaryData ? (
+                    <div className="space-y-3" aria-busy="true">
+                      <Skeleton className="h-16 rounded-xl" />
+                      <Skeleton className="h-24 rounded-xl" />
+                      <Skeleton className="h-20 rounded-xl" />
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      {summaryData.critical_highlights && summaryData.critical_highlights.length > 0 && (
+                        <section className="rounded-xl border border-red-200 bg-red-50 p-4">
+                          <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-red-800"><ShieldAlert className="h-4 w-4" aria-hidden="true" /> Critical highlights</h3>
+                          <ul className="list-disc space-y-1 pl-5 text-sm text-red-900">
+                            {summaryData.critical_highlights.map((h: string, i: number) => <li key={i}>{typeof h === 'string' ? h : JSON.stringify(h)}</li>)}
+                          </ul>
+                        </section>
+                      )}
+                      {summaryData.chief_complaint && (
+                        <section>
+                          <h3 className="mb-1 text-sm font-semibold text-slate-600">Chief complaint</h3>
+                          <p className="text-lg font-semibold text-slate-900">{summaryData.chief_complaint}</p>
+                        </section>
+                      )}
+                      {summaryData.small_summary && (
+                        <section>
+                          <h3 className="mb-1 text-sm font-semibold text-slate-600">Intake summary</h3>
+                          <p className="text-base leading-relaxed text-slate-800">{summaryData.small_summary}</p>
+                        </section>
+                      )}
+                      {summaryData.filled_state && typeof summaryData.filled_state === 'object' && Object.keys(summaryData.filled_state.filled_state || {}).length > 0 && (
+                        <section>
+                          <h3 className="mb-2 text-sm font-semibold text-slate-600">Recorded details</h3>
+                          <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {Object.entries(summaryData.filled_state.filled_state || {}).map(([key, val]: [string, any]) => (
+                              <div key={key} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                <dt className="text-xs font-medium capitalize text-slate-500">{key.replace(/_/g, ' ')}</dt>
+                                <dd className="text-sm font-semibold text-slate-900">{typeof val === 'object' ? (val?.value || JSON.stringify(val)) : String(val)}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </section>
+                      )}
+                      {summaryData.contradictions_found && summaryData.contradictions_found.length > 0 && (
+                        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                          <h3 className="mb-2 text-sm font-semibold text-amber-800">Answers that don't match</h3>
+                          <ul className="list-disc space-y-1 pl-5 text-sm text-amber-900">
+                            {summaryData.contradictions_found.map((c: any, i: number) => <li key={i}>{typeof c === 'string' ? c : JSON.stringify(c)}</li>)}
+                          </ul>
+                        </section>
+                      )}
+                    </div>
+                  )
+                ) : !historyPatientId ? (
+                  <p className="text-sm text-slate-500">No patient record linked to this visit.</p>
+                ) : historyData.length === 0 ? (
+                  <EmptyState icon={<History />} title="No earlier visits" description="This is the patient's first visit recorded in SwasthyaSync." />
+                ) : (
+                  <ol className="space-y-3">
+                    {historyData.map((visit: any, i: number) => (
+                      <li key={i} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-slate-700">
+                            {visit.created_at ? new Date(visit.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Unknown date'}
+                          </span>
+                          {visit.pdf_path && (
+                            <a href={`${getApiBaseUrl()}/api/pdf/${visit.session_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-blue-700 hover:underline">
+                              <FileText className="h-4 w-4" aria-hidden="true" /> PDF
+                            </a>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-800">{visit.small_summary || 'No summary available'}</p>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+
+              {selected && (
+                <div className="shrink-0 border-t border-slate-200 p-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/doctor/encounter/${selected.session_id}`)}
+                    className="tap-kiosk w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-base font-semibold text-white hover:bg-blue-700 cursor-pointer"
+                  >
+                    Start consult <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </aside>
       </div>
 
-      <LogoutDialog 
-        isOpen={showLogoutDialog} 
-        onClose={() => setShowLogoutDialog(false)} 
+      <LogoutDialog
+        isOpen={showLogoutDialog}
+        onClose={() => setShowLogoutDialog(false)}
         onConfirm={() => {
           setShowLogoutDialog(false);
           handleLogout();
           navigate('/');
-        }} 
+        }}
       />
 
-      {/* Settings Modal */}
+      {/* Preferences */}
       <AnimatePresence>
         {showSettingsModal && (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white rounded-3xl w-full max-w-lg shadow-elevated overflow-hidden"
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-labelledby="prefs-title">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.16 }}
+              className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-elevated"
             >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-5">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">Physician Preferences</h2>
-                  <p className="text-sm text-slate-500 font-medium">Set custom instructions for the AI Kiosk</p>
+                  <h2 id="prefs-title" className="text-lg font-bold text-slate-900">Interview preferences</h2>
+                  <p className="text-sm text-slate-500">Extra instructions for the kiosk when patients choose you</p>
                 </div>
-                <button 
-                  onClick={() => setShowSettingsModal(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  <X className="w-5 h-5" />
+                <button type="button" onClick={() => setShowSettingsModal(false)} aria-label="Close" className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 cursor-pointer">
+                  <X className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
-              
-              <div className="p-6">
-                <label className="block text-sm font-bold text-slate-700 mb-2">Custom Intake Prompt (Additive)</label>
+              <div className="p-5">
+                <label htmlFor="doc-instructions" className="mb-1.5 block text-sm font-semibold text-slate-700">Instructions for the interviewer</label>
                 <textarea
+                  id="doc-instructions"
                   value={customInstructions}
                   onChange={e => setCustomInstructions(e.target.value)}
-                  placeholder="Example: I am an orthopedic surgeon. Always ask about past sports injuries and exact pain duration."
-                  className="w-full h-32 p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all font-medium resize-none"
+                  placeholder="Example: I am an orthopaedic surgeon. Always ask about past sports injuries and exact pain duration."
+                  className="h-32 w-full resize-none rounded-lg border border-slate-300 bg-white p-3 text-sm text-slate-800 placeholder:text-slate-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                 />
-                <p className="text-xs text-slate-500 mt-2 font-medium">
-                  These instructions will be injected into the AI interviewer when patients select you.
-                </p>
+                <p className="mt-2 text-sm text-slate-500">Added to the questions the kiosk asks. It doesn't replace them.</p>
               </div>
-              
-              <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-                <button
-                  onClick={() => setShowSettingsModal(false)}
-                  className="px-4 py-2 rounded-xl font-bold text-slate-600 hover:bg-slate-200 transition-colors text-sm"
-                >
-                  Cancel
+              <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 p-4">
+                <button type="button" onClick={() => setShowSettingsModal(false)} className="tap rounded-xl px-4 text-sm font-semibold text-slate-700 hover:bg-slate-200 cursor-pointer">Cancel</button>
+                <button type="button" onClick={saveSettings} disabled={isSavingSettings} className="tap rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 cursor-pointer">
+                  {isSavingSettings ? 'Saving…' : 'Save'}
                 </button>
-                <button
-                  onClick={saveSettings}
-                  disabled={isSavingSettings}
-                  className="px-4 py-2 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors text-sm disabled:opacity-50"
-                >
-                  {isSavingSettings ? 'Saving...' : 'Save Preferences'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Patient History Modal ── */}
-      <AnimatePresence>
-        {historyPatientId && (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white rounded-3xl w-full max-w-lg shadow-elevated overflow-hidden max-h-[80vh] flex flex-col"
-            >
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <History className="w-5 h-5 text-blue-600" /> Patient History
-                </h2>
-                <button onClick={() => setHistoryPatientId(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-5 space-y-3">
-                {historyData.length === 0 ? (
-                  <p className="text-center text-slate-400 py-8 font-medium">No previous visits found</p>
-                ) : (
-                  historyData.map((visit: any, i: number) => (
-                    <div key={i} className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-slate-500 uppercase">
-                          {visit.created_at ? new Date(visit.created_at).toLocaleDateString('en-IN') : 'Unknown date'}
-                        </span>
-                        {visit.pdf_path && (
-                          <a
-                            href={`${getApiBaseUrl()}/api/pdf/${visit.session_id}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                          >
-                            <FileText className="w-3 h-3" /> PDF
-                          </a>
-                        )}
-                      </div>
-                      <p className="text-sm text-slate-700 font-medium">{visit.small_summary || 'No summary available'}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Clinical Summary Modal ── */}
-      <AnimatePresence>
-        {summarySessionId && (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white rounded-3xl w-full max-w-3xl shadow-elevated overflow-hidden max-h-[90vh] flex flex-col"
-            >
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-emerald-600" /> Clinical Summary
-                </h2>
-                <button onClick={() => { setSummarySessionId(null); setSummaryData(null); }} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-6">
-                {!summaryData ? (
-                  <div className="flex items-center justify-center h-32">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent" />
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* Patient Header */}
-                    <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
-                      <div className="p-3 bg-blue-100 rounded-full"><User className="w-6 h-6 text-blue-600" /></div>
-                      <div>
-                        <h3 className="text-xl font-bold text-slate-900">{summaryData.full_name || 'Unknown'}</h3>
-                        <p className="text-sm text-slate-500 font-medium">{summaryData.age ? `${summaryData.age}y` : ''} {summaryData.gender || ''} • Token: {summaryData.token_id}</p>
-                      </div>
-                      {summaryData.priority_flag && (
-                        <span className="ml-auto text-xs font-bold text-red-600 bg-red-100 px-3 py-1 rounded-full border border-red-200">
-                          <ShieldAlert className="w-3 h-3 inline mr-1" /> HIGH PRIORITY
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Chief Complaint */}
-                    {summaryData.chief_complaint && (
-                      <div className="p-4 bg-blue-50 rounded-2xl border border-blue-200">
-                        <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-1">Chief Complaint</p>
-                        <p className="text-base font-semibold text-blue-900">{summaryData.chief_complaint}</p>
-                      </div>
-                    )}
-
-                    {/* AI Summary */}
-                    {summaryData.small_summary && (
-                      <div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">AI Clinical Summary</p>
-                        <p className="text-sm text-slate-700 font-medium leading-relaxed bg-slate-50 p-4 rounded-2xl">{summaryData.small_summary}</p>
-                      </div>
-                    )}
-
-                    {/* Critical Highlights */}
-                    {summaryData.critical_highlights && summaryData.critical_highlights.length > 0 && (
-                      <div className="p-4 bg-red-50 rounded-2xl border border-red-200">
-                        <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-2 flex items-center gap-1">
-                          <ShieldAlert className="w-3.5 h-3.5" /> Critical Highlights
-                        </p>
-                        <ul className="space-y-1">
-                          {summaryData.critical_highlights.map((h: string, i: number) => (
-                            <li key={i} className="text-sm text-red-800 font-medium">• {typeof h === 'string' ? h : JSON.stringify(h)}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* Filled State Details */}
-                    {summaryData.filled_state && typeof summaryData.filled_state === 'object' && Object.keys(summaryData.filled_state.filled_state || {}).length > 0 && (
-                      <div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Clinical Details</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {Object.entries(summaryData.filled_state.filled_state || {}).map(([key, val]: [string, any]) => (
-                            <div key={key} className="bg-slate-50 p-3 rounded-2xl">
-                              <p className="text-xs font-bold text-slate-500 capitalize">{key.replace(/_/g, ' ')}</p>
-                              <p className="text-sm font-medium text-slate-900">{typeof val === 'object' ? (val?.value || JSON.stringify(val)) : String(val)}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Contradictions */}
-                    {summaryData.contradictions_found && summaryData.contradictions_found.length > 0 && (
-                      <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200">
-                        <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2">Contradictions Found</p>
-                        <ul className="space-y-1">
-                          {summaryData.contradictions_found.map((c: any, i: number) => (
-                            <li key={i} className="text-sm text-amber-800 font-medium">• {typeof c === 'string' ? c : JSON.stringify(c)}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </motion.div>
           </div>

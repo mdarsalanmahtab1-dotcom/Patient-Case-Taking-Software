@@ -102,7 +102,7 @@ export const HistoryScreen: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center h-72 gap-3">
         <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-        <p className="text-xs font-semibold text-slate-400">Loading consultation records...</p>
+        <p className="text-xs font-semibold text-slate-500">Loading consultation records...</p>
       </div>
     );
   }
@@ -122,19 +122,19 @@ export const HistoryScreen: React.FC = () => {
 
       {/* Search Bar */}
       <div className="relative group">
-        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 group-focus-within:text-blue-600 transition-colors" />
+        <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 group-focus-within:text-blue-600 transition-colors" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t.history.searchPlaceholder}
-          className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-xs"
+          className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-xs"
         />
       </div>
 
       {Object.keys(grouped).length === 0 ? (
-        <div className="bg-white p-8 rounded-3xl border border-slate-200/80 text-center flex flex-col items-center shadow-xs">
-          <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-center p-3.5 mb-3 shadow-xs">
+        <div className="bg-white p-8 rounded-2xl border border-slate-200/80 text-center flex flex-col items-center shadow-xs">
+          <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center p-3.5 mb-3 shadow-xs">
             <img src={logoPNG} alt="SwasthyaSync" className="w-full h-full object-contain opacity-40 grayscale" />
           </div>
           <h3 className="text-slate-900 font-bold mb-1">{t.history.noRecords}</h3>
@@ -143,44 +143,46 @@ export const HistoryScreen: React.FC = () => {
       ) : (
         Object.entries(grouped).map(([month, records]) => (
           <div key={month} className="mb-6">
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 ml-1">{month}</h2>
-            <div className="space-y-3">
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">{month}</h2>
+            <ol className="relative space-y-3 border-l-2 border-slate-200 ml-2 pl-5">
               {records.map((record) => {
                 const isExpanded = expandedId === record.session_id;
                 return (
-                  <motion.div
+                  <motion.li
                     key={record.session_id}
                     layout
-                    className="bg-white rounded-3xl shadow-xs border border-slate-200/80 overflow-hidden hover:border-slate-300 transition-all"
+                    className={`relative bg-white rounded-xl shadow-card border overflow-hidden transition-colors ${isExpanded ? 'border-blue-600' : 'border-slate-200 hover:border-slate-300'}`}
                   >
+                    <span className={`absolute -left-[27px] top-5 h-3 w-3 rounded-full ring-4 ring-slate-50 ${isExpanded ? 'bg-blue-600' : 'bg-slate-400'}`} aria-hidden="true" />
                     {/* Header (always visible) */}
                     <button
                       onClick={() => setExpandedId(isExpanded ? null : record.session_id)}
-                      className="w-full p-4.5 text-left flex items-start justify-between cursor-pointer group"
+                      aria-expanded={isExpanded}
+                      className="w-full p-4 text-left flex items-start justify-between cursor-pointer group"
                     >
                       <div className="flex-1 min-w-0 pr-2">
                         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                          <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100/60 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                            <Calendar className="w-3 h-3 text-blue-600" />
-                            {record.completed_at ? new Date(record.completed_at).toLocaleDateString() : 'N/A'}
+                          <span className="text-sm font-semibold text-slate-700 flex items-center gap-1 tabular-nums">
+                            <Calendar className="w-4 h-4 text-blue-600" aria-hidden="true" />
+                            {record.completed_at ? new Date(record.completed_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Date not recorded'}
                           </span>
-                          <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-lg capitalize">
+                          <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md capitalize">
                             {record.department}
                           </span>
                         </div>
-                        <p className="text-sm font-extrabold text-slate-900 line-clamp-1 group-hover:text-blue-600 transition-colors">
+                        <p className="text-base font-bold text-slate-900 line-clamp-2">
                           {record.chief_complaint || 'General Consultation'}
                         </p>
-                        <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
-                          <User className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span className="truncate">Dr. {record.doctor_name || 'Assigned Doctor'}</span>
+                        <p className="text-sm text-slate-600 mt-1 flex items-center gap-1.5">
+                          <User className="w-4 h-4 text-slate-500 shrink-0" aria-hidden="true" />
+                          <span className="truncate">{record.doctor_name ? (/^(dr\.?|vaidya)\s/i.test(record.doctor_name) ? record.doctor_name : `Dr. ${record.doctor_name}`) : 'Assigned doctor'}</span>
                         </p>
                       </div>
                       <div className="w-7 h-7 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 mt-1 group-hover:bg-blue-50 transition-colors">
                         {isExpanded ? (
                           <ChevronUp className="w-4 h-4 text-blue-600" />
                         ) : (
-                          <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-blue-600" />
+                          <ChevronDown className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
                         )}
                       </div>
                     </button>
@@ -199,14 +201,14 @@ export const HistoryScreen: React.FC = () => {
                           <div className="px-4.5 pb-4.5 border-t border-slate-100 pt-3.5 space-y-3">
                             {record.small_summary && (
                               <div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 ml-0.5">{t.history.summary}</p>
+                                <p className="text-xs font-bold text-slate-500 mb-1 ml-0.5">{t.history.summary}</p>
                                 <p className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100">{record.small_summary}</p>
                               </div>
                             )}
 
                             {record.critical_highlights && record.critical_highlights.length > 0 && (
                               <div>
-                                <p className="text-[10px] font-bold text-red-600 uppercase tracking-wider mb-1.5 ml-0.5 flex items-center gap-1">
+                                <p className="text-xs font-bold text-red-600 mb-1.5 ml-0.5 flex items-center gap-1">
                                   <AlertTriangle className="w-3 h-3" />
                                   <span>{t.history.criticalHighlights}</span>
                                 </p>
@@ -222,7 +224,7 @@ export const HistoryScreen: React.FC = () => {
 
                             {record.doctor_consultation_notes && (
                               <div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 ml-0.5">{t.history.doctorsNotes}</p>
+                                <p className="text-xs font-bold text-slate-500 mb-1 ml-0.5">{t.history.doctorsNotes}</p>
                                 <p className="text-xs sm:text-sm text-slate-700 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 leading-relaxed">{record.doctor_consultation_notes}</p>
                               </div>
                             )}
@@ -253,10 +255,10 @@ export const HistoryScreen: React.FC = () => {
                         </motion.div>
                       )}
                     </AnimatePresence>
-                  </motion.div>
+                  </motion.li>
                 );
               })}
-            </div>
+            </ol>
           </div>
         ))
       )}
@@ -270,14 +272,14 @@ export const HistoryScreen: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setFeedbackSession(null)}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm -z-10"
+              className="fixed inset-0 bg-slate-900/40 -z-10"
             />
             <motion.div
               initial={{ opacity: 0, y: 50, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 50, scale: 0.97 }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="w-full max-w-sm bg-white rounded-t-3xl sm:rounded-3xl p-6 shadow-[0_20px_50px_rgba(15,23,42,0.25)] border border-slate-100"
+              className="w-full max-w-sm bg-white rounded-t-2xl sm:rounded-2xl p-6 shadow-[0_20px_50px_rgba(15,23,42,0.25)] border border-slate-100"
               onClick={e => e.stopPropagation()}
             >
               {feedbackSuccess ? (

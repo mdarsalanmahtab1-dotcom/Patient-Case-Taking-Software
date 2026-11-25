@@ -9,6 +9,10 @@ export default {
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
       },
+      boxShadow: {
+        card: 'var(--shadow-card)',
+        'card-hover': 'var(--shadow-card-hover)',
+      },
     },
   },
   plugins: [],

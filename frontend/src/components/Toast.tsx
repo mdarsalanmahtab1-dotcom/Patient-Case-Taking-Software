@@ -75,10 +75,11 @@ const ToastItem: React.FC<{ toast: ToastMessage, reducedMotion: boolean, onDismi
     <motion.div
       {...motionProps}
       layout
-      className={`pointer-events-auto bg-white/95 backdrop-blur-md shadow-card-hover rounded-lg border border-slate-200/80 border-l-4 ${borderColor} p-3.5 w-76 relative overflow-hidden cursor-grab active:cursor-grabbing select-none`}
+      role={toast.type === 'error' ? 'alert' : 'status'}
+      className={`pointer-events-auto bg-white shadow-elevated rounded-xl border border-slate-200 border-l-4 ${borderColor} px-4 py-3.5 w-80 max-w-[calc(100vw-2rem)] relative overflow-hidden cursor-grab active:cursor-grabbing select-none`}
       onClick={onDismiss}
     >
-      <p className="text-xs sm:text-sm font-semibold text-slate-800 pr-2 leading-snug">{toast.message}</p>
+      <p className="text-base font-semibold text-slate-800 pr-2 leading-snug">{toast.message}</p>
       
       {/* Progress bar */}
       <motion.div 

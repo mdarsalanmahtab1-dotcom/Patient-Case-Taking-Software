@@ -6,27 +6,30 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "../../lib/utils"
 
+/**
+ * Shared button. Colours are the app's existing ones (primary blue, emerald, red, slate).
+ * Sizes: `kiosk` (56px) for patient screens, `lg` (48px), `default` (44px), `sm` (36px, staff tables only).
+ */
 const buttonVariants = cva(
-  "inline-flex items-center cursor-pointer justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[transform,background-color,border-color,box-shadow,color] duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center cursor-pointer justify-center gap-2 whitespace-nowrap rounded-xl font-semibold transition-[transform,background-color,border-color,box-shadow,color] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-5 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-card",
-        destructive:
-          "bg-destructive text-primary-foreground hover:bg-destructive/90 hover:-translate-y-0.5",
-        cool: "dark:inset-shadow-2xs dark:inset-shadow-white/10 bg-linear-to-t border border-b-2 border-zinc-950/40 from-primary to-primary/85 shadow-md shadow-primary/20 ring-1 ring-inset ring-white/25 transition-[filter,transform] duration-150 hover:brightness-110 active:brightness-90 active:scale-[0.97] dark:border-x-0 text-primary-foreground dark:text-primary-foreground dark:border-t-0 dark:border-primary/50 dark:ring-white/5",
-        outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground hover:-translate-y-0.5",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:-translate-y-0.5",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        default: "bg-blue-600 text-white hover:bg-blue-700 shadow-card",
+        success: "bg-emerald-600 text-white hover:bg-emerald-700 shadow-card",
+        destructive: "bg-red-600 text-white hover:bg-red-700 shadow-card",
+        outline: "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 hover:border-slate-400",
+        danger_outline: "border-2 border-red-600 bg-white text-red-700 hover:bg-red-50",
+        secondary: "bg-slate-100 text-slate-800 hover:bg-slate-200",
+        ghost: "text-slate-700 hover:bg-slate-100",
+        link: "text-blue-700 underline-offset-4 hover:underline px-0",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-10 rounded-md px-8",
-        icon: "h-9 w-9",
+        kiosk: "tap-kiosk px-6 text-lg",
+        lg: "h-12 px-6 text-base",
+        default: "h-11 px-5 text-base",
+        sm: "h-9 rounded-lg px-3 text-sm [&_svg]:size-4",
+        icon: "h-11 w-11",
       },
     },
     defaultVariants: {

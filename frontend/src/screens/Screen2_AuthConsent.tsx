@@ -56,7 +56,7 @@ export function Screen2_AuthConsent({ onNext, onBack, language = 'en-IN' }: Prop
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
-          className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/80 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:shadow-card-hover transition-[border-color,box-shadow] duration-200"
+          className="bg-white p-4 sm:p-6 rounded-2xl shadow-card border border-slate-200/80 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:shadow-card-hover transition-[border-color,box-shadow] duration-200"
         >
           <label htmlFor="patient-name" className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-2">
             <User className="w-4 h-4 text-blue-500" />
@@ -68,7 +68,7 @@ export function Screen2_AuthConsent({ onNext, onBack, language = 'en-IN' }: Prop
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Tap here to enter your name"
-            className="w-full bg-transparent border-none text-xl sm:text-3xl font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 p-0"
+            className="w-full bg-transparent border-none text-xl sm:text-3xl font-semibold text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-0 p-0"
             autoFocus
           />
         </motion.div>
@@ -80,7 +80,7 @@ export function Screen2_AuthConsent({ onNext, onBack, language = 'en-IN' }: Prop
           transition={{ duration: 0.28, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
           className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6"
         >
-          <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/80 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:shadow-card-hover transition-[border-color,box-shadow] duration-200">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-card border border-slate-200/80 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:shadow-card-hover transition-[border-color,box-shadow] duration-200">
             <label htmlFor="patient-age" className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-2">
               <Calendar className="w-4 h-4 text-blue-500" />
               {t('age')}
@@ -93,11 +93,11 @@ export function Screen2_AuthConsent({ onNext, onBack, language = 'en-IN' }: Prop
               placeholder="Years"
               min="0"
               max="120"
-              className="w-full bg-transparent border-none text-xl sm:text-3xl font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 p-0"
+              className="w-full bg-transparent border-none text-xl sm:text-3xl font-semibold text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-0 p-0"
             />
           </div>
           
-          <div className="sm:col-span-2 bg-slate-50/90 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/60">
+          <div className="sm:col-span-2 bg-slate-50/90 p-4 sm:p-6 rounded-2xl shadow-card border border-slate-200/60">
             <label className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
               <UserCircle className="w-4 h-4 text-blue-500" />
               {t('sex')}
@@ -125,17 +125,17 @@ export function Screen2_AuthConsent({ onNext, onBack, language = 'en-IN' }: Prop
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
-          className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-card border border-slate-200/80 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:shadow-card-hover transition-[border-color,box-shadow] duration-200"
+          className="bg-white p-4 sm:p-6 rounded-2xl shadow-card border border-slate-200/80 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:shadow-card-hover transition-[border-color,box-shadow] duration-200"
         >
           <label htmlFor="abha-id" className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-2">
-            {t('abha_optional').split(' (')[0]} <span className="text-slate-400 font-medium normal-case tracking-normal ml-1">({t('abha_optional').split(' (')[1]}</span>
+            {t('abha_optional').split(' (')[0]} <span className="text-slate-500 font-medium normal-case tracking-normal ml-1">({t('abha_optional').split(' (')[1]}</span>
           </label>
           <div className="relative">
             <input
               id="abha-id"
               type="text"
               placeholder="Enter 14 digit ABHA number"
-              className="w-full bg-transparent border-none text-base sm:text-2xl font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 p-0"
+              className="w-full bg-transparent border-none text-base sm:text-2xl font-semibold text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-0 p-0"
             />
             <Info className="absolute right-0 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
           </div>
@@ -146,7 +146,7 @@ export function Screen2_AuthConsent({ onNext, onBack, language = 'en-IN' }: Prop
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, delay: 0.24, ease: [0.16, 1, 0.3, 1] }}
-          className="bg-gradient-to-br from-blue-50 to-indigo-50/50 border border-blue-100/70 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-card"
+          className="bg-gradient-to-br from-blue-50 to-indigo-50/50 border border-blue-100/70 rounded-2xl p-4 sm:p-6 shadow-card"
         >
           <div className="flex items-center mb-3 sm:mb-4 gap-2.5">
             <div className="bg-blue-600 p-1.5 sm:p-2 rounded-xl shadow-xs">
@@ -168,7 +168,7 @@ export function Screen2_AuthConsent({ onNext, onBack, language = 'en-IN' }: Prop
       </div>
 
       {/* Sticky Bottom Buttons for Mobile Accessibility */}
-      <div className="sticky sm:relative bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md pt-3 pb-3 sm:pt-6 w-full max-w-2xl flex gap-3 z-30 shadow-lg sm:shadow-none border-t sm:border-t-0 border-slate-200/80 px-2 sm:px-0 mt-6">
+      <div className="sticky sm:relative bottom-0 left-0 right-0 bg-white pt-3 pb-3 sm:pt-6 w-full max-w-2xl flex gap-3 z-30 shadow-lg sm:shadow-none border-t sm:border-t-0 border-slate-200/80 px-2 sm:px-0 mt-6">
         <LiquidButton
           onClick={() => {
             stop();
@@ -185,7 +185,7 @@ export function Screen2_AuthConsent({ onNext, onBack, language = 'en-IN' }: Prop
           className={`group relative flex-1 overflow-hidden flex items-center justify-center gap-2 sm:gap-3 rounded-full py-3.5 sm:py-5 font-bold shadow-card-hover transition-[transform,background-color,box-shadow] duration-150 transform active:scale-[0.97] text-sm sm:text-lg cursor-pointer ${
             canProceed
               ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-500 hover:to-blue-600 shadow-blue-600/20 hover:shadow-blue-600/30'
-              : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+              : 'bg-slate-200 text-slate-500 cursor-not-allowed shadow-none'
           }`}
         >
           <div className="absolute inset-0 w-full h-full bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out pointer-events-none" />

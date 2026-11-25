@@ -117,7 +117,7 @@ export const LoginScreen: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 w-full flex flex-col items-center justify-center p-6 bg-gradient-to-br from-slate-50 via-blue-50/25 to-slate-100 min-h-[100dvh]">
+    <div className="flex-1 w-full flex flex-col items-center justify-center p-6 bg-slate-50 min-h-[100dvh]">
 
       {/* Branding */}
       <motion.div
@@ -128,7 +128,7 @@ export const LoginScreen: React.FC = () => {
       >
         <motion.div
           whileHover={{ scale: 1.05 }}
-          className="w-20 h-20 rounded-3xl bg-white shadow-[0_10px_32px_rgba(37,99,235,0.15)] border border-blue-100/80 flex items-center justify-center p-3 mb-3.5 relative overflow-hidden group"
+          className="w-20 h-20 rounded-2xl bg-white shadow-[0_10px_32px_rgba(37,99,235,0.15)] border border-blue-100/80 flex items-center justify-center p-3 mb-3.5 relative overflow-hidden group"
         >
           <div className="absolute inset-0 bg-blue-50/40 opacity-0 group-hover:opacity-100 transition-opacity" />
           <img src={logoPNG} alt="SwasthyaSync Logo" className="w-full h-full object-contain relative z-10 drop-shadow-xs" />
@@ -137,7 +137,7 @@ export const LoginScreen: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Swasthya<span className="text-blue-600">Sync</span>
           </h1>
-          <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider bg-blue-50 text-blue-700 rounded-full border border-blue-200/70 shadow-2xs">
+          <span className="px-2 py-0.5 text-xs font-extrabold bg-blue-50 text-blue-700 rounded-full border border-blue-200/70 shadow-2xs">
             Portal
           </span>
         </div>
@@ -151,7 +151,7 @@ export const LoginScreen: React.FC = () => {
         initial={{ opacity: 0, scale: 0.97, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-sm bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 shadow-[0_12px_40px_rgba(15,23,42,0.08)] border border-slate-200/80"
+        className="w-full max-w-sm bg-white rounded-2xl p-6 sm:p-8 shadow-[0_12px_40px_rgba(15,23,42,0.08)] border border-slate-200/80"
       >
         <AnimatePresence mode="wait">
           {stage === 'ENTER_PHONE' ? (
@@ -165,19 +165,19 @@ export const LoginScreen: React.FC = () => {
               className="space-y-5"
             >
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider ml-1">
+                <label className="text-xs font-bold text-slate-700 ml-1">
                   Mobile Number
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                    <Fingerprint className="w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                    <Fingerprint className="w-5 h-5 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
                   </div>
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => { setPhone(e.target.value.replace(/\D/g, '').slice(0, 10)); setError(''); }}
                     placeholder="Enter 10-digit mobile number"
-                    className="w-full pl-11 pr-4 py-3.5 bg-slate-50/80 border-2 border-slate-100 rounded-2xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
+                    className="w-full pl-11 pr-4 py-3.5 bg-white border-2 border-slate-300 rounded-xl text-base font-medium text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
                     autoFocus
                     maxLength={10}
                   />
@@ -199,7 +199,7 @@ export const LoginScreen: React.FC = () => {
                 whileTap={{ scale: 0.97 }}
                 whileHover={{ translateY: -1 }}
                 disabled={loading || phone.length < 10}
-                className="w-full py-3.5 rounded-2xl bg-blue-600 text-white font-bold text-sm shadow-[0_8px_20px_rgba(37,99,235,0.25)] hover:bg-blue-700 active:bg-blue-800 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                className="w-full h-12 rounded-xl bg-blue-600 text-white font-semibold text-base shadow-card hover:bg-blue-700 active:bg-blue-800 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -239,9 +239,9 @@ export const LoginScreen: React.FC = () => {
                 </p>
 
                 {/* Prominent Simulated Mock OTP Box */}
-                <div className="mt-3.5 p-3.5 bg-gradient-to-br from-blue-50 via-indigo-50/70 to-slate-50 border border-blue-200/90 rounded-2xl shadow-xs text-center">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-extrabold uppercase tracking-wider rounded-full mb-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+                <div className="mt-3.5 p-3.5 bg-blue-50 border border-blue-200 rounded-2xl shadow-xs text-center">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-100 text-blue-800 text-xs font-extrabold rounded-full mb-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
                     Simulated Demo OTP
                   </div>
                   <p className="text-xs text-slate-600 mb-2 font-medium">
@@ -256,7 +256,7 @@ export const LoginScreen: React.FC = () => {
                     <span className="text-lg font-mono font-black tracking-widest text-blue-600 group-hover:scale-105 transition-transform">
                       {demoOtp || '123456'}
                     </span>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md ml-1">
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md ml-1">
                       Auto-filled ✓
                     </span>
                   </button>
@@ -264,19 +264,19 @@ export const LoginScreen: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider ml-1">
+                <label className="text-xs font-bold text-slate-700 ml-1">
                   Enter OTP
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                    <KeyRound className="w-5 h-5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                    <KeyRound className="w-5 h-5 text-slate-500 group-focus-within:text-emerald-500 transition-colors" />
                   </div>
                   <input
                     type="text"
                     value={otp}
                     onChange={(e) => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(''); }}
                     placeholder="6-digit OTP"
-                    className="w-full pl-11 pr-4 py-3.5 bg-slate-50/80 border-2 border-slate-100 rounded-2xl text-base font-bold text-slate-900 tracking-[0.35em] text-center placeholder:text-slate-400 placeholder:tracking-normal focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all font-mono"
+                    className="w-full pl-11 pr-4 py-3.5 bg-white border-2 border-slate-300 rounded-xl text-xl font-bold text-slate-900 tracking-[0.35em] text-center placeholder:text-slate-500 placeholder:tracking-normal focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all font-mono"
                     autoFocus
                     maxLength={6}
                   />
@@ -298,7 +298,7 @@ export const LoginScreen: React.FC = () => {
                 whileTap={{ scale: 0.97 }}
                 whileHover={{ translateY: -1 }}
                 disabled={loading || otp.length < 6}
-                className="w-full py-3.5 rounded-2xl bg-emerald-600 text-white font-bold text-sm shadow-[0_8px_20px_rgba(5,150,105,0.25)] hover:bg-emerald-700 active:bg-emerald-800 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                className="w-full h-12 rounded-xl bg-emerald-600 text-white font-semibold text-base shadow-card hover:bg-emerald-700 active:bg-emerald-800 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -314,7 +314,7 @@ export const LoginScreen: React.FC = () => {
                 type="button"
                 onClick={handleResendOtp}
                 disabled={loading || resendCountdown > 0}
-                className="w-full text-center text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors disabled:opacity-50 disabled:text-slate-400 py-1"
+                className="w-full min-h-11 text-center text-sm font-semibold text-blue-700 hover:text-blue-800 transition-colors disabled:text-slate-500 py-2"
               >
                 {resendCountdown > 0 ? `Resend OTP in ${resendCountdown}s` : "Didn't receive OTP? Resend"}
               </button>
@@ -327,7 +327,7 @@ export const LoginScreen: React.FC = () => {
             <Lock className="w-3.5 h-3.5 text-blue-600" />
             <span>DPDP Act & ABDM M1 Secured</span>
           </div>
-          <p className="text-[10px] text-slate-400 font-medium">End-to-End Encrypted Patient Health Records</p>
+          <p className="text-xs text-slate-500 font-medium">End-to-End Encrypted Patient Health Records</p>
         </div>
       </motion.div>
     </div>

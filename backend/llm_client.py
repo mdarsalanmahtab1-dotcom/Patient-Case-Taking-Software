@@ -15,6 +15,7 @@ import os
 import logging
 import time
 import asyncio
+import concurrent.futures
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -32,9 +33,36 @@ except ImportError:
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
-# High-throughput sub-second models
-PRIMARY_MODEL = "gemini-3.5-flash-lite"
-FALLBACK_MODEL = "gemini-3.6-flash"
+# ──────────────────────────────────────────────────────────────────────
+# Multi-Tier Resilient Model Cascades
+# ──────────────────────────────────────────────────────────────────────
+
+# Speed-optimized cascade (for low-latency interactive kiosk turns & portal chat)
+FAST_MODELS_CASCADE = [
+    "gemini-3.1-flash-lite",      # ~1.5s latency, primary (0 errors, no 503)
+    "gemini-3.6-flash",          # ~2.2s latency, high-reasoning tier-2 backup
+    "gemini-flash-lite-latest",  # alias tier-3 backup
+    "gemini-3.5-flash-lite",     # tier-4 backup
+]
+
+# Reasoning-optimized cascade (for clinical handover notes, contradictions, synthesis)
+REASONING_MODELS_CASCADE = [
+    "gemini-3.6-flash",          # Deep clinical reasoning, primary (~2.2s)
+    "gemini-3.1-flash-lite",      # Fast tier-2 backup (~1.5s)
+    "gemini-flash-lite-latest",  # alias tier-3 backup
+]
+
+PRIMARY_MODEL = FAST_MODELS_CASCADE[0]
+FALLBACK_MODEL = FAST_MODELS_CASCADE[1]
+
+# Shared thread pool for timeout-bounded LLM calls
+_llm_executor = concurrent.futures.ThreadPoolExecutor(max_workers=8, thread_name_prefix="gemini_worker")
+
+
+def _call_model_with_timeout(fn, timeout_seconds: float = 7.0):
+    """Execute a synchronous SDK call with a strict timeout."""
+    future = _llm_executor.submit(fn)
+    return future.result(timeout=timeout_seconds)
 
 # Complaint categories for classification
 COMPLAINT_CATEGORIES = [
@@ -115,95 +143,104 @@ def _get_client():
 
 
 def _generate_json_with_retry(
-    client, system_prompt: str, user_prompt: str, temperature: float = 0.3
+    client,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.3,
+    models_to_try: list[str] | None = None,
+    timeout_seconds: float = 7.0,
 ) -> dict:
-    """Call Gemini with model fallback, retries, and disabled AFC for fast turns."""
+    """Call Gemini with model cascade fallback, timeout protection, and disabled AFC."""
     if not circuit_breaker.allow_request():
         raise RuntimeError("Circuit breaker is OPEN — bypassing LLM call for immediate fallback")
 
-    models_to_try = [PRIMARY_MODEL, FALLBACK_MODEL]
+    candidate_models = list(models_to_try or FAST_MODELS_CASCADE)
     last_exception = None
 
-    for model in models_to_try:
-        max_retries = 2
-        for attempt in range(max_retries):
-            t0 = time.time()
-            try:
-                # Explicitly disable AFC to stop 10-step remote execution loops
-                config = genai_types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    response_mime_type="application/json",
-                    temperature=temperature,
-                    max_output_tokens=1024,
-                    automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(disable=True),
-                )
-                
-                response = client.models.generate_content(
+    for model in candidate_models:
+        t0 = time.time()
+        try:
+            config = genai_types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json",
+                temperature=temperature,
+                max_output_tokens=1024,
+                automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(disable=True),
+            )
+
+            def _invoke():
+                return client.models.generate_content(
                     model=model,
                     contents=user_prompt,
                     config=config,
                 )
-                
-                elapsed = time.time() - t0
-                logger.info(f"Gemini call took {elapsed:.2f}s (model={model})")
-                
-                parsed = json.loads(response.text)
-                circuit_breaker.record_success()
-                return parsed
 
-            except Exception as e:
-                elapsed = time.time() - t0
-                err_msg = str(e)
-                last_exception = e
-                logger.warning(f"Gemini call attempt {attempt+1} failed on {model} after {elapsed:.2f}s: {err_msg[:120]}")
-                
-                # Check for 503 or quota errors
-                if "503" in err_msg or "UNAVAILABLE" in err_msg or "high demand" in err_msg:
-                    circuit_breaker.record_failure(err_msg[:80])
-                    break  # Break retry loop for this model, try fallback model
-                
-                if attempt < max_retries - 1:
-                    time.sleep(0.2 * (2 ** attempt))
+            response = _call_model_with_timeout(_invoke, timeout_seconds=timeout_seconds)
+            elapsed = time.time() - t0
+            logger.info(f"Gemini call took {elapsed:.2f}s (model={model})")
+
+            parsed = json.loads(response.text)
+            circuit_breaker.record_success()
+            return parsed
+
+        except concurrent.futures.TimeoutError:
+            elapsed = time.time() - t0
+            logger.warning(f"⚡ Gemini model {model} timed out after {elapsed:.2f}s (limit {timeout_seconds}s) — cascading to next backup")
+            last_exception = TimeoutError(f"Model {model} timed out after {timeout_seconds}s")
+            continue
+
+        except Exception as e:
+            elapsed = time.time() - t0
+            err_msg = str(e)
+            last_exception = e
+            logger.warning(f"⚡ Gemini model {model} failed after {elapsed:.2f}s: {err_msg[:100]} — cascading to next backup")
+            continue
 
     circuit_breaker.record_failure(str(last_exception)[:80])
-    raise last_exception or RuntimeError("All Gemini model attempts failed")
+    raise last_exception or RuntimeError("All Gemini backup models failed")
+
 
 def generate_portal_chat_reply(system_prompt: str, user_prompt: str, temperature: float = 0.5) -> str:
-    """Standard text generation for the Patient Portal Chatbot with retry logic."""
+    """Standard text generation for the Patient Portal Chatbot with multi-model cascade & timeout."""
     client = _get_client()
     if not client:
         return "I'm sorry, my AI systems are currently offline. Please try again later."
-        
+
     if not circuit_breaker.allow_request():
         return "The system is currently experiencing high load. Please try again in a few moments."
 
-    models_to_try = [PRIMARY_MODEL, FALLBACK_MODEL]
     last_exception = None
+    for model in FAST_MODELS_CASCADE:
+        t0 = time.time()
+        try:
+            config = genai_types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="text/plain",
+                temperature=temperature,
+                max_output_tokens=512,
+                automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(disable=True),
+            )
 
-    for model in models_to_try:
-        for attempt in range(2):
-            try:
-                config = genai_types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    response_mime_type="text/plain",
-                    temperature=temperature,
-                    max_output_tokens=512,
-                )
-                response = client.models.generate_content(
+            def _invoke():
+                return client.models.generate_content(
                     model=model,
                     contents=user_prompt,
                     config=config,
                 )
-                circuit_breaker.record_success()
-                return response.text
-            except Exception as e:
-                last_exception = e
-                err_msg = str(e)
-                if "503" in err_msg or "UNAVAILABLE" in err_msg:
-                    break
-                if attempt < 1:
-                    time.sleep(0.5)
-                    
+
+            response = _call_model_with_timeout(_invoke, timeout_seconds=7.0)
+            elapsed = time.time() - t0
+            logger.info(f"Portal chat reply took {elapsed:.2f}s (model={model})")
+            circuit_breaker.record_success()
+            return response.text
+        except concurrent.futures.TimeoutError:
+            logger.warning(f"⚡ Portal chat timed out on {model} — cascading to next backup")
+            continue
+        except Exception as e:
+            last_exception = e
+            logger.warning(f"⚡ Portal chat failed on {model}: {e} — cascading to next backup")
+            continue
+
     circuit_breaker.record_failure(str(last_exception)[:80])
     return "I apologize, but I encountered an error while processing your request. Please ask your doctor for specific medical advice."
 
@@ -318,6 +355,8 @@ Only extract what is clearly present. Mark uncertain extractions."""
             system_prompt,
             f"Document type: {doc_type}\nOCR text:\n{ocr_text}",
             temperature=0.1,
+            models_to_try=REASONING_MODELS_CASCADE,
+            timeout_seconds=10.0,
         )
     except Exception as e:
         logger.error(f"LLM extract_document_entities failed: {e}")
@@ -367,6 +406,8 @@ Keep it objective and medically accurate."""
             system_prompt,
             user_prompt,
             temperature=0.2,
+            models_to_try=REASONING_MODELS_CASCADE,
+            timeout_seconds=10.0,
         )
     except Exception as e:
         logger.error(f"LLM generate_clinical_summary failed: {e}")

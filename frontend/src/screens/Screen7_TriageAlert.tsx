@@ -1,6 +1,5 @@
-import { LiquidButton } from '../components/ui/button';
 import { useEffect, useState } from 'react';
-import { ShieldAlert, Clock } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAudioGuide } from '../hooks/useAudioGuide';
 
@@ -9,9 +8,14 @@ interface Props {
   onNewPatient: () => void;
 }
 
+/**
+ * Red-flag screen. One instruction, large and still: the patient should stay put.
+ * No pulsing — urgency comes from the colour and the words, not motion.
+ */
 export function Screen7_TriageAlert({ onResume, onNewPatient }: Props) {
   const { stopAllAudio } = useAudioGuide();
   const [secondsLeft, setSecondsLeft] = useState(10);
+  const [alertedAt] = useState(() => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
 
   useEffect(() => {
     // Kill any and all active voices immediately on priority alert
@@ -34,66 +38,48 @@ export function Screen7_TriageAlert({ onResume, onNewPatient }: Props) {
   }, [onResume, stopAllAudio]);
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 1.05 }}
-      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col flex-1 items-center justify-center p-6 sm:p-12 text-center relative overflow-hidden bg-red-50/60 w-full h-full"
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      role="alertdialog"
+      aria-labelledby="triage-title"
+      aria-describedby="triage-desc"
+      className="flex flex-col flex-1 items-center justify-center w-full h-full overflow-y-auto bg-red-50 px-4 py-10 sm:px-8 text-center"
     >
-      {/* Controlled ambient background pulse */}
-      <motion.div 
-        animate={{ opacity: [0.08, 0.2, 0.08] }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-300/40 via-red-100/20 to-transparent pointer-events-none" 
-      />
+      <span className="flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-full bg-red-600 text-white">
+        <ShieldAlert className="h-12 w-12 sm:h-14 sm:w-14" aria-hidden="true" />
+      </span>
 
-      <div className="relative z-10 w-24 h-24 sm:w-32 sm:h-32 bg-red-100/80 rounded-full flex items-center justify-center mb-8 shadow-card">
-        <motion.div
-          animate={{ scale: [1, 1.08, 1], opacity: [0.4, 0.2, 0.4] }}
-          transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute inset-0 bg-red-300 rounded-full"
-        />
-        <ShieldAlert className="w-12 h-12 sm:w-16 sm:h-16 text-red-600 relative z-10" />
-      </div>
+      <h1 id="triage-title" className="mt-8 max-w-3xl text-4xl sm:text-5xl font-bold leading-tight tracking-tight text-red-800 text-balance">
+        Please stay here. A nurse is coming to you.
+      </h1>
 
-      <h2 className="relative z-10 text-3xl sm:text-5xl font-extrabold text-red-700 mb-4 sm:mb-6 tracking-tight max-w-2xl leading-tight">
-        Priority Assistance Required
-      </h2>
-      
-      <p className="relative z-10 text-base sm:text-xl text-red-900/80 font-medium mb-6 max-w-2xl bg-white/70 backdrop-blur-md p-6 rounded-3xl shadow-card border border-red-100/80 leading-relaxed">
-        Based on your symptoms, we are moving you to the 
-        <strong className="text-red-700 ml-1.5 font-extrabold">Priority Triage Queue</strong>. 
-        A nurse has been alerted and will attend to you immediately.
+      <p id="triage-desc" className="mt-5 max-w-2xl text-lg sm:text-xl leading-relaxed text-red-900">
+        Your answers show you may need care quickly, so you have been moved to the <strong className="font-bold">priority queue</strong>.
       </p>
+      <p className="mt-2 text-base text-red-800">Nurse alerted at <span className="font-semibold tabular-nums">{alertedAt}</span></p>
 
-      {/* Auto-resume countdown pill */}
-      <div className="relative z-10 mb-8 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 border border-red-200/60 shadow-2xs text-xs font-bold text-red-700">
-        <Clock className="w-3.5 h-3.5 text-red-500 animate-pulse" />
-        <span>Auto-resuming in <span className="font-mono text-sm">{secondsLeft}s</span></span>
-      </div>
-
-      <div className="relative z-10 flex flex-col sm:flex-row gap-4">
-        <LiquidButton
-          onClick={() => {
-            stopAllAudio();
-            onResume();
-          }}
-          className="group overflow-hidden bg-white text-red-700 border border-red-200/80 px-8 sm:px-10 py-4 sm:py-5 rounded-full font-bold shadow-card hover:shadow-card-hover hover:bg-red-50/50 transition-[transform,background-color,box-shadow] duration-150 active:scale-[0.97] text-base sm:text-lg flex items-center justify-center gap-3 cursor-pointer"
+      <div className="mt-10 flex w-full max-w-xl flex-col gap-3 sm:flex-row">
+        <button
+          type="button"
+          onClick={() => { stopAllAudio(); onResume(); }}
+          className="tap-kiosk flex-1 inline-flex items-center justify-center rounded-xl border-2 border-red-600 bg-white px-6 text-lg font-semibold text-red-700 hover:bg-red-100 cursor-pointer"
         >
-          <span className="relative z-10">I Understand, Continue</span>
-        </LiquidButton>
-        <LiquidButton
-          onClick={() => {
-            stopAllAudio();
-            onNewPatient();
-          }}
-          className="group overflow-hidden bg-red-600 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-full font-bold shadow-card-hover hover:bg-red-700 transition-[transform,background-color,box-shadow] duration-150 active:scale-[0.97] text-base sm:text-lg flex items-center justify-center gap-3 cursor-pointer shadow-red-600/20"
+          I understand, continue
+        </button>
+        <button
+          type="button"
+          onClick={() => { stopAllAudio(); onNewPatient(); }}
+          className="tap-kiosk flex-1 inline-flex items-center justify-center rounded-xl bg-red-600 px-6 text-lg font-semibold text-white shadow-card hover:bg-red-700 cursor-pointer"
         >
-          <span className="relative z-10">Start New Patient</span>
-        </LiquidButton>
+          Start new patient
+        </button>
       </div>
+      <p className="mt-4 text-sm text-red-800" aria-live="off">
+        Returning to your questions in <span className="font-semibold tabular-nums">{secondsLeft}s</span>
+      </p>
     </motion.div>
   );
 }
-

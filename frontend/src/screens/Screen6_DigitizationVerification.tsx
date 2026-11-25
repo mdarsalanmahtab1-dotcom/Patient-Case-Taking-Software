@@ -1,4 +1,3 @@
-import { LiquidButton } from '../components/ui/button';
 import { CheckCircle, AlertTriangle, ArrowRight, FileCheck, Stethoscope, Pill, TestTube } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
@@ -66,26 +65,27 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="flex flex-col flex-1 p-3.5 sm:p-10 lg:p-12 h-full max-w-5xl mx-auto w-full"
+      className="flex flex-col flex-1 px-4 py-6 sm:px-8 sm:py-10 h-full max-w-5xl mx-auto w-full"
     >
       {extractions.length === 0 ? (
         <div className="flex flex-col items-center justify-center flex-1 text-center">
           <div className="bg-slate-100 p-6 rounded-full mb-6">
-            <FileCheck className="w-16 h-16 text-slate-400" />
+            <FileCheck className="w-16 h-16 text-slate-500" />
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-4">{t('verify.no_documents_uploaded')}</h2>
-          <p className="text-slate-500 text-sm sm:text-lg mb-8 max-w-md">
+          <h1 className="text-3xl font-bold text-slate-900 mb-3">{t('verify.no_documents_uploaded')}</h1>
+          <p className="text-slate-600 text-lg mb-8 max-w-md">
             {t('verify.no_docs_desc')}
           </p>
-          <LiquidButton
+          <button
+            type="button"
             onClick={() => {
               stop();
               onNext();
             }}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 sm:px-10 py-3.5 sm:py-4 rounded-full font-bold shadow-xl transition-all active:scale-95 text-base sm:text-lg"
+            className="tap-kiosk inline-flex items-center justify-center rounded-xl bg-emerald-600 px-10 text-lg font-semibold text-white shadow-card hover:bg-emerald-700 cursor-pointer"
           >
             {t('verify.continue')}
-          </LiquidButton>
+          </button>
         </div>
       ) : (
         <>
@@ -94,8 +94,8 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
               <FileCheck className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-600" />
             </div>
             <div>
-              <h2 className="text-2xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">{t('verify.scan_complete')}</h2>
-              <p className="text-slate-500 font-medium text-sm sm:text-xl">{t('verify.scan_desc')}</p>
+              <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">{t('verify.scan_complete')}</h1>
+              <p className="text-slate-600 text-base sm:text-lg">{t('verify.scan_desc')}</p>
             </div>
           </div>
 
@@ -106,10 +106,9 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card relative overflow-hidden group"
+          className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-card relative overflow-hidden group"
         >
-          <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-500 rounded-l-3xl" />
-          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+          <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
             <Stethoscope className="w-4 h-4 text-blue-500" />
             Clinical Summary
           </h3>
@@ -124,10 +123,9 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-            className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card relative overflow-hidden"
+            className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-card relative overflow-hidden"
           >
-            <div className="absolute top-0 left-0 w-1.5 h-full bg-teal-500 rounded-l-3xl" />
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
               <Pill className="w-4 h-4 text-teal-500" />
               Medications Found
             </h3>
@@ -155,7 +153,7 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
                 })}
               </ul>
             ) : (
-              <p className="text-slate-400 italic">No medications detected.</p>
+              <p className="text-slate-500 italic">No medications detected.</p>
             )}
           </motion.div>
 
@@ -165,10 +163,9 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card relative overflow-hidden"
+              className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-card relative overflow-hidden"
             >
-               <div className="absolute top-0 left-0 w-1.5 h-full bg-purple-500 rounded-l-3xl" />
-               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+               <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
                  <AlertTriangle className="w-4 h-4 text-purple-500" />
                  Diagnoses
                </h3>
@@ -190,7 +187,7 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
                    })}
                  </div>
                ) : (
-                 <p className="text-slate-400 italic">No clear diagnoses detected.</p>
+                 <p className="text-slate-500 italic">No clear diagnoses detected.</p>
                )}
             </motion.div>
 
@@ -198,10 +195,9 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: 0.16, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card relative overflow-hidden"
+              className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-card relative overflow-hidden"
             >
-               <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-500 rounded-l-3xl" />
-               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+               <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
                  <TestTube className="w-4 h-4 text-rose-500" />
                  Lab Results
                </h3>
@@ -221,7 +217,7 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
                           <div className="flex gap-2">
                             <span className="font-bold text-slate-900">{lab?.value || ''} {lab?.unit || ''}</span>
                             {lab?.is_abnormal && (
-                              <span className="text-[10px] uppercase tracking-wider font-bold bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full shadow-2xs">
+                              <span className="text-xs font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-lg">
                                 Abnormal
                               </span>
                             )}
@@ -231,16 +227,15 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
                     })}
                   </ul>
                ) : (
-                 <p className="text-slate-400 italic">No lab results detected.</p>
+                 <p className="text-slate-500 italic">No lab results detected.</p>
                )}
             </motion.div>
           </div>
         </div>
              
         {Array.isArray(patientRecord?.unverifiable_values) && patientRecord.unverifiable_values.length > 0 && (
-          <div className="bg-white rounded-3xl p-6 border border-amber-200 shadow-card relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500 rounded-l-3xl" />
-            <h3 className="text-sm font-bold text-amber-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+          <div className="bg-white rounded-2xl p-6 border border-amber-200 shadow-card relative overflow-hidden">
+            <h3 className="text-base font-semibold text-amber-800 mb-3 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" />
               Unverifiable / Unrecognized Units
             </h3>
@@ -258,58 +253,59 @@ export function Screen6_DigitizationVerification({ patientRecord, sessionId, onN
         )}
 
         {/* Confidence Indicator */}
-        <div className="flex items-center gap-3.5 p-4 bg-slate-50/90 rounded-2xl border border-slate-200/80 shadow-2xs">
+        <div className="flex items-center gap-3.5 p-4 bg-white rounded-xl border border-slate-200">
           <div className="flex-1 bg-slate-200 h-2.5 rounded-full overflow-hidden shadow-inner">
             <div 
               className={`h-full rounded-full transition-all duration-500 ease-out ${confidence > 0.8 ? 'bg-emerald-500' : confidence > 0.5 ? 'bg-amber-500' : 'bg-red-500'}`}
               style={{ width: `${Math.min(confidence * 100, 100)}%` }}
             />
           </div>
-          <span className="text-xs sm:text-sm font-extrabold text-slate-600 shrink-0">
-            {Math.round(confidence * 100)}% AI Confidence
+          <span className="text-sm font-semibold text-slate-700 shrink-0 tabular-nums">
+            {Math.round(confidence * 100)}% reading confidence
           </span>
         </div>
 
       </div>
 
-      <div className="mt-8 pt-6 border-t border-slate-200/80 flex flex-col gap-4">
+      <div className="mt-6 pt-4 border-t border-slate-200 bg-slate-50 flex flex-col gap-3">
         {errorMsg && (
-          <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl border border-red-200 text-center font-bold text-sm">
+          <div role="alert" className="bg-red-50 text-red-800 px-4 py-3 rounded-xl border border-red-200 text-center font-semibold text-base">
             <AlertTriangle className="w-4 h-4 inline-block mr-2" />
             {errorMsg}
           </div>
         )}
         <div className="flex gap-4">
-        <LiquidButton
+        <button
+          type="button"
           onClick={() => {
             stop();
             onBack();
           }}
           disabled={isConfirming}
-          className="px-6 sm:px-8 py-4 sm:py-5 rounded-full font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-[transform,background-color] duration-150 active:scale-[0.97] text-base sm:text-lg w-1/3 cursor-pointer shadow-2xs"
+          className="tap-kiosk w-1/3 inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-lg font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
         >
           {t('verify.rescan')}
-        </LiquidButton>
-        <LiquidButton
+        </button>
+        <button
+          type="button"
           onClick={handleConfirm}
           disabled={isConfirming}
-          className="group relative flex-1 overflow-hidden flex items-center justify-center gap-3 rounded-full py-4 sm:py-5 font-bold shadow-card-hover transition-[transform,background-color,box-shadow] duration-150 transform active:scale-[0.97] text-base sm:text-lg bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/20 cursor-pointer"
+          className="tap-kiosk flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-lg font-semibold text-white shadow-card hover:bg-emerald-700 disabled:opacity-70 cursor-pointer"
         >
            {isConfirming ? (
              <span className="relative z-10 flex items-center gap-2">
-               <CheckCircle className="w-5 h-5 animate-pulse" />
+               <CheckCircle className="w-5 h-5" />
                {t('verify.confirmed')}
              </span>
            ) : (
              <>
-                <div className="absolute inset-0 w-full h-full bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out pointer-events-none" />
                 <span className="relative z-10 flex items-center gap-2">
                   {t('verify.looks_good')}
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight className="w-5 h-5" aria-hidden="true" />
                 </span>
              </>
            )}
-        </LiquidButton>
+        </button>
         </div>
       </div>
       </>

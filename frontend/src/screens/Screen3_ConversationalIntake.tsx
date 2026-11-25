@@ -1,4 +1,3 @@
-import { LiquidButton } from '../components/ui/button';
 /**
  * SwasthyaSync — Conversational Intake Screen (v5)
  *
@@ -11,7 +10,7 @@ import { LiquidButton } from '../components/ui/button';
  */
 
 import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
-import { Mic, TriangleAlert, SkipForward, Volume2, VolumeX, Send, ArrowLeft, Loader2, Globe, Bot, User, Sparkles, X, ChevronDown } from 'lucide-react';
+import { Mic, TriangleAlert, SkipForward, Volume2, VolumeX, Send, ArrowLeft, Loader2, Globe, Bot, User, Sparkles, X, MessageSquare, Leaf, ClipboardList, Search, Check } from 'lucide-react';
 import { AbstractOrb } from '../components/AbstractOrb';
 import type { OrbState } from '../components/AbstractOrb';
 import type { UIInstruction } from '../hooks/useConversation';
@@ -191,7 +190,7 @@ export function Screen3_ConversationalIntake({
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <span>💬</span>
+            <MessageSquare className="w-4 h-4" aria-hidden="true" />
             <span>{t('interview.conversation')}</span>
           </button>
           <button
@@ -203,10 +202,10 @@ export function Screen3_ConversationalIntake({
                 : 'text-emerald-700 hover:text-emerald-950 hover:bg-emerald-50'
             }`}
           >
-            <span>🌿</span>
+            <Leaf className="w-4 h-4" aria-hidden="true" />
             <span>AYUSH 25 Checks</span>
             {collectedFieldCount > 0 && (
-              <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${
+              <span className={`text-xs font-extrabold px-1.5 py-0.2 rounded-full ${
                 leftPanelTab === 'all_fields' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
               }`}>
                 {collectedFieldCount}/25
@@ -221,25 +220,19 @@ export function Screen3_ConversationalIntake({
           {/* Live Clinical Summary Badge Card */}
           <div className="mb-2 shrink-0">
             <div className="flex items-center justify-between mb-1.5">
-              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+              <h2 className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                <ClipboardList className="w-4 h-4 text-blue-600" aria-hidden="true" />
                 <span>{t('interview.live_summary')}</span>
-              </h3>
-              <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full shadow-2xs">
-                AUTO-EXTRACT
-              </span>
+              </h2>
             </div>
             <ClinicalSummaryBadge summary={ui.section_summary} clinicMode={ui.clinic_mode} emptyText={t('interview.waiting_info')} />
           </div>
 
           {/* Conversation Header */}
           <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 mb-1.5 shrink-0">
-            <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-widest">
+            <h2 className="text-sm font-semibold text-slate-800">
               {t('interview.conversation')}
-            </h3>
-            <span className="bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full text-[10px] tracking-wide">
-              LIVE TRANSCRIPT
-            </span>
+            </h2>
           </div>
 
           {/* Conversation Message List (Independent Internal Scroll) */}
@@ -255,7 +248,7 @@ export function Screen3_ConversationalIntake({
                     key={i} 
                     className={`flex flex-col ${isPatient ? 'items-end' : 'items-start'}`}
                   >
-                    <span className={`text-[11px] font-bold mb-1 uppercase tracking-wider flex items-center gap-1 ${
+                    <span className={`text-xs font-bold mb-1 uppercase tracking-wider flex items-center gap-1 ${
                       isPatient ? 'text-blue-600' : 'text-slate-500'
                     }`}>
                       {isPatient ? (
@@ -281,8 +274,7 @@ export function Screen3_ConversationalIntake({
                 );
               })
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400 text-sm font-medium py-8">
-                <span className="block mb-1.5 text-2xl">👋</span>
+              <div className="h-full flex flex-col items-center justify-center text-slate-500 text-sm font-medium py-8">
                 <span>Say hello or speak your symptom to start!</span>
               </div>
             )}
@@ -296,7 +288,7 @@ export function Screen3_ConversationalIntake({
                   exit={{ opacity: 0, scale: 0.95 }}
                   className="flex flex-col items-end"
                 >
-                  <span className="text-[11px] font-bold mb-1 text-red-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-xs font-bold mb-1 text-red-500 uppercase tracking-wider flex items-center gap-1.5">
                     <span>{t('interview.you')} (Listening...)</span>
                     <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
                   </span>
@@ -318,7 +310,7 @@ export function Screen3_ConversationalIntake({
                   exit={{ opacity: 0, scale: 0.95 }}
                   className="flex flex-col items-end"
                 >
-                  <span className="text-[11px] font-bold mb-1 text-amber-600 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-xs font-bold mb-1 text-amber-600 uppercase tracking-wider flex items-center gap-1.5">
                     <span>{t('interview.you')}</span>
                     <Loader2 className="w-3 h-3 animate-spin text-amber-600" />
                   </span>
@@ -336,8 +328,8 @@ export function Screen3_ConversationalIntake({
                   exit={{ opacity: 0, scale: 0.95 }}
                   className="flex flex-col items-end"
                 >
-                  <span className="text-[11px] font-bold mb-1 text-blue-600 uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wider border border-blue-200 flex items-center gap-1">
+                  <span className="text-xs font-bold mb-1 text-blue-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-extrabold tracking-wider border border-blue-200 flex items-center gap-1">
                       <Sparkles className="w-2.5 h-2.5 text-blue-600" />
                       <span>{LANGUAGE_DISPLAY[typingLanguage]?.name || 'NATIVE VOICE'}</span>
                     </span>
@@ -360,20 +352,20 @@ export function Screen3_ConversationalIntake({
         <div className="flex-1 overflow-y-auto pr-1 flex flex-col min-h-[140px]">
           <div className="flex items-center justify-between mb-2 shrink-0">
             <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-              <span>{isAyush ? '🌿' : '📋'}</span>
+              {isAyush ? <Leaf className="w-4 h-4" aria-hidden="true" /> : <ClipboardList className="w-4 h-4" aria-hidden="true" />}
               <span>{isAyush ? '25 CCRAS Checks' : 'All Clinical Fields'}</span>
             </span>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setChecklistModalOpen(true)}
-                className="text-[10px] font-extrabold bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded-full cursor-pointer transition-colors flex items-center gap-1 shadow-2xs"
+                className="text-xs font-extrabold bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded-full cursor-pointer transition-colors flex items-center gap-1 shadow-2xs"
                 title="Open full screen modal"
               >
-                <span>🔍</span>
+                <Search className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Expand</span>
               </button>
-              <span className="text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded-full">
+              <span className="text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded-full">
                 100% DB
               </span>
             </div>
@@ -386,7 +378,7 @@ export function Screen3_ConversationalIntake({
 
               {/* 25 Authentic CCRAS Checks List */}
               <div className="border-t border-slate-200 pt-2 space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1 px-1">
+                <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider text-slate-500 mb-1 px-1">
                   <span>CCRAS Protocol Checks</span>
                   <span className="text-emerald-700 font-bold">{collectedFieldCount}/25 Verified</span>
                 </div>
@@ -408,30 +400,30 @@ export function Screen3_ConversationalIntake({
                       }`}
                     >
                       <div className="flex items-start justify-between gap-1.5 mb-0.5">
-                        <span className="text-[11px] font-black text-slate-900 flex items-center gap-1.5 truncate">
+                        <span className="text-xs font-black text-slate-900 flex items-center gap-1.5 truncate">
                           <span className="text-sm shrink-0">{item.icon}</span>
                           <span className="truncate">{item.ayurvedicTerm}</span>
                         </span>
                         {isDone ? (
-                          <span className="text-[9px] font-extrabold bg-emerald-600 text-white px-1.5 py-0.2 rounded-full shrink-0 flex items-center gap-0.5">
-                            <span>✓</span>
+                          <span className="text-xs font-extrabold bg-emerald-600 text-white px-1.5 py-0.2 rounded-full shrink-0 flex items-center gap-0.5">
+                            <Check className="w-3 h-3" aria-hidden="true" />
                             <span>Done</span>
                           </span>
                         ) : isCurrent ? (
-                          <span className="text-[9px] font-extrabold bg-amber-500 text-white px-1.5 py-0.2 rounded-full shrink-0 animate-pulse">
+                          <span className="text-xs font-extrabold bg-amber-500 text-white px-1.5 py-0.2 rounded-full shrink-0">
                             Active
                           </span>
                         ) : (
-                          <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded-full shrink-0">
+                          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded-full shrink-0">
                             Pending
                           </span>
                         )}
                       </div>
-                      <div className="text-[10px] text-emerald-800 font-medium pl-5 truncate">
+                      <div className="text-xs text-emerald-800 font-medium pl-5 truncate">
                         {item.ayurvedicHindi}
                       </div>
                       {isDone && (
-                        <div className="mt-1 pl-5 text-[10px] font-bold text-emerald-950 bg-white/80 p-1 rounded-md border border-emerald-200/70 truncate">
+                        <div className="mt-1 pl-5 text-xs font-bold text-emerald-950 bg-white/80 p-1 rounded-md border border-emerald-200/70 truncate">
                           {val}
                         </div>
                       )}
@@ -474,20 +466,20 @@ export function Screen3_ConversationalIntake({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileSummaryOpen(false)}
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 md:hidden"
+              className="fixed inset-0 bg-slate-900/60 z-40 md:hidden"
             />
             <motion.div
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl shadow-2xl flex flex-col max-h-[82dvh] md:hidden border-t border-slate-200 overflow-hidden"
+              className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl flex flex-col max-h-[82dvh] md:hidden border-t border-slate-200 overflow-hidden"
             >
               {/* Drag Handle & Header */}
               <div className="w-12 h-1 bg-slate-300 rounded-full mx-auto mt-2.5 mb-1 shrink-0" />
               <div className="px-4 py-2 border-b border-slate-100 shrink-0 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">{isAyush ? '🌿' : '📋'}</span>
+                  {isAyush ? <Leaf className="w-5 h-5 text-emerald-700" aria-hidden="true" /> : <ClipboardList className="w-5 h-5 text-blue-600" aria-hidden="true" />}
                   <span className="font-extrabold text-sm text-slate-800">
                     {isAyush ? 'AYUSH Summary & 25 Checks' : 'Live Clinical Summary & Transcript'}
                   </span>
@@ -495,7 +487,7 @@ export function Screen3_ConversationalIntake({
                 <button
                   type="button"
                   onClick={() => setMobileSummaryOpen(false)}
-                  className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-full text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                   aria-label="Close summary"
                 >
                   <X className="w-4 h-4" />
@@ -514,225 +506,135 @@ export function Screen3_ConversationalIntake({
       {/* ─────────────────────────────────────────────────────────────
           MAIN KIOSK INTERACTION VIEWPORT (100% Height on Mobile & Desktop)
       ───────────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-between p-2.5 xs:p-3 sm:p-5 h-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50/20">
+      <div className="flex-1 flex flex-col justify-between p-3 sm:p-5 lg:p-6 h-full overflow-hidden bg-slate-50">
         
-        {/* Top Progress & Badges (Pinned) */}
-        <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-2 shrink-0">
-          {/* Mobile-Only Summary Toggle Pill */}
-          <div className="flex items-center justify-between w-full md:hidden mb-0.5 shrink-0 px-1">
-            <button
-              type="button"
-              onClick={() => setMobileSummaryOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-200/90 shadow-2xs rounded-full text-xs font-bold text-slate-700 active:scale-95 transition-transform cursor-pointer hover:bg-slate-50"
-            >
-              <span>{isAyush ? '🌿' : '📋'}</span>
-              <span>{isAyush ? `AYUSH Checks (${collectedFieldCount}/25)` : 'Summary & Transcript'}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-            </button>
-            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
-              LIVE SYNC
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap justify-center">
-            {isAyush ? (
-              <span className="px-3.5 py-1 bg-gradient-to-r from-emerald-100 via-teal-100 to-amber-100 text-emerald-950 border border-emerald-300 rounded-full text-xs font-extrabold uppercase tracking-wider shadow-2xs flex items-center gap-1.5">
-                <span className="text-sm">🌿</span>
-                <span>
-                  {ui.section_label === 'PRAKRITI' 
-                    ? 'CCRAS PRAKRITI INTAKE' 
-                    : ui.section_label === 'SAFETY_CHECKS' || (typeof ui.macro_state === 'string' && ui.macro_state.includes('SAFETY'))
-                    ? 'AYUSH SURAKSHA (SAFETY CHECKS)'
-                    : ui.section_label === 'HPI' || (typeof ui.macro_state === 'string' && ui.macro_state.includes('HPI'))
-                    ? 'NIDANA & ROGA PARIKSHA'
-                    : (ui.section_label || 'AYUSH INTAKE')}
-                </span>
-                <span className="bg-emerald-700 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold ml-1">Govt SOP</span>
-              </span>
-            ) : (
-              <span className="px-3.5 py-1 bg-blue-100/70 text-blue-700 border border-blue-200/70 rounded-full text-xs font-extrabold uppercase tracking-widest shadow-2xs">
-                {typeof (ui.section_label || ui.macro_state) === 'string' ? (ui.section_label || ui.macro_state) : String(ui.section_label || ui.macro_state)}
-              </span>
-            )}
-            {isAyush && (
-              <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs">
-                <span>NAMASTE / CCRAS Scale</span>
-              </span>
-            )}
-            {ui.language && ui.language !== 'en-IN' && (
-              <span className="px-3 py-1 bg-emerald-100/70 text-emerald-700 border border-emerald-200/70 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-2xs">
-                <Globe className="w-3.5 h-3.5" />
-                {ui.language}
-              </span>
-            )}
-            <LiquidButton
-              onClick={onRedflag}
-              className="flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-full transition-colors border border-red-200 cursor-pointer shadow-2xs"
-              title="Simulate Red Flag for Triage Demo"
-            >
-              <TriangleAlert className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{t('interview.simulate_alert')}</span>
-            </LiquidButton>
-          </div>
-
-          {progress && (
-            <div className="w-full max-w-md">
-              <div className="flex justify-between text-[11px] font-bold text-slate-500 mb-1 tracking-wide uppercase">
-                <span>{(progress as any).label || `Question ${progress.done} of ${progress.total}`}</span>
-                <span className="text-blue-600 font-extrabold">{(progress as any).percent ?? Math.round((progress.done / Math.max(progress.total, 1)) * 100)}%</span>
+        {/* ── TOP: where the patient is in the interview ─────────────── */}
+        {(() => {
+          const pct = progress ? Math.round(((progress as any).percent ?? (progress.done / Math.max(progress.total, 1)) * 100)) : null;
+          const rawSection = String(ui.section_label || ui.macro_state || '');
+          const ayushSection =
+            ui.section_label === 'PRAKRITI' ? 'Prakriti (body constitution)'
+            : ui.section_label === 'SAFETY_CHECKS' || rawSection.includes('SAFETY') ? 'Safety checks'
+            : ui.section_label === 'HPI' || rawSection.includes('HPI') ? 'Nidana · about your illness'
+            : null;
+          const SECTION_NAMES: Record<string, string> = {
+            HPI: 'About your illness', CHIEF_COMPLAINT: 'Main problem', CC: 'Main problem',
+            ROS: 'Other symptoms', PMH: 'Past illnesses', PAST_HISTORY: 'Past illnesses',
+            MEDICATIONS: 'Medicines', ALLERGIES: 'Allergies', FAMILY_HISTORY: 'Family history',
+            SOCIAL_HISTORY: 'Daily habits', VITALS: 'Vitals', SAFETY_CHECKS: 'Safety checks',
+          };
+          const section = (isAyush && ayushSection) || SECTION_NAMES[rawSection.toUpperCase()] || (rawSection
+            ? rawSection.replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase())
+            : '');
+          const ringC = 2 * Math.PI * 14;
+          return (
+            <div className="w-full max-w-4xl mx-auto shrink-0">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-base text-slate-700 min-w-0 truncate">
+                  {progress && <span className="font-semibold text-slate-900">Question {Math.min(progress.done + 1, progress.total)} of about {progress.total}</span>}
+                  {section && <span className="text-slate-500">{progress ? ' · ' : ''}{section}</span>}
+                </p>
+                <div className="flex items-center gap-2 shrink-0">
+                  {ui.language && ui.language !== 'en-IN' && (
+                    <span className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-600">
+                      <Globe className="w-4 h-4 text-blue-600" aria-hidden="true" />
+                      {LANGUAGE_DISPLAY[ui.language]?.name || ui.language}
+                    </span>
+                  )}
+                  {isAyush && (
+                    <button
+                      type="button"
+                      onClick={() => setChecklistModalOpen(true)}
+                      className="tap inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white pl-1.5 pr-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 cursor-pointer"
+                      aria-label={`AYUSH checks: ${collectedFieldCount} of 25 recorded. Open checklist`}
+                    >
+                      <svg viewBox="0 0 32 32" className="h-8 w-8 -rotate-90" aria-hidden="true">
+                        <circle cx="16" cy="16" r="14" fill="none" stroke="#d1fae5" strokeWidth="4" />
+                        <circle cx="16" cy="16" r="14" fill="none" stroke="#059669" strokeWidth="4" strokeLinecap="round"
+                          strokeDasharray={ringC} strokeDashoffset={ringC * (1 - Math.min(collectedFieldCount, 25) / 25)} />
+                      </svg>
+                      <span className="tabular-nums">{collectedFieldCount}/25</span>
+                      <span className="hidden sm:inline">AYUSH checks</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setMobileSummaryOpen(true)}
+                    className="md:hidden tap inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <ClipboardList className="w-4 h-4" aria-hidden="true" />
+                    Summary
+                  </button>
+                </div>
               </div>
-              <div className="w-full bg-slate-200/80 rounded-full h-2 overflow-hidden shadow-inner">
-                <div
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 h-full rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${(progress as any).percent ?? (progress.done / Math.max(progress.total, 1)) * 100}%` }}
-                />
-              </div>
+              {pct !== null && (
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Interview progress">
+                  <div className="h-full rounded-full bg-blue-600 transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} />
+                </div>
+              )}
             </div>
-          )}
+          );
+        })()}
 
-          {/* Option to see all 25 Ayurvedic checks (ONLY in AYUSH MODE) */}
-          {isAyush && (
-            <div className="flex items-center justify-center gap-2 mt-0.5">
-              <button
-                type="button"
-                onClick={() => setChecklistModalOpen(true)}
-                className="flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-bold transition-all shadow-xs cursor-pointer border bg-gradient-to-r from-emerald-50 via-teal-50 to-amber-50 hover:from-emerald-100 hover:to-teal-100 text-emerald-950 border-emerald-300 hover:scale-[1.02]"
-                title="Click to view all 25 Ayurvedic checks"
-              >
-                <span>🌿</span>
-                <span>View All 25 AYUSH Checks (CCRAS Protocol)</span>
-                <span className="text-[10px] font-black px-2 py-0.2 rounded-full bg-emerald-700 text-white">
-                  {collectedFieldCount}/25
-                </span>
-                <span className="text-[10px] text-slate-400 font-bold">🔍</span>
-              </button>
+        {/* ── MIDDLE: the question and its answers ─────────────────────── */}
+        <div className="flex-1 flex flex-col items-center min-h-0 overflow-y-auto w-full max-w-4xl mx-auto py-4 [&>*:first-child]:mt-auto [&>*:last-child]:mb-auto">
+          <div className="flex w-full flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-5">
+            <div className="shrink-0">
+              <AbstractOrb interactionState={effectiveOrbState} size="sm" />
             </div>
-          )}
-        </div>
-
-        {/* Center Zone: Orb, Prompt & Accessible Emoji Options (Scrollable internally if needed) */}
-        <div className="flex-1 flex flex-col items-center justify-center min-h-0 overflow-y-auto w-full max-w-4xl mx-auto px-2 py-2 text-center">
-          
-          {/* AI Medical Orb */}
-          <div className="relative mb-2 sm:mb-3 shrink-0">
-            <AbstractOrb interactionState={effectiveOrbState} size="sm" />
-            <AnimatePresence>
-              {isSpeaking && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 4, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 2, scale: 0.9 }}
-                  transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute -bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-[11px] font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 shadow-card whitespace-nowrap"
-                >
-                  <Volume2 className="w-3 h-3 animate-pulse text-blue-600" />
-                  <span>SPEAKING</span>
-                </motion.div>
+            <div className="min-w-0 flex-1 text-center sm:text-left sm:pt-2">
+              {ui.ack && (
+                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-1 text-base font-semibold text-emerald-700">
+                  {typeof ui.ack === 'string' ? ui.ack : JSON.stringify(ui.ack)}
+                </motion.p>
               )}
-              {isRecording && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 4, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 2, scale: 0.9 }}
-                  transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute -bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-[11px] font-bold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200 shadow-card whitespace-nowrap"
-                >
-                  <span className="w-2 h-2 bg-red-500 rounded-full animate-ping" />
-                  <span>LISTENING</span>
-                </motion.div>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-snug text-slate-900 text-balance" aria-live="polite">
+                {isProcessing ? (
+                  <span className="inline-flex items-center gap-3 text-xl sm:text-2xl font-semibold text-slate-500">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-600" aria-hidden="true" />
+                    {t('interview.processing')}
+                  </span>
+                ) : (
+                  typeof ui.prompt === 'string' ? ui.prompt : JSON.stringify(ui.prompt)
+                )}
+              </h1>
+              {ui.prompt_subtitle && !isProcessing && (
+                <p className="mt-2 text-lg text-slate-600">{ui.prompt_subtitle}</p>
               )}
-              {isTranscribing && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 4, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 2, scale: 0.9 }}
-                  transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute -bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-[11px] font-bold text-amber-700 bg-amber-50 px-3 py-0.5 rounded-full border border-amber-200 shadow-card whitespace-nowrap"
-                >
-                  <Loader2 className="w-3 h-3 animate-spin text-amber-600" />
-                  <span>ANALYZING VOICE</span>
-                </motion.div>
-              )}
-              {isTypingVoice && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 4, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 2, scale: 0.9 }}
-                  transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute -bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-0.5 rounded-full border border-blue-200 shadow-card whitespace-nowrap max-w-[260px] truncate"
-                >
-                  <span className="w-2 h-2 bg-blue-600 rounded-full animate-ping" />
-                  <span>TYPING VOICE INPUT</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            </div>
           </div>
 
-          {/* Acknowledgment */}
-          {ui.ack && (
-            <motion.p 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-xs sm:text-base text-emerald-600 font-semibold mb-1 max-w-lg shrink-0"
-            >
-              {typeof ui.ack === 'string' ? ui.ack : JSON.stringify(ui.ack)}
-            </motion.p>
-          )}
-
-          {/* Primary Question Heading */}
-          <h2 className="text-lg xs:text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 leading-snug px-2 sm:px-3 my-1 sm:my-2 max-w-3xl shrink-0">
-            {isProcessing ? (
-              <span className="flex flex-col items-center gap-2 text-blue-600/70 my-1">
-                <Loader2 className="w-6 h-6 sm:w-7 sm:h-7 animate-spin" />
-                <span className="text-sm sm:text-base font-bold animate-pulse">{t('interview.processing')}</span>
-              </span>
-            ) : (
-              typeof ui.prompt === 'string' ? ui.prompt : JSON.stringify(ui.prompt)
-            )}
-          </h2>
-          
           {sttError && (
-            <div className="bg-red-50 text-red-600 px-3.5 py-1.5 rounded-xl text-xs font-medium border border-red-200 flex items-center gap-2 my-1 sm:my-2 shrink-0">
-              <TriangleAlert className="w-4 h-4" />
+            <div role="alert" className="mt-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-base font-medium text-red-700">
+              <TriangleAlert className="w-5 h-5 shrink-0" aria-hidden="true" />
               <span>{sttError}</span>
             </div>
           )}
 
-          {/* Dynamic Option Cards with Medical Emojis */}
           {Array.isArray(ui.options) && ui.options.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-2 sm:gap-3 w-full max-w-4xl my-1 sm:my-2 px-1">
+            <div className="mt-6 grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {ui.options.map((opt, idx) => {
                 const label = typeof opt === 'string' ? opt : (opt.label || String(opt));
                 const labelTranslated = typeof opt === 'object' ? opt.label_translated : undefined;
                 const visual = getMedicalOptionVisual(label, labelTranslated);
                 const hasSubtitle = Boolean(labelTranslated && labelTranslated !== label);
-
                 return (
                   <motion.button
-                    initial={{ opacity: 0, y: 8 }}
+                    initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.18, delay: Math.min(idx * 0.03, 0.2), ease: [0.16, 1, 0.3, 1] }}
-                    whileHover={{ scale: 1.015, y: -1 }}
-                    whileTap={{ scale: 0.97 }}
+                    transition={{ duration: 0.16, delay: Math.min(idx * 0.025, 0.15), ease: [0.16, 1, 0.3, 1] }}
                     key={idx}
                     id={`option-${idx}`}
+                    type="button"
                     onClick={() => handleOptionTap(opt as any)}
                     disabled={isProcessing || isRecording || isTranscribing || isTypingVoice}
-                    className={`flex items-center gap-2.5 xs:gap-3.5 px-3.5 py-2.5 xs:px-5 xs:py-3 sm:px-6 sm:py-3.5 bg-white border-2 ${visual.badgeBorder} rounded-2xl hover:shadow-card-hover active:scale-[0.97] transition-[transform,box-shadow,border-color,background-color] duration-150 text-left shadow-card border-b-4 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer min-h-[50px] xs:min-h-[56px] min-w-[135px] xs:min-w-[160px] sm:min-w-[210px] flex-1 max-w-[340px]`}
+                    className={`flex h-full min-h-[72px] w-full items-center gap-4 rounded-xl border-2 ${visual.badgeBorder} bg-white px-4 py-3 text-left shadow-card transition-[box-shadow,background-color] duration-150 hover:shadow-card-hover active:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
                   >
-                    <span className="text-xl xs:text-2xl sm:text-3xl shrink-0 select-none leading-none">
-                      {visual.emoji}
+                    <span className="text-3xl leading-none shrink-0 select-none" aria-hidden="true">{visual.emoji}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-lg font-semibold leading-snug text-slate-900 break-words">{labelTranslated || label}</span>
+                      {hasSubtitle && <span className="mt-0.5 block text-sm text-slate-500 break-words">{label}</span>}
                     </span>
-                    <div className="min-w-0 flex-1">
-                      <span className="block text-xs xs:text-sm sm:text-base font-extrabold text-slate-800 leading-snug whitespace-normal break-words">
-                        {labelTranslated || label}
-                      </span>
-                      {hasSubtitle && (
-                        <span className="block text-[10px] xs:text-xs font-semibold text-slate-500 whitespace-normal break-words mt-0.5">
-                          {label}
-                        </span>
-                      )}
-                    </div>
                   </motion.button>
                 );
               })}
@@ -740,72 +642,61 @@ export function Screen3_ConversationalIntake({
           )}
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────
-            BOTTOM CONTROLS: Firmly Anchored Sticky Dock
-        ───────────────────────────────────────────────────────────── */}
-        <div className="w-full max-w-xl mx-auto flex flex-col items-center gap-1.5 sm:gap-2 pt-1.5 sm:pt-2 border-t border-slate-200/80 shrink-0">
-          
-          {/* Quick text input form */}
-          <form onSubmit={handleTextSubmit} className="flex w-full gap-2 relative">
-            <div className={`w-full flex items-center bg-white border ${
-              isTypingVoice ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-blue-500/10' : 'border-slate-200'
-            } rounded-full pl-4 pr-12 xs:pl-5 xs:pr-14 py-2 xs:py-2.5 shadow-card focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:shadow-card-hover transition-[border-color,box-shadow] duration-200`}>
-              <input 
-                type="text" 
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                disabled={isProcessing || isRecording || isTranscribing || isTypingVoice}
-                placeholder={isTypingVoice ? "Typing recognized speech..." : t('interview.type_response')}
-                className="w-full bg-transparent border-none text-xs xs:text-sm sm:text-base font-semibold text-slate-800 focus:outline-none disabled:opacity-50 placeholder:text-slate-400"
-              />
-            </div>
-            <LiquidButton 
-              type="submit" 
-              aria-label="Send message"
+        {/* ── BOTTOM: controls where the hand rests ─────────────────────── */}
+        <div className="w-full max-w-3xl mx-auto flex flex-col gap-3 pt-3 border-t border-slate-200 shrink-0">
+          <form onSubmit={handleTextSubmit} className="relative flex w-full">
+            <label htmlFor="interview-text" className="sr-only">{t('interview.type_response')}</label>
+            <input
+              id="interview-text"
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              disabled={isProcessing || isRecording || isTranscribing || isTypingVoice}
+              placeholder={isTypingVoice ? 'Writing down what you said…' : t('interview.type_response')}
+              className={`h-12 w-full rounded-xl border bg-white pl-4 pr-14 text-base text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 disabled:opacity-50 ${isTypingVoice ? 'border-blue-600' : 'border-slate-300'}`}
+            />
+            <button
+              type="submit"
+              aria-label="Send answer"
               disabled={isProcessing || isRecording || isTranscribing || isTypingVoice || !inputText.trim()}
-              className="absolute right-1 top-1 bottom-1 aspect-square flex items-center justify-center bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-40 disabled:bg-slate-200 disabled:text-slate-400 transition-[background-color,transform] duration-150 active:scale-[0.97] cursor-pointer shadow-xs"
+              className="absolute right-1.5 top-1.5 bottom-1.5 aspect-square flex items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-500 cursor-pointer"
             >
-              <Send className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
-            </LiquidButton>
+              <Send className="w-4 h-4" aria-hidden="true" />
+            </button>
           </form>
 
-          {/* Action Dock: Back, Replay, Large Mic Button, Skip */}
-          <div className="flex items-center justify-between w-full gap-1.5 xs:gap-2">
-            
-            {/* Back Button */}
-            <LiquidButton
-              id="btn-back"
-              onClick={onBack}
-              className="group flex items-center justify-center gap-1 xs:gap-1.5 px-2.5 xs:px-3.5 sm:px-5 py-2 xs:py-2.5 rounded-full font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 hover:text-slate-800 transition-[transform,background-color,color] duration-150 active:scale-[0.97] text-xs sm:text-sm cursor-pointer shrink-0 shadow-2xs"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 xs:w-4 xs:h-4 group-hover:-translate-x-0.5 transition-transform" />
-              <span className="hidden xs:inline">{t('phone.back')}</span>
-            </LiquidButton>
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+            <div className="flex justify-start">
+              <button
+                id="btn-back"
+                type="button"
+                onClick={onBack}
+                className="tap-kiosk inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-base font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                <ArrowLeft className="w-5 h-5" aria-hidden="true" />
+                <span className="hidden sm:inline">{t('phone.back')}</span>
+              </button>
+            </div>
 
-            {/* Central Voice Controls */}
-            <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3">
-              <LiquidButton
+            <div className="flex items-center gap-2">
+              <button
                 id="btn-tts-toggle"
                 type="button"
-                aria-label={isSpeaking ? 'Stop speaking' : 'Replay prompt'}
+                aria-label={isSpeaking ? 'Stop reading aloud' : 'Read the question again'}
+                title={isSpeaking ? 'Stop reading aloud' : 'Read the question again'}
                 onClick={() => isSpeaking ? stopTTS() : speak(ui.prompt || '', ui.language || 'hi-IN')}
-                title={isSpeaking ? 'Stop speaking' : 'Replay prompt'}
-                className="p-2 xs:p-2.5 rounded-full text-slate-600 bg-white border border-slate-200 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/70 transition-[border-color,background-color,color,transform] duration-150 active:scale-[0.97] shrink-0 cursor-pointer shadow-card"
+                className="tap-kiosk w-14 flex items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer"
               >
-                {isSpeaking ? <VolumeX className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5 text-red-500" /> : <Volume2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5" />}
-              </LiquidButton>
+                {isSpeaking ? <VolumeX className="w-5 h-5 text-red-600" aria-hidden="true" /> : <Volume2 className="w-5 h-5" aria-hidden="true" />}
+              </button>
 
-              {/* Hold to Speak Button */}
               <div className="relative">
                 <div
-                  className="absolute inset-0 rounded-full bg-blue-500 transition-opacity duration-75"
-                  style={{
-                    opacity: micRingOpacity * 0.4,
-                    transform: `scale(${1 + audioLevel * 0.4})`,
-                    transition: 'transform 0.05s, opacity 0.05s',
-                  }}
+                  className="absolute inset-0 rounded-xl bg-red-500 pointer-events-none"
+                  style={{ opacity: micRingOpacity * 0.35, transform: `scale(${1 + audioLevel * 0.25})`, transition: 'transform 0.05s, opacity 0.05s' }}
+                  aria-hidden="true"
                 />
-                <LiquidButton
+                <button
                   id="btn-mic"
                   type="button"
                   onMouseDown={handleMicPress}
@@ -814,57 +705,54 @@ export function Screen3_ConversationalIntake({
                   onTouchEnd={handleMicRelease}
                   onTouchCancel={handleMicRelease}
                   disabled={isProcessing || isTranscribing || isTypingVoice}
-                  className={`relative flex items-center justify-center gap-1.5 xs:gap-2 px-3.5 xs:px-5 sm:px-8 py-2 xs:py-2.5 sm:py-3 rounded-full font-extrabold text-white transition-[transform,box-shadow,background-color] duration-150 active:scale-[0.97] shadow-card-hover text-xs sm:text-base ${
-                    isRecording
-                      ? 'bg-red-600 shadow-red-600/40 scale-102 animate-pulse'
-                      : isTranscribing || isTypingVoice
-                      ? 'bg-blue-600/90 shadow-blue-600/30'
-                      : 'bg-gradient-to-r from-blue-600 to-indigo-600 shadow-blue-600/25 hover:from-blue-700 hover:to-indigo-700'
-                  } disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 min-w-[130px] xs:min-w-[150px] sm:min-w-[190px]`}
+                  aria-pressed={isRecording}
+                  className={`relative tap-kiosk sm:min-w-[220px] inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 sm:px-6 text-base sm:text-lg font-semibold text-white shadow-card transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer ${
+                    isRecording ? 'bg-red-600 animate-pulse' : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
                 >
-                  {isRecording ? (
-                    <>
-                      <Mic className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5 text-white animate-bounce" />
-                      <span>{t('interview.release_to_send')}</span>
-                    </>
-                  ) : isTranscribing ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5 text-white animate-spin" />
-                      <span>Analyzing...</span>
-                    </>
-                  ) : isTypingVoice ? (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5 text-white animate-pulse" />
-                      <span>Transcribing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5 text-white" />
-                      <span>{t('interview.hold_to_speak')}</span>
-                    </>
-                  )}
-                </LiquidButton>
+                  {isTranscribing || isTypingVoice
+                    ? <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+                    : <Mic className="w-5 h-5" aria-hidden="true" />}
+                  <span>{isRecording ? t('interview.release_to_send') : t('interview.hold_to_speak')}</span>
+                </button>
               </div>
             </div>
 
-            {/* Skip Button */}
-            <div className="flex justify-end shrink-0">
-              {ui.can_skip ? (
-                <LiquidButton
+            <div className="flex justify-end">
+              {ui.can_skip && (
+                <button
                   id="btn-skip"
                   type="button"
                   onClick={onSkip}
-                  className="flex items-center gap-1 px-2.5 xs:px-3 sm:px-5 py-2 xs:py-2.5 rounded-full font-bold text-slate-600 hover:bg-slate-100 transition-colors text-xs sm:text-sm cursor-pointer"
-                  title="Skip this question"
+                  className="tap-kiosk inline-flex items-center gap-2 rounded-xl px-4 text-base font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
                 >
-                  <span className="hidden xs:inline">{t('docs.skip')}</span>
-                  <SkipForward className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
-                </LiquidButton>
-              ) : (
-                <div className="w-8 xs:w-10 sm:w-16" /> /* Placeholder to keep mic centered */
+                  <span className="hidden sm:inline">{t('docs.skip')}</span>
+                  <SkipForward className="w-5 h-5" aria-hidden="true" />
+                </button>
               )}
             </div>
           </div>
+
+          {/* One plain status line instead of floating uppercase chips */}
+          <p className="min-h-6 text-center text-base text-slate-600" aria-live="polite">
+            {isRecording ? (
+              <span className="inline-flex items-center gap-2 font-semibold text-red-700"><span className="h-2.5 w-2.5 rounded-full bg-red-600 animate-ping" aria-hidden="true" />Listening… let go of the button when you finish.</span>
+            ) : isTranscribing ? 'Understanding what you said…'
+              : isTypingVoice ? 'Writing down what you said…'
+              : isSpeaking ? (
+                <span className="inline-flex items-center gap-2 text-blue-700"><Volume2 className="w-4 h-4 animate-pulse" aria-hidden="true" />Reading the question aloud…</span>
+              ) : 'Hold the blue button and speak, or tap an answer.'}
+          </p>
+
+          <button
+            type="button"
+            onClick={onRedflag}
+            title="Alerts the triage nurse immediately"
+            className="tap-kiosk mx-auto inline-flex w-full max-w-md items-center justify-center gap-2 rounded-xl border-2 border-red-600 bg-white px-4 text-base font-semibold text-red-700 hover:bg-red-50 cursor-pointer"
+          >
+            <TriangleAlert className="w-5 h-5" aria-hidden="true" />
+            {t('interview.call_nurse')}
+          </button>
         </div>
       </div>
 

@@ -1,5 +1,4 @@
-import { LiquidButton } from '../components/ui/button';
-import { CheckCircle2, Activity, FileText, Send, UserCircle, Pill, TestTube, AlertTriangle, Sparkles, Bot, Clock, ExternalLink, Scan } from 'lucide-react';
+import { CheckCircle2, Activity, FileText, Send, UserCircle, Pill, TestTube, AlertTriangle, ExternalLink, DoorOpen, Stethoscope } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { toast } from '../components/Toast';
 import { useState, useEffect } from 'react';
@@ -8,22 +7,27 @@ import { useTranslation } from '../hooks/useTranslation';
 import { getApiBaseUrl } from '../config';
 import { useNavigate } from 'react-router-dom';
 import { useAudioGuide } from '../hooks/useAudioGuide';
-import { AnimatedNumber } from '../components/AnimatedNumber';
 
 interface Props {
   language: string;
   onReset?: () => void;
   patientRecord?: any;
   sessionId?: string;
+  /** Dev preview only (src/dev/KioskPreview): open directly on the token screen with sample data */
+  previewSent?: boolean;
 }
 
-export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
+export function Screen8_Complete({ onReset, patientRecord, sessionId, previewSent = false }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [isSending, setIsSending] = useState(false);
-  const [isSent, setIsSent] = useState(false);
-  const [tokenInfo, setTokenInfo] = useState<{ token: string; doctor_name: string; room_number: string } | null>(null);
+  const [isSent, setIsSent] = useState(previewSent);
+  const [tokenInfo, setTokenInfo] = useState<{ token: string; doctor_name: string; room_number: string } | null>(
+    previewSent ? { token: '47', doctor_name: 'Dr. Sneha Roy', room_number: '101' } : null
+  );
   const { speak, stop } = useAudioGuide();
+  const AUTO_RESET_SECONDS = 90;
+  const [secondsLeft, setSecondsLeft] = useState(AUTO_RESET_SECONDS);
 
   useEffect(() => {
     return () => stop();
@@ -93,168 +97,118 @@ export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
     }
   };
 
+  const finishAndReset = () => {
+    stop();
+    if (onReset) onReset();
+    navigate('/kiosk/login');
+  };
+
+  // After the token is shown, return the kiosk to the start so the next patient
+  // never sees this patient's details. The countdown is visible on screen.
+  useEffect(() => {
+    if (!isSent) return;
+    setSecondsLeft(AUTO_RESET_SECONDS);
+    const id = setInterval(() => setSecondsLeft(s => s - 1), 1000);
+    return () => clearInterval(id);
+  }, [isSent]);
+
+  useEffect(() => {
+    if (isSent && secondsLeft <= 0) finishAndReset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSent, secondsLeft]);
+
   if (isSent) {
-    const tokenNumber = tokenInfo?.token || "---";
+    const tokenNumber = tokenInfo?.token || '---';
     const parsedToken = parseInt(tokenNumber, 10);
-    const roomNumber = tokenInfo?.room_number || "---";
-    const assignedDoctor = tokenInfo?.doctor_name ? `Dr. ${tokenInfo.doctor_name}` : "Assigned Doctor";
-    
+    const roomNumber = tokenInfo?.room_number || '---';
+    const rawDoctor = tokenInfo?.doctor_name || '';
+    const assignedDoctor = rawDoctor
+      ? (/^(dr\.?|vaidya)\s/i.test(rawDoctor) ? rawDoctor : `Dr. ${rawDoctor}`)
+      : 'Assigned doctor';
+    const portalUrl = 'https://swasthyasync-patient-portal.vercel.app/login';
+    const mm = Math.floor(Math.max(secondsLeft, 0) / 60);
+    const ss = String(Math.max(secondsLeft, 0) % 60).padStart(2, '0');
+
     return (
-      <motion.div 
-        initial={{ opacity: 0, y: 16 }}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -16 }}
-        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-        className="flex flex-col items-center justify-start p-3.5 sm:p-12 bg-slate-50 w-full h-full overflow-y-auto"
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        className="flex flex-col items-center w-full h-full overflow-y-auto bg-slate-50 px-4 py-8 sm:px-8 sm:py-12"
       >
-        <div className="bg-white/95 backdrop-blur-2xl p-5 sm:p-12 rounded-3xl sm:rounded-[2.5rem] shadow-card-hover border border-slate-200/80 w-full max-w-2xl text-center relative overflow-hidden my-auto shrink-0">
-          <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-emerald-400 via-teal-500 to-blue-500" />
-          
-          <div className="relative w-20 h-20 sm:w-28 sm:h-28 mx-auto mb-4 sm:mb-8">
-            <motion.div 
-              initial={{ scale: 0.6, opacity: 0 }}
-              animate={{ scale: [1, 1.4, 1.2], opacity: [0.6, 0.2, 0] }}
-              transition={{ duration: 1.2, repeat: Infinity, repeatDelay: 1.2 }}
-              className="absolute inset-0 rounded-full bg-emerald-400/40"
-            />
-            <motion.div 
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", bounce: 0.5, delay: 0.2 }}
-              className="w-20 h-20 sm:w-28 sm:h-28 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center shadow-card ring-4 ring-emerald-500/15 relative z-10"
-            >
-              <CheckCircle2 className="w-10 h-10 sm:w-14 sm:h-14" />
-            </motion.div>
-          </div>
-          
-          <h2 className="text-2xl sm:text-5xl font-extrabold text-slate-900 mb-2 sm:mb-3 tracking-tight">{t('complete.sent_to_doctor')}</h2>
-          <p className="text-sm sm:text-lg text-slate-600 mb-5 sm:mb-8 font-medium leading-relaxed">{t('complete.sent_to_doctor_desc')}</p>
-          
-          <motion.div 
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.28, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="bg-slate-50/90 rounded-2xl sm:rounded-3xl p-4 sm:p-8 mb-5 sm:mb-8 border border-slate-200/80 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 shadow-card"
-          >
+        <div className="w-full max-w-4xl my-auto">
+          <div className="flex items-center gap-3">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <CheckCircle2 className="h-7 w-7" aria-hidden="true" />
+            </span>
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 sm:mb-2">{t('complete.token_number')}</p>
-              <p className="text-4xl font-extrabold text-blue-600">
-                {!isNaN(parsedToken) ? (
-                  <AnimatedNumber value={parsedToken} duration={0.8} />
-                ) : (
-                  tokenNumber
-                )}
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{t('complete.sent_to_doctor')}</h1>
+              <p className="text-base sm:text-lg text-slate-600">{t('complete.sent_to_doctor_desc')}</p>
+            </div>
+          </div>
+
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-[1.6fr_1fr]">
+            {/* The token is the one thing the patient must remember */}
+            <section className="rounded-2xl border-2 border-blue-600 bg-white p-6 sm:p-8 shadow-card" aria-labelledby="token-label">
+              <p id="token-label" className="text-lg font-semibold text-slate-600">{t('complete.token_number')}</p>
+              <p className="mt-1 text-7xl sm:text-8xl font-bold leading-none tracking-tight text-blue-700 tabular-nums">
+                {!isNaN(parsedToken) ? parsedToken : tokenNumber}
+              </p>
+              <dl className="mt-6 grid grid-cols-1 gap-4 border-t border-slate-200 pt-5 sm:grid-cols-2">
+                <div className="flex items-center gap-3">
+                  <DoorOpen className="h-6 w-6 shrink-0 text-slate-500" aria-hidden="true" />
+                  <div>
+                    <dt className="text-sm text-slate-500">{t('complete.room_number')}</dt>
+                    <dd className="text-2xl font-bold text-slate-900">{roomNumber}</dd>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 min-w-0">
+                  <Stethoscope className="h-6 w-6 shrink-0 text-slate-500" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <dt className="text-sm text-slate-500">{t('complete.doctor')}</dt>
+                    <dd className="text-xl font-bold text-slate-900 truncate">{assignedDoctor}</dd>
+                  </div>
+                </div>
+              </dl>
+            </section>
+
+            {/* Phone follow-up */}
+            <section className="flex flex-col items-center rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-card" aria-labelledby="portal-label">
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <QRCode value={portalUrl} size={132} />
+              </div>
+              <p id="portal-label" className="mt-4 text-base font-semibold text-slate-900">Track your place in the queue</p>
+              <p className="mt-1 text-sm text-slate-600">Scan with your phone camera to see live wait time and ask questions about your visit.</p>
+              <a href={portalUrl} target="_blank" rel="noreferrer" className="tap mt-3 inline-flex items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-blue-700 hover:underline">
+                Open patient portal <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              </a>
+            </section>
+          </div>
+
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {sessionId ? (
+              <button
+                type="button"
+                onClick={() => window.open(`${getApiBaseUrl()}/api/summary/${sessionId}/pdf`, '_blank')}
+                className="tap-kiosk inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-base font-semibold text-slate-800 hover:bg-slate-50 cursor-pointer"
+              >
+                <FileText className="h-5 w-5" aria-hidden="true" /> Download OP casesheet (PDF)
+              </button>
+            ) : <span />}
+            <div className="flex flex-col items-stretch gap-1 sm:items-end">
+              <button
+                type="button"
+                onClick={finishAndReset}
+                className="tap-kiosk inline-flex items-center justify-center rounded-xl bg-blue-600 px-8 text-lg font-semibold text-white shadow-card hover:bg-blue-700 cursor-pointer"
+              >
+                {t('complete.start_new_patient')}
+              </button>
+              <p className="text-center text-sm text-slate-500 sm:text-right" aria-live="off">
+                Screen resets for the next patient in <span className="font-semibold tabular-nums text-slate-700">{mm}:{ss}</span>
               </p>
             </div>
-            <div className="sm:border-l sm:border-slate-200/80">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">{t('complete.room_number')}</p>
-              <p className="text-4xl font-extrabold text-slate-800">{roomNumber}</p>
-            </div>
-            <div className="sm:border-l sm:border-slate-200/80 flex flex-col justify-center">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">{t('complete.doctor')}</p>
-              <p className="text-2xl font-extrabold text-slate-800">{assignedDoctor}</p>
-            </div>
-          </motion.div>
-
-          {/* ─── Patient Mobile Portal & AI Assistant Showcase Card ─── */}
-          <motion.div 
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.32, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="rounded-2xl sm:rounded-3xl p-4 sm:p-7 mb-5 sm:mb-8 border-2 border-indigo-200/90 bg-gradient-to-br from-indigo-50/70 via-white to-blue-50/80 shadow-[0_12px_32px_rgba(37,99,235,0.08)] text-left relative overflow-hidden"
-          >
-            {/* Ambient background glow */}
-            <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-300/20 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-40 h-40 bg-blue-300/20 rounded-full blur-2xl pointer-events-none" />
-
-            <div className="relative z-10 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-              {/* Big QR Code with SCAN ME badge */}
-              <div className="flex flex-col items-center gap-2 shrink-0">
-                <div className="p-2.5 sm:p-3 bg-white rounded-2xl border-2 border-indigo-200 shadow-sm hover:scale-105 transition-transform duration-200">
-                  <QRCode
-                    value="https://swasthyasync-patient-portal.vercel.app/login"
-                    size={100}
-                    className="rounded-lg"
-                  />
-                </div>
-                <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-black uppercase tracking-widest px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs animate-pulse">
-                  <Scan className="w-3 h-3" />
-                  SCAN ME
-                </span>
-              </div>
-
-              {/* Information & AI Highlight */}
-              <div className="flex-1 min-w-0 text-center sm:text-left">
-                <div className="flex items-center justify-center sm:justify-start gap-2 mb-2 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-xs">
-                    <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    AI Medical Assistant Live
-                  </span>
-                  <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 sm:px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Live Queue Sync
-                  </span>
-                </div>
-
-                <h3 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight mb-1">
-                  Scan to Open Patient Portal
-                </h3>
-                <p className="text-xs sm:text-sm font-medium text-slate-600 leading-relaxed mb-3">
-                  Scan this QR code with your phone camera to see your <strong className="text-slate-900">live OPD queue status</strong> in real time and talk 1-on-1 with our <strong className="text-indigo-600">AI Medical Assistant</strong>.
-                </p>
-
-                {/* Feature Pills */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2 mb-3">
-                  <div className="flex items-center gap-2 p-1.5 sm:p-2 rounded-xl bg-white/90 border border-indigo-100 shadow-2xs text-xs font-bold text-slate-700">
-                    <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 shrink-0" />
-                    <span>Talk to AI Medical Assistant</span>
-                  </div>
-                  <div className="flex items-center gap-2 p-1.5 sm:p-2 rounded-xl bg-white/90 border border-indigo-100 shadow-2xs text-xs font-bold text-slate-700">
-                    <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0" />
-                    <span>Live Queue & Wait Times</span>
-                  </div>
-                </div>
-
-                {/* Direct Link button */}
-                <button
-                  type="button"
-                  onClick={() => window.open('https://swasthyasync-patient-portal.vercel.app/login', '_blank')}
-                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-blue-600 hover:text-blue-800 transition-colors group cursor-pointer"
-                >
-                  <span>Or open Patient Portal directly in browser</span>
-                  <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                </button>
-              </div>
-            </div>
-          </motion.div>
-          
-          {sessionId && (
-            <LiquidButton
-              onClick={() => window.open(`${getApiBaseUrl()}/api/summary/${sessionId}/pdf`, '_blank')}
-              className="relative overflow-hidden w-full bg-emerald-600 hover:bg-emerald-700 text-white px-6 sm:px-8 py-3.5 sm:py-5 rounded-full font-extrabold transition-[transform,background-color,box-shadow] duration-150 text-base sm:text-xl shadow-card-hover hover:-translate-y-0.5 active:scale-[0.97] mb-3 flex items-center justify-center gap-2 sm:gap-3 cursor-pointer shadow-emerald-600/20"
-            >
-              <div className="absolute inset-0 shimmer-bg pointer-events-none" />
-              <FileText className="w-5 h-5 sm:w-6 sm:h-6 relative z-10" />
-              <span className="relative z-10">Download OP Casesheet (PDF)</span>
-            </LiquidButton>
-          )}
-
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <LiquidButton
-              onClick={() => {
-                stop();
-                if (onReset) onReset();
-                navigate('/kiosk/login');
-              }}
-              className="w-full bg-blue-600 text-white px-6 sm:px-8 py-3.5 sm:py-5 rounded-full font-extrabold hover:bg-blue-700 transition-[transform,background-color,box-shadow] duration-150 text-base sm:text-xl shadow-card-hover hover:-translate-y-0.5 active:scale-[0.97] mt-2 sm:mt-3 cursor-pointer shadow-blue-600/20"
-            >
-              {t('complete.start_new_patient')}
-            </LiquidButton>
-          </motion.div>
+          </div>
         </div>
       </motion.div>
     );
@@ -268,12 +222,10 @@ export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
       transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
       className="flex flex-col flex-1 items-center p-3.5 sm:p-12 bg-slate-50 w-full h-full relative overflow-y-auto custom-scrollbar"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50 via-transparent to-transparent pointer-events-none" />
-
-      <h2 className="text-2xl sm:text-5xl font-extrabold text-slate-900 mb-2 sm:mb-4 tracking-tighter text-center">
+      <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-2 sm:mb-3 tracking-tight text-center">
         {t('complete.intake_complete')}, {patientName ? patientName.split(' ')[0] : 'Patient'}
-      </h2>
-      <p className="text-sm sm:text-xl text-slate-600 font-medium mb-6 sm:mb-10 max-w-lg text-center">
+      </h1>
+      <p className="text-base sm:text-lg text-slate-600 mb-6 sm:mb-8 max-w-xl text-center">
         {t('complete.review_summary_desc')}
       </p>
 
@@ -282,7 +234,7 @@ export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="bg-slate-50 p-4 sm:p-10 rounded-2xl sm:rounded-[2.5rem] shadow-soft-1 border-none w-full max-w-4xl text-left mb-6 sm:mb-10"
+        className="bg-white p-5 sm:p-8 rounded-2xl shadow-card border border-slate-200 w-full max-w-4xl text-left mb-6"
       >
         {/* Demographics Section */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 pb-8 border-b border-slate-100 gap-6">
@@ -296,19 +248,19 @@ export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
             </div>
           </div>
           
-          <div className="flex gap-6 sm:text-right bg-slate-50 p-4 rounded-2xl shadow-soft-2 border-none">
+          <div className="flex gap-6 sm:text-right bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div>
-              <p className="text-xs uppercase font-bold tracking-widest text-slate-500 mb-1">{t('complete.weight')}</p>
+              <p className="text-sm font-medium text-slate-500 mb-1">{t('complete.weight')}</p>
               <p className="text-lg font-extrabold text-slate-700">{weight}</p>
             </div>
             <div className="w-px bg-slate-200" />
             <div>
-              <p className="text-xs uppercase font-bold tracking-widest text-slate-500 mb-1">{t('complete.height')}</p>
+              <p className="text-sm font-medium text-slate-500 mb-1">{t('complete.height')}</p>
               <p className="text-lg font-extrabold text-slate-700">{height}</p>
             </div>
             <div className="w-px bg-slate-200" />
             <div>
-              <p className="text-xs uppercase font-bold tracking-widest text-slate-500 mb-1">{t('complete.vitals')}</p>
+              <p className="text-sm font-medium text-slate-500 mb-1">{t('complete.vitals')}</p>
               <p className="text-lg font-extrabold text-slate-700">{vitals}</p>
             </div>
           </div>
@@ -316,11 +268,11 @@ export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
 
         {/* Chief Complaint */}
         <div className="mb-8">
-          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+          <h2 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
             <Activity className="w-4 h-4 text-red-400" />
             {t('complete.chief_complaint')}
-          </h4>
-          <p className="text-xl font-semibold text-red-700 bg-slate-50 p-5 rounded-2xl shadow-soft-2 border-none">
+          </h2>
+          <p className="text-xl font-semibold text-red-800 bg-red-50 p-5 rounded-xl border border-red-100">
             {chiefComplaint || t('complete.not_specified')}
           </p>
         </div>
@@ -328,10 +280,10 @@ export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
         {/* Collected Details */}
         {hasClinicalDetails && (
           <div className="mb-6">
-            <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <h2 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
               <FileText className="w-4 h-4" />
               {t('complete.clinical_details')}
-            </h4>
+            </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {Object.entries(filledState).map(([key, data]: [string, any]) => {
                 if (!data || data.status === 'empty' || !data.value) return null;
@@ -340,9 +292,9 @@ export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
                 const label = data.question || key.replace(/_/g, ' ');
                 
                 return (
-                  <div key={key} className="bg-slate-50 p-3 rounded-xl shadow-soft-2 border-none">
-                    <p className="text-xs font-semibold text-slate-600 mb-1 capitalize">{label}</p>
-                    <p className="text-sm font-medium text-slate-900">{String(data.value)}</p>
+                  <div key={key} className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <p className="text-sm font-medium text-slate-600 mb-1 capitalize">{label}</p>
+                    <p className="text-base font-semibold text-slate-900">{String(data.value)}</p>
                     {data.verbatim && String(data.verbatim) !== String(data.value) && (
                       <p className="text-xs italic text-slate-500 mt-1 flex items-start gap-1">
                         <span className="opacity-50">"</span>{String(data.verbatim)}<span className="opacity-50">"</span>
@@ -358,10 +310,10 @@ export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
         {/* Document Info */}
         {documents.length > 0 && (
           <div>
-             <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+             <h2 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
                <FileText className="w-4 h-4" />
                {t('complete.attached_documents')}
-             </h4>
+             </h2>
              
              {documents.map((doc: any, i: number) => {
                const entity = doc?.entities?.[0] || {};
@@ -395,25 +347,25 @@ export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
                     <div className="p-4 md:w-2/3 space-y-4">
                       {meds.length > 0 && (
                         <div>
-                          <h5 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1 mb-1"><Pill className="w-3 h-3"/> {t('complete.medications')}</h5>
+                          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-1.5"><Pill className="w-3 h-3"/> {t('complete.medications')}</h3>
                           <div className="flex flex-wrap gap-1">
-                            {meds.map((m: any, j: number) => <span key={j} className="text-xs font-semibold bg-teal-50 text-teal-700 px-2 py-1 rounded border border-teal-100">{m?.drug_name || m}</span>)}
+                            {meds.map((m: any, j: number) => <span key={j} className="text-xs font-semibold bg-emerald-50 text-emerald-800 px-2 py-1 rounded-lg border border-emerald-100">{m?.drug_name || m}</span>)}
                           </div>
                         </div>
                       )}
                       
                       {diags.length > 0 && (
                         <div>
-                          <h5 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1 mb-1"><AlertTriangle className="w-3 h-3"/> {t('complete.diagnoses')}</h5>
+                          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-1.5"><AlertTriangle className="w-3 h-3"/> {t('complete.diagnoses')}</h3>
                           <div className="flex flex-wrap gap-1">
-                            {diags.map((d: any, j: number) => <span key={j} className="text-xs font-semibold bg-purple-50 text-purple-700 px-2 py-1 rounded border border-purple-100">{d?.condition_name || d}</span>)}
+                            {diags.map((d: any, j: number) => <span key={j} className="text-xs font-semibold bg-blue-50 text-blue-700 px-2 py-1 rounded-lg border border-blue-100">{d?.condition_name || d}</span>)}
                           </div>
                         </div>
                       )}
                       
                       {labs.length > 0 && (
                         <div>
-                          <h5 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1 mb-1"><TestTube className="w-3 h-3"/> {t('complete.lab_results')}</h5>
+                          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-1.5"><TestTube className="w-3 h-3"/> {t('complete.lab_results')}</h3>
                           <ul className="space-y-1">
                             {labs.map((l: any, j: number) => (
                               <li key={j} className="text-xs font-medium text-slate-700 flex justify-between bg-white px-2 py-1 border border-slate-100 rounded">
@@ -433,18 +385,19 @@ export function Screen8_Complete({ onReset, patientRecord, sessionId }: Props) {
       </motion.div>
 
       {/* Action Button */}
-      <LiquidButton
+      <button
+        type="button"
         onClick={handleSendToDoctor}
         disabled={isSending}
-        className="w-full max-w-4xl bg-blue-600 text-white px-6 sm:px-8 py-3.5 sm:py-6 rounded-full font-extrabold hover:bg-blue-700 transition-[transform,background-color,box-shadow] duration-150 shadow-card-hover hover:-translate-y-0.5 text-base sm:text-xl flex items-center justify-center gap-3 sm:gap-4 disabled:bg-slate-300 disabled:shadow-none mb-6 sm:mb-10 shrink-0 active:scale-[0.97] cursor-pointer shadow-blue-600/20"
+        className="tap-kiosk w-full max-w-4xl bg-blue-600 text-white px-6 rounded-xl text-lg font-semibold hover:bg-blue-700 shadow-card flex items-center justify-center gap-3 disabled:bg-slate-300 mb-6 sm:mb-10 shrink-0 cursor-pointer"
       >
         {isSending ? (
-          <div className="w-5 h-5 sm:w-7 sm:h-7 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+          <div className="w-5 h-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" aria-hidden="true" />
         ) : (
-          <Send className="w-5 h-5 sm:w-7 sm:h-7" />
+          <Send className="w-5 h-5" aria-hidden="true" />
         )}
         {isSending ? t('complete.transmitting') : t('complete.send_to_doctor')}
-      </LiquidButton>
+      </button>
     </motion.div>
   );
 }

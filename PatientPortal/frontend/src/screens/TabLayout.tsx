@@ -58,7 +58,7 @@ export const TabLayout: React.FC = () => {
       {/* Glassmorphic Apple-style Bottom Tab Bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 pointer-events-auto">
         <div className="max-w-md mx-auto px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
-          <div className="bg-white/85 backdrop-blur-xl border border-slate-200/80 rounded-3xl shadow-[0_8px_32px_rgba(15,23,42,0.08)] px-2 py-1.5 flex items-center justify-around relative">
+          <div className="bg-white border border-slate-200/80 rounded-2xl shadow-[0_8px_32px_rgba(15,23,42,0.08)] px-2 py-1.5 flex items-center justify-around relative">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -84,7 +84,7 @@ export const TabLayout: React.FC = () => {
                       isActive ? 'stroke-[2.4] scale-105' : 'stroke-[1.6]'
                     }`}
                   />
-                  <span className={`text-[10px] tracking-tight mt-0.5 transition-colors ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
+                  <span className={`text-xs tracking-tight mt-0.5 transition-colors ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
                     {tab.label}
                   </span>
                 </motion.button>

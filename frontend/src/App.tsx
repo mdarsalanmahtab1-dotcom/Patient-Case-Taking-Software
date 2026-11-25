@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import { toast } from './components/Toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
@@ -20,6 +21,9 @@ import { getApiBaseUrl } from './config';
 import { AudioGuideProvider, useAudioGuideContext } from './context/AudioGuideContext';
 
 const API_BASE_URL = getApiBaseUrl();
+
+// Dev-only screen preview with sample data (never bundled into production builds)
+const KioskPreview = import.meta.env.DEV ? lazy(() => import('./dev/KioskPreview')) : null;
 
 // Global Route Audio Terminator to immediately stop all kiosk audio on navigation
 function AudioRouteTerminator() {
@@ -82,23 +86,21 @@ function RouteSynchronizer({ ui, pendingSession }: { ui: any, pendingSession: an
   return null;
 }
 
+// Kiosk step transition: short fade + 16px slide in the direction of travel. Exit is faster than enter.
 const pageVariants: Variants = {
   initial: (direction: number) => ({
-    x: direction > 0 ? 50 : -50,
-    opacity: 0,
-    scale: 0.98
+    x: direction > 0 ? 16 : -16,
+    opacity: 0
   }),
   in: {
     x: 0,
     opacity: 1,
-    scale: 1,
-    transition: { type: 'spring' as const, stiffness: 300, damping: 30, mass: 0.8 }
+    transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] }
   },
   out: (direction: number) => ({
-    x: direction < 0 ? 50 : -50,
+    x: direction < 0 ? 16 : -16,
     opacity: 0,
-    scale: 0.98,
-    transition: { type: 'spring' as const, stiffness: 300, damping: 30, mass: 0.8 }
+    transition: { duration: 0.14, ease: 'easeIn' }
   })
 };
 
@@ -210,11 +212,11 @@ function KioskApp() {
                           sessionData.session_id
                         );
                       } else {
-                        alert("Failed to start session from backend");
+                        toast.error("We couldn't start your session. Please try again, or ask at the help desk.");
                       }
                     } catch(e) {
                       console.error(e);
-                      alert("Failed to start session");
+                      toast.error("No connection to the hospital server. Please try again, or ask at the help desk.");
                     }
                   }}
                   onBack={() => {
@@ -357,6 +359,9 @@ function KioskApp() {
 function App() {
   const location = useLocation();
 
+  if (KioskPreview && location.pathname.startsWith('/dev/kiosk-preview')) {
+    return <Suspense fallback={null}><KioskPreview /></Suspense>;
+  }
   if (location.pathname === '/') return <DemoSwitcher />;
   if (location.pathname.startsWith('/dashboard/triage')) return <Dashboard_Triage />;
   if (location.pathname.startsWith('/doctor/encounter/')) return (

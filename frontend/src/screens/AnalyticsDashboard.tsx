@@ -10,7 +10,7 @@ import { getApiBaseUrl } from '../config';
 
 const API_BASE = `${getApiBaseUrl()}/api/admin`;
 
-const COLORS = ['#2563eb', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#84cc16'];
+const COLORS = ['#2563eb', '#059669', '#d97706', '#dc2626', '#0891b2', '#7c3aed', '#64748b', '#1d4ed8'];
 
 // ── Tiny sparkline component with SVG stroke-dashoffset draw-in ──
 function Sparkline({ data, color = '#2563eb' }: { data: number[]; color?: string }) {
@@ -53,7 +53,7 @@ function KpiCard({ icon: Icon, label, value, sparkData, sparkColor, accent = 'bl
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1], delay }}
-      className="bg-white rounded-3xl border border-slate-200/80 p-5 flex flex-col justify-between shadow-card hover:shadow-card-hover transition-[box-shadow,transform] duration-200 hover:-translate-y-[1px]"
+      className="bg-white rounded-2xl border border-slate-200/80 p-5 flex flex-col justify-between shadow-card hover:shadow-card-hover transition-[box-shadow,transform] duration-200 hover:-translate-y-[1px]"
     >
       <div className="flex items-center justify-between mb-3">
         <div className={`p-2.5 rounded-2xl border ${accents[accent]}`}>
@@ -71,7 +71,7 @@ function KpiCard({ icon: Icon, label, value, sparkData, sparkColor, accent = 'bl
           value ?? 0
         )}
       </div>
-      <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-1.5">{label}</div>
+      <div className="text-xs font-bold text-slate-500 mt-1.5">{label}</div>
     </motion.div>
   );
 }
@@ -87,23 +87,23 @@ function ImpactCard({ icon: Icon, label, value, sub, delay = 0 }: any) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1], delay }}
-      className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 rounded-3xl p-5 text-white shadow-elevated border border-slate-700/40 relative overflow-hidden"
+      className="bg-white rounded-2xl p-5 text-slate-900 shadow-card border border-slate-200 relative overflow-hidden"
     >
       <div className="flex items-center gap-2 mb-3">
-        <Icon className="w-4 h-4 text-emerald-400" />
-        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+        <Icon className="w-4 h-4 text-emerald-700" />
+        <span className="text-xs font-bold text-slate-500">{label}</span>
       </div>
-      <div className="text-2xl font-black flex items-baseline">
+      <div className="text-2xl font-bold text-slate-900 flex items-baseline tabular-nums">
         {canAnimate ? (
           <>
             <AnimatedNumber value={numeric} />
-            {suffix && <span className="text-lg font-bold ml-0.5 text-emerald-400">{suffix}</span>}
+            {suffix && <span className="text-lg font-bold ml-0.5 text-emerald-700">{suffix}</span>}
           </>
         ) : (
           value ?? 0
         )}
       </div>
-      {sub && <div className="text-xs text-slate-400 mt-1 font-medium">{sub}</div>}
+      {sub && <div className="text-xs text-slate-500 mt-1 font-medium">{sub}</div>}
     </motion.div>
   );
 }
@@ -194,7 +194,7 @@ export function AnalyticsDashboard() {
             <button
               key={p}
               onClick={() => setDatePreset(p)}
-              className={`relative px-4 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors duration-200 cursor-pointer ${
+              className={`relative px-4 py-1.5 rounded-xl text-xs font-bold transition-colors duration-200 cursor-pointer ${
                 datePreset === p ? 'text-blue-600 font-extrabold' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -235,18 +235,18 @@ export function AnalyticsDashboard() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-        className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-card"
+        className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-card"
       >
-        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Footfall Over Time</h3>
+        <h3 className="text-xs font-bold text-slate-500 mb-4">Footfall Over Time</h3>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={footfallChartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v) => v.slice(5)} />
-            <YAxis tick={{ fontSize: 11, fill: '#64748b' }} allowDecimals={false} />
+            <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b' }} tickFormatter={(v) => v.slice(5)} />
+            <YAxis tick={{ fontSize: 12, fill: '#64748b' }} allowDecimals={false} />
             <Tooltip
               contentStyle={{ borderRadius: '16px', border: '1px solid #e2e8f0', fontSize: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
             />
-            <Legend wrapperStyle={{ fontSize: '11px' }} />
+            <Legend wrapperStyle={{ fontSize: '12px' }} />
             {allDepartments.map((dept: string, i: number) => (
               <Bar key={dept} dataKey={dept} stackId="a" fill={COLORS[i % COLORS.length]} radius={i === allDepartments.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
             ))}
@@ -261,9 +261,9 @@ export function AnalyticsDashboard() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1], delay: 0.25 }}
-          className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-card"
+          className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-card"
         >
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Department Breakdown</h3>
+          <h3 className="text-xs font-bold text-slate-500 mb-4">Department Breakdown</h3>
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
@@ -280,7 +280,7 @@ export function AnalyticsDashboard() {
                 ))}
               </Pie>
               <Tooltip contentStyle={{ borderRadius: '16px', border: '1px solid #e2e8f0', fontSize: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
-              <Legend wrapperStyle={{ fontSize: '11px' }} />
+              <Legend wrapperStyle={{ fontSize: '12px' }} />
             </PieChart>
           </ResponsiveContainer>
         </motion.div>
@@ -290,16 +290,16 @@ export function AnalyticsDashboard() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
-          className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-card"
+          className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-card"
         >
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Top Complaints</h3>
+          <h3 className="text-xs font-bold text-slate-500 mb-4">Top Complaints</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={dashData.complaint_breakdown} layout="vertical" margin={{ left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#64748b' }} allowDecimals={false} />
-              <YAxis dataKey="complaint" type="category" tick={{ fontSize: 10, fill: '#64748b' }} width={120} />
+              <XAxis type="number" tick={{ fontSize: 12, fill: '#64748b' }} allowDecimals={false} />
+              <YAxis dataKey="complaint" type="category" tick={{ fontSize: 12, fill: '#64748b' }} width={120} />
               <Tooltip contentStyle={{ borderRadius: '16px', border: '1px solid #e2e8f0', fontSize: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
-              <Bar dataKey="count" fill="#8b5cf6" radius={[0, 6, 6, 0]} />
+              <Bar dataKey="count" fill="#2563eb" radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </motion.div>
@@ -311,19 +311,19 @@ export function AnalyticsDashboard() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1], delay: 0.35 }}
-          className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-card"
+          className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-card"
         >
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center">
+          <h3 className="text-xs font-bold text-slate-500 mb-4 flex items-center">
             <ShieldAlert className="w-4 h-4 inline mr-2 text-red-500" />
             Red Flags Caught Over Time
           </h3>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={redFlagChartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v) => v.slice(5)} />
-              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} allowDecimals={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b' }} tickFormatter={(v) => v.slice(5)} />
+              <YAxis tick={{ fontSize: 12, fill: '#64748b' }} allowDecimals={false} />
               <Tooltip contentStyle={{ borderRadius: '16px', border: '1px solid #e2e8f0', fontSize: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
-              <Legend wrapperStyle={{ fontSize: '11px' }} />
+              <Legend wrapperStyle={{ fontSize: '12px' }} />
               <Area type="monotone" dataKey="conversational" stackId="1" stroke="#ef4444" fill="#fecaca" name="Conversational" />
               <Area type="monotone" dataKey="document" stackId="1" stroke="#f59e0b" fill="#fef3c7" name="Document-based" />
             </AreaChart>
@@ -364,16 +364,16 @@ export function RedFlagFeed() {
           <ShieldAlert className="w-5 h-5 mr-2 text-red-500" />
           Live Red-Flag Feed
         </h2>
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+        <span className="text-xs font-bold text-slate-500">
           Auto-refreshes every 3s
         </span>
       </div>
 
       {flags.length === 0 ? (
-        <div className="text-center py-16 text-slate-400 bg-white rounded-3xl border border-slate-200 shadow-card">
-          <ShieldAlert className="w-12 h-12 mx-auto mb-4 opacity-30 text-slate-400" />
+        <div className="text-center py-16 text-slate-500 bg-white rounded-2xl border border-slate-200 shadow-card">
+          <ShieldAlert className="w-12 h-12 mx-auto mb-4 opacity-30 text-slate-500" />
           <p className="text-base font-bold text-slate-600">No active red flags</p>
-          <p className="text-xs text-slate-400 mt-1">All patients in today's OPD are at normal priority</p>
+          <p className="text-xs text-slate-500 mt-1">All patients in today's OPD are at normal priority</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -397,7 +397,7 @@ export function RedFlagFeed() {
                     <span className="font-bold text-slate-900">{f.full_name}</span>
                     <span className="text-xs font-extrabold text-red-600 bg-red-100 px-2.5 py-0.5 rounded-full">{f.token_id}</span>
                     <span className="text-xs font-semibold text-slate-500">{f.department}</span>
-                    <span className="text-xs text-slate-400 ml-auto">{timeSince}m ago</span>
+                    <span className="text-xs text-slate-500 ml-auto">{timeSince}m ago</span>
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <span className="text-xs font-mono font-bold text-red-700 bg-red-100 px-2 py-1 rounded-lg">{ruleId}</span>

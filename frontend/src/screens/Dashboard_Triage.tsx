@@ -1,8 +1,8 @@
-import { LiquidButton } from '../components/ui/button';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { getApiBaseUrl } from '../config';
-import { AlertCircle, Clock, CheckCircle, User, Activity, Filter, LogOut, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Filter, LogOut, FileText, Inbox } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { StatTile, EmptyState, ErrorState, Skeleton } from '../components/ui/states';
 
 interface QueueItem {
   session_id: string;
@@ -17,10 +17,26 @@ interface QueueItem {
   token_number?: string;
 }
 
+const drName = (name: string) => (/^(dr\.?|vaidya)\s/i.test(name || '') ? name : `Dr. ${name}`);
+
+function minutesSince(iso: string, now: number): number | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  return isNaN(t) ? null : Math.max(0, Math.round((now - t) / 60000));
+}
+
+function arrivedAt(iso: string): string {
+  if (!iso) return '--:--';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '--:--' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 export default function Dashboard_Triage() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [doctors, setDoctors] = useState<any[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
 
@@ -40,189 +56,216 @@ export default function Dashboard_Triage() {
     fetchDoctors();
   }, []);
 
-  const fetchQueue = async (silent = false) => {
-    if (!silent) setIsRefreshing(true);
+  const fetchQueue = useCallback(async () => {
     try {
-      const url = selectedDoctorId 
-        ? `${getApiBaseUrl()}/api/triage/queue?doctor_id=${selectedDoctorId}` 
+      const url = selectedDoctorId
+        ? `${getApiBaseUrl()}/api/triage/queue?doctor_id=${selectedDoctorId}`
         : `${getApiBaseUrl()}/api/triage/queue`;
       const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        setQueue(data.queue || []);
-      }
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      setQueue(data.queue || []);
+      setLoadError(false);
+      setLastUpdated(Date.now());
     } catch (e) {
       console.error('Failed to fetch triage queue:', e);
+      setLoadError(true);
     } finally {
       setIsLoading(false);
-      setTimeout(() => setIsRefreshing(false), 400);
     }
-  };
+  }, [selectedDoctorId]);
 
   useEffect(() => {
     fetchQueue();
     // Auto refresh every 3 seconds for both queue and doctor status
     const interval = setInterval(() => {
-      fetchQueue(false);
+      fetchQueue();
       fetchDoctors();
     }, 3000);
     return () => clearInterval(interval);
-  }, [selectedDoctorId]);
+  }, [fetchQueue]);
 
-  const criticalCount = queue.filter(q => q.priority_flag).length;
+  // Clock for "updated Ns ago" and waiting times
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const isDone = (q: QueueItem) => q.session_status === 'COMPLETED';
+  const priority = queue.filter(q => q.priority_flag && !isDone(q));
+  const waiting = queue.filter(q => !q.priority_flag && !isDone(q));
+  const seen = queue.filter(isDone);
+  const waits = [...priority, ...waiting].map(q => minutesSince(q.created_at, now)).filter((m): m is number => m !== null);
+  const avgWait = waits.length ? Math.round(waits.reduce((a, b) => a + b, 0) / waits.length) : null;
+  const secondsAgo = lastUpdated ? Math.max(0, Math.round((now - lastUpdated) / 1000)) : null;
+
+  const lanes = [
+    { key: 'priority', title: 'Priority', hint: 'Red flags and nurse-elevated', items: priority, tone: 'red' as const },
+    { key: 'waiting', title: 'Waiting', hint: 'In intake or waiting for the doctor', items: waiting, tone: 'blue' as const },
+    { key: 'seen', title: 'Seen', hint: 'Consultation completed', items: seen, tone: 'green' as const },
+  ];
 
   return (
-    <div className="min-h-[100dvh] md:h-screen w-full bg-slate-50 flex flex-col overflow-x-hidden">
-      <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col overflow-hidden px-3 sm:px-8">
-        <header className="flex-none mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-50 pt-4 sm:pt-8 pb-3 sm:pb-4 border-b border-slate-200 gap-3">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 flex items-center gap-2 sm:gap-3 flex-wrap">
-              <Activity className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
-              Triage Dashboard
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                <RefreshCw className={`w-3 h-3 text-blue-500 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Live Sync
-              </span>
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">Live emergency prioritization and patient queue</p>
+    <div className="h-[100dvh] w-full bg-slate-50 flex flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Triage queue</h1>
+            <p className="flex items-center gap-1.5 text-sm text-slate-500" aria-live="polite">
+              <span className={`h-2 w-2 rounded-full ${loadError ? 'bg-red-500' : 'bg-emerald-500'}`} aria-hidden="true" />
+              {loadError
+                ? 'Not updating · server unreachable'
+                : secondsAgo === null ? 'Connecting…' : `Live · updated ${secondsAgo}s ago`}
+            </p>
           </div>
-          
-          <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 sm:gap-4 w-full sm:w-auto">
-            {/* Doctor Filter Dropdown */}
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl shadow-card border border-slate-200 focus-within:ring-2 focus-within:ring-blue-500 transition-shadow flex-1 sm:flex-initial min-w-[180px]">
-              <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 shrink-0" />
+
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex h-11 min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 focus-within:ring-2 focus-within:ring-blue-600/30 sm:flex-initial">
+              <Filter className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+              <span className="sr-only">Filter by doctor</span>
               <select
                 value={selectedDoctorId}
-                onChange={e => setSelectedDoctorId(e.target.value)}
-                className="bg-transparent border-none outline-none text-slate-700 font-semibold cursor-pointer text-xs sm:text-sm w-full truncate"
+                onChange={e => { setIsLoading(true); setSelectedDoctorId(e.target.value); }}
+                className="w-full truncate bg-transparent text-sm font-semibold text-slate-800 outline-none cursor-pointer"
               >
-                <option value="">All Doctors (Hospital View)</option>
+                <option value="">All doctors</option>
                 {doctors.map(doc => (
                   <option key={doc.doctor_id} value={doc.doctor_id}>
-                    Dr. {doc.full_name} ({doc.department}) {doc.current_status === 'Available' ? '🟢 Available' : '🟠 On Break'}
+                    {drName(doc.full_name)} · {doc.department}{doc.current_status ? ` · ${doc.current_status === 'Available' ? 'Available' : 'On break'}` : ''}
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="bg-white px-3 py-1 sm:px-4 sm:py-2 rounded-xl shadow-card border border-slate-200 text-center relative overflow-hidden">
-                <motion.div 
-                  animate={criticalCount > 0 ? { scale: [1, 1.08, 1] } : { scale: 1 }}
-                  transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-                  className={`text-lg sm:text-2xl font-black ${criticalCount > 0 ? 'text-red-600' : 'text-slate-700'}`}
-                >
-                  {criticalCount}
-                </motion.div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Critical</div>
-              </div>
-              <div className="bg-white px-3 py-1 sm:px-4 sm:py-2 rounded-xl shadow-card border border-slate-200 text-center">
-                <div className="text-lg sm:text-2xl font-black text-blue-600">
-                  {queue.length}
-                </div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total</div>
-              </div>
-
-              <LiquidButton 
-                onClick={() => window.location.href = '/'}
-                className="flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl border border-slate-200 shadow-card text-xs sm:text-sm font-semibold"
-              >
-                <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="hidden xs:inline">Exit</span>
-              </LiquidButton>
-            </div>
+            </label>
+            <button
+              type="button"
+              onClick={() => { window.location.href = '/'; }}
+              className="tap inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+            >
+              <LogOut className="h-4 w-4" aria-hidden="true" /> Exit
+            </button>
           </div>
-        </header>
-
-        <div className="flex-1 overflow-y-auto scroll-smooth pb-8">
-        {isLoading ? (
-          <div className="flex justify-center p-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
-        ) : queue.length === 0 ? (
-          <div className="bg-white p-12 text-center rounded-2xl border border-slate-200 shadow-card text-slate-500">
-            No patients currently in the triage queue.
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            <AnimatePresence mode="popLayout">
-              {queue.map((item, index) => (
-                <motion.div
-                  key={item.session_id}
-                  layout
-                  initial={{ opacity: 0, x: 24 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -24 }}
-                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1], delay: Math.min(index * 0.04, 0.3) }}
-                  className={`rounded-2xl p-4 sm:p-6 shadow-card hover:shadow-card-hover border-l-4 transition-[box-shadow,transform] duration-200 hover:-translate-y-[1px] ${
-                    item.priority_flag ? 'border-l-red-500 bg-red-50/40 border-red-200/60' : 'border-l-blue-500 bg-white border-slate-200/80'
-                  } border`}
-                >
-                  <div className="flex flex-col md:flex-row items-start md:items-center gap-4 sm:gap-6">
-                    {/* Token & Status */}
-                    <div className="w-full md:w-28 flex md:flex-col justify-between md:justify-center items-center text-left md:text-center pb-2 md:pb-0 border-b md:border-b-0 border-slate-100 shrink-0">
-                      <div>
-                        <div className="text-[10px] sm:text-xs font-bold text-slate-400 tracking-wider uppercase">TOKEN</div>
-                        <div className="text-xl sm:text-2xl font-black text-slate-800">{item.token_number || item.token_id || 'N/A'}</div>
-                      </div>
-                      <div className={`mt-0 md:mt-2 inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${
-                        item.session_status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                      }`}>
-                        {item.session_status === 'COMPLETED' ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3 animate-pulse" />}
-                        {item.session_status}
-                      </div>
-                    </div>
-
-                    {/* Patient Info */}
-                    <div className="flex-grow w-full">
-                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                        <User className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 shrink-0" />
-                        <h3 className="text-base sm:text-xl font-bold text-slate-900">{item.full_name}</h3>
-                        {item.priority_flag && (
-                          <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-[10px] sm:text-xs font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
-                            <AlertCircle className="w-3 h-3" /> Emergency
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-x-4 sm:gap-x-6 gap-y-1 text-xs sm:text-sm text-slate-600 font-medium">
-                        <div className="flex items-center gap-1">
-                          <span className="text-slate-400 font-normal">Age:</span> {item.age || 'Unknown'}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-slate-400 font-normal">Sex:</span> {item.gender || 'Unknown'}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-slate-400 font-normal">Phone:</span> {item.phone_number}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-slate-400 font-normal">Arrived:</span> 
-                          {(() => {
-                            if (!item.created_at) return '--:--';
-                            const d = new Date(item.created_at);
-                            return isNaN(d.getTime()) ? '--:--' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Actions & Triage Input */}
-                    <div className="w-full md:w-64 flex flex-col gap-2 shrink-0">
-                      <TriageActionPanel item={item} onUpdate={fetchQueue} />
-                      <LiquidButton 
-                        onClick={() => window.open(`${getApiBaseUrl()}/api/summary/${item.session_id}/pdf`, '_blank')}
-                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-xl transition-colors text-xs border border-slate-200 w-full"
-                      >
-                        View Clinical Summary
-                      </LiquidButton>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
         </div>
-      </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
+          {/* Summary before detail */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatTile label="Priority" value={priority.length} tone={priority.length ? 'danger' : 'neutral'} hint="Needs attention first" />
+            <StatTile label="Waiting" value={waiting.length} tone="info" />
+            <StatTile label="Seen" value={seen.length} tone="success" />
+            <StatTile label="Average wait" value={avgWait === null ? '–' : `${avgWait} min`} hint="Patients not yet seen" />
+          </div>
+
+          {loadError && queue.length === 0 && !isLoading && (
+            <ErrorState
+              className="mt-5"
+              title="Can't load the triage queue"
+              description="The hospital server isn't responding. The page keeps retrying every few seconds."
+              onRetry={fetchQueue}
+            />
+          )}
+
+          {isLoading ? (
+            <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3" aria-busy="true">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="space-y-3">
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-28 rounded-xl" />
+                  <Skeleton className="h-28 rounded-xl" />
+                </div>
+              ))}
+            </div>
+          ) : queue.length === 0 && !loadError ? (
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-white shadow-card">
+              <EmptyState
+                icon={<Inbox />}
+                title="The queue is clear"
+                description="New patients appear here as soon as they finish at the kiosk. Red-flag cases go straight to Priority."
+              />
+            </div>
+          ) : (
+            <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              {lanes.map(lane => (
+                <section key={lane.key} aria-labelledby={`lane-${lane.key}`} className="min-w-0">
+                  <div className="mb-2 flex items-baseline justify-between gap-2">
+                    <h2 id={`lane-${lane.key}`} className="flex items-center gap-2 text-base font-semibold text-slate-900">
+                      <span className={`h-2.5 w-2.5 rounded-full ${lane.tone === 'red' ? 'bg-red-600' : lane.tone === 'blue' ? 'bg-blue-600' : 'bg-emerald-600'}`} aria-hidden="true" />
+                      {lane.title}
+                      <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-sm font-semibold text-slate-700 tabular-nums">{lane.items.length}</span>
+                    </h2>
+                    <span className="truncate text-xs text-slate-500">{lane.hint}</span>
+                  </div>
+                  <div className="space-y-3">
+                    {lane.items.length === 0 && (
+                      <p className="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">No patients</p>
+                    )}
+                    <AnimatePresence initial={false}>
+                      {lane.items.map(item => {
+                        const wait = minutesSince(item.created_at, now);
+                        return (
+                          <motion.article
+                            key={item.session_id}
+                            layout
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.18 }}
+                            className={`rounded-xl border border-slate-200 border-l-4 bg-white p-4 shadow-card ${
+                              lane.tone === 'red' ? 'border-l-red-600' : lane.tone === 'blue' ? 'border-l-blue-600' : 'border-l-emerald-600'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <h3 className="truncate text-base font-bold text-slate-900">{item.full_name}</h3>
+                                <p className="text-sm text-slate-600">
+                                  {[item.age ? `${item.age} y` : null, item.gender].filter(Boolean).join(' · ') || 'Age and sex not recorded'}
+                                </p>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <p className="text-xs text-slate-500">Token</p>
+                                <p className="text-lg font-bold leading-tight text-slate-900 tabular-nums">{item.token_number || item.token_id || '–'}</p>
+                              </div>
+                            </div>
+
+                            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+                              {lane.tone === 'red' && (
+                                <span className="inline-flex items-center gap-1 font-semibold text-red-700">
+                                  <AlertCircle className="h-4 w-4" aria-hidden="true" /> Emergency
+                                </span>
+                              )}
+                              {lane.tone === 'green' ? (
+                                <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Seen</span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 tabular-nums">
+                                  <Clock className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                                  {wait === null ? `Arrived ${arrivedAt(item.created_at)}` : `Waiting ${wait} min · arrived ${arrivedAt(item.created_at)}`}
+                                </span>
+                              )}
+                              {item.phone_number && <span className="tabular-nums">{item.phone_number}</span>}
+                            </div>
+
+                            <div className="mt-3 flex flex-col gap-2">
+                              <TriageActionPanel item={item} onUpdate={fetchQueue} />
+                              <button
+                                type="button"
+                                onClick={() => window.open(`${getApiBaseUrl()}/api/summary/${item.session_id}/pdf`, '_blank')}
+                                className="tap inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                              >
+                                <FileText className="h-4 w-4" aria-hidden="true" /> Clinical summary (PDF)
+                              </button>
+                            </div>
+                          </motion.article>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
@@ -256,29 +299,33 @@ function TriageActionPanel({ item, onUpdate }: { item: QueueItem; onUpdate: () =
 
   return (
     <div className="flex flex-col gap-2">
+      <label htmlFor={`notes-${item.session_id}`} className="sr-only">Triage notes for {item.full_name}</label>
       <textarea
-        className="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-[border-color,box-shadow] bg-slate-50/50"
-        placeholder="Enter triage notes / immediate relief..."
+        id={`notes-${item.session_id}`}
+        className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm placeholder:text-slate-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+        placeholder="Triage notes or relief given…"
         rows={2}
         value={notes}
         onChange={e => setNotes(e.target.value)}
       />
       <div className="flex gap-2">
-        <LiquidButton
+        <button
+          type="button"
           onClick={() => handleTriageSubmit(false)}
           disabled={isElevating}
-          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-xl text-xs transition-colors"
+          className="tap flex-1 rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
         >
-          Save Notes
-        </LiquidButton>
+          Save notes
+        </button>
         {!item.priority_flag && (
-          <LiquidButton
+          <button
+            type="button"
             onClick={() => handleTriageSubmit(true)}
             disabled={isElevating}
-            className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded-xl text-xs transition-colors"
+            className="tap flex-1 rounded-lg border-2 border-red-600 bg-white px-3 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 cursor-pointer"
           >
-            Elevate
-          </LiquidButton>
+            Move to priority
+          </button>
         )}
       </div>
     </div>

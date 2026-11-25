@@ -3,19 +3,21 @@ import { useTranslation } from '../hooks/useTranslation';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Phone, Users, UserPlus, Building2, ArrowRight, User, Calendar, Activity,
+  Phone, Users, UserPlus, Building2, ArrowRight, User,
   MapPin, Globe, Shield, ShieldCheck, CheckCircle2, Fingerprint, Smartphone,
   BadgeCheck, RefreshCw, ArrowLeft, ChevronRight, AlertCircle, Loader2, UserCircle,
-  Mic, FileSearch, HeartPulse, Ticket, Volume2, VolumeX, Sparkles,
-  Stethoscope, Scan, Languages
+  Mic, FileSearch, HeartPulse, Ticket, Volume2, VolumeX,
+  Scan, Stethoscope, Baby, Bone, Siren, Leaf, Minus, Plus, ChevronDown
 } from 'lucide-react';
 import { getApiBaseUrl } from '../config';
 import { OtpInput } from '../components/OtpInput';
+import { NumericKeypad } from '../components/NumericKeypad';
+import { Field, inputClass } from '../components/ui/field';
+import { Skeleton, ErrorState } from '../components/ui/states';
 import { toast } from '../components/Toast';
 import { useResendCooldown } from '../hooks/useResendCooldown';
 import { useAudioGuide } from '../hooks/useAudioGuide';
 import type { TranslationKey } from '../utils/audioTranslations';
-import logoPNG from '../assets/logo.png';
 
 // ── Profile picture imports ───────────────────────────────────────────
 import pfp1 from '../assets/pfp1.jpg';
@@ -122,63 +124,6 @@ const KIOSK_LANGUAGES: WelcomeLangItem[] = [
   },
 ];
 
-const SYSTEM_FEATURES = [
-  {
-    icon: <Mic className="w-5 h-5 text-blue-600" />,
-    iconBg: "bg-blue-50 border-blue-200/60",
-    badge: "10+ Dialects",
-    badgeColor: "bg-blue-50 text-blue-700 border-blue-200/50",
-    title: "Multilingual Voice AI Intake",
-    desc: "Patients converse naturally in Hindi, Bengali, or English. Advanced medical Speech AI automatically extracts symptoms, duration, and vitals.",
-    tag: "Hands-free & Senior friendly",
-  },
-  {
-    icon: <Scan className="w-5 h-5 text-indigo-600" />,
-    iconBg: "bg-indigo-50 border-indigo-200/60",
-    badge: "Smart Vision OCR",
-    badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200/50",
-    title: "Prescription & Lab OCR",
-    desc: "Simply present previous doctor prescriptions or diagnostic reports. High-speed OCR digitizes clinical history in seconds.",
-    tag: "Zero manual typing",
-  },
-  {
-    icon: <Activity className="w-5 h-5 text-rose-600" />,
-    iconBg: "bg-rose-50 border-rose-200/60",
-    badge: "Automated Triage",
-    badgeColor: "bg-rose-50 text-rose-700 border-rose-200/50",
-    title: "Clinical Algorithmic Triage",
-    desc: "Instant acuity scoring (Red/Yellow/Green) flags emergency chest pain or acute symptoms immediately to on-duty trauma staff.",
-    tag: "Emergency fast-track",
-  },
-  {
-    icon: <Stethoscope className="w-5 h-5 text-emerald-600" />,
-    iconBg: "bg-emerald-50 border-emerald-200/60",
-    badge: "EMR Ready",
-    badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200/50",
-    title: "Doctor Casesheet Handoff",
-    desc: "Converts voice interview into structured SOAP notes and differential diagnosis summary, saving 60% of doctor consultation time.",
-    tag: "Instant Doctor Portal sync",
-  },
-  {
-    icon: <Fingerprint className="w-5 h-5 text-purple-600" />,
-    iconBg: "bg-purple-50 border-purple-200/60",
-    badge: "NDHM / ABDM",
-    badgeColor: "bg-purple-50 text-purple-700 border-purple-200/50",
-    title: "ABHA 14-Digit Health ID",
-    desc: "Seamlessly link your Ayushman Bharat Health Account via biometric/OTP or check in with mobile number under DPDP Act compliance.",
-    tag: "Universal health record",
-  },
-  {
-    icon: <Smartphone className="w-5 h-5 text-cyan-600" />,
-    iconBg: "bg-cyan-50 border-cyan-200/60",
-    badge: "Patient Portal",
-    badgeColor: "bg-cyan-50 text-cyan-700 border-cyan-200/50",
-    title: "Live Queue & AI Companion",
-    desc: "Scan the on-screen QR code to carry your live OPD queue token on your smartphone and chat with our 24/7 empathetic Medical Copilot.",
-    tag: "Mobile web app included",
-  },
-];
-
 interface Props {
   onSessionStarted: (sessionData: any, patientData: Patient, language: string) => void;
   isConnected: boolean;
@@ -207,6 +152,45 @@ const CONSENT_ITEMS = [
 ] as const;
 
 type ConsentKey = typeof CONSENT_ITEMS[number]['key'];
+
+// ── Kiosk progress (Consent → Department) ────────────────────────────
+const KIOSK_STEPS = ['Consent', 'Identify', 'Verify', 'Profile', 'Department'] as const;
+
+function kioskStepIndex(step: Step): number {
+  if (step === 'CONSENT') return 0;
+  if (['LANDING', 'ABHA_IDENTIFY', 'PHONE'].includes(step)) return 1;
+  if (['ABHA_OTP', 'MOBILE_OTP_VERIFY'].includes(step)) return 2;
+  if (['ABHA_PROFILE_CONFIRM', 'SELECT_MEMBER', 'REGISTER'].includes(step)) return 3;
+  return 4;
+}
+
+function KioskStepper({ current }: { current: number }) {
+  return (
+    <ol className="flex items-center gap-2 sm:gap-3" aria-label={`Step ${current + 1} of ${KIOSK_STEPS.length}: ${KIOSK_STEPS[current]}`}>
+      {KIOSK_STEPS.map((label, i) => {
+        const isDone = i < current;
+        const isCurrent = i === current;
+        return (
+          <li key={label} className="flex items-center gap-2 sm:gap-3" aria-current={isCurrent ? 'step' : undefined}>
+            <span className="flex items-center gap-2">
+              <span
+                className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${
+                  isCurrent ? 'bg-blue-600 text-white' : isDone ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500 border border-slate-300'
+                }`}
+              >
+                {isDone ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : i + 1}
+              </span>
+              <span className={`hidden md:inline text-sm font-semibold ${isCurrent ? 'text-slate-900' : 'text-slate-500'}`}>{label}</span>
+            </span>
+            {i < KIOSK_STEPS.length - 1 && (
+              <span className={`h-0.5 w-5 sm:w-8 rounded-full ${isDone ? 'bg-emerald-500' : 'bg-slate-300'}`} aria-hidden="true" />
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 // ── State Persistence ────────────────────────────────────────────────
 interface LoginPersistState {
@@ -684,7 +668,10 @@ export function Login({ onSessionStarted }: Props) {
   }, [step, isMuted, abhaSourceProfile, speak, stop, stopWelcomeLoop]);
 
   // ── Load doctors + departments ────────────────────────────────────
+  const [directoryStatus, setDirectoryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [directoryReload, setDirectoryReload] = useState(0);
   useEffect(() => {
+    setDirectoryStatus('loading');
     fetch(`${getApiBaseUrl()}/api/doctors`)
       .then(r => r.json()).then(d => { if (d.doctors) setDoctors(d.doctors); })
       .catch(() => {});
@@ -692,13 +679,20 @@ export function Login({ onSessionStarted }: Props) {
       .then(r => r.json()).then(d => {
         if (d.departments?.length) {
           setDepartments(d.departments);
+          setDirectoryStatus('ready');
           if (!saved?.department) {
             const def = d.departments.find((x: any) => x.is_default);
             setDepartment(def ? def.name : d.departments[0].name);
           }
+        } else {
+          setDirectoryStatus('error');
         }
-      }).catch(() => {});
-  }, []);
+      }).catch(() => setDirectoryStatus('error'));
+  }, [directoryReload]);
+
+  // Registration form UI state (vitals collapsed unless already filled; language picker hidden until asked)
+  const [showVitals, setShowVitals] = useState(false);
+  const [showLangPicker, setShowLangPicker] = useState(false);
 
   // ── BMI auto-calc ─────────────────────────────────────────────────
   useEffect(() => {
@@ -940,329 +934,138 @@ export function Login({ onSessionStarted }: Props) {
   // RENDER
   // ─────────────────────────────────────────────────────────────────
   return (
-    <div className={`flex-1 h-full w-full flex flex-col items-center ${['CONSENT', 'WELCOME_LANGUAGE'].includes(step) ? 'justify-start' : 'justify-center'} overflow-y-auto ${['CONSENT', 'WELCOME_LANGUAGE'].includes(step) ? '' : 'p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-blue-50/30'}`}>
-      <div className={`w-full flex flex-col items-center ${['CONSENT', 'WELCOME_LANGUAGE'].includes(step) ? 'h-full' : 'max-w-3xl'}`}>
+    <div className={`flex-1 h-full w-full flex flex-col items-center ${['CONSENT', 'WELCOME_LANGUAGE'].includes(step) ? 'justify-start' : 'justify-center'} overflow-y-auto ${['CONSENT', 'WELCOME_LANGUAGE'].includes(step) ? '' : 'p-4 sm:p-8'}`}>
+      <div className={`w-full flex flex-col items-center ${['CONSENT', 'WELCOME_LANGUAGE'].includes(step) ? 'h-full' : 'max-w-5xl'}`}>
 
-        {/* Header & Step Indicator — shown on most steps */}
+        {/* Progress — shown on every step after Consent (Consent renders its own) */}
         {!['CONSENT', 'WELCOME_LANGUAGE'].includes(step) && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full text-center mb-6 flex flex-col items-center"
-          >
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-0.5 tracking-tight">
-              SwasthyaSync
-            </h2>
-            <p className="text-slate-400 font-medium text-xs sm:text-sm mb-4">AI-Powered Clinical Intake System</p>
-
-            {/* Horizontal Step Indicator Dots */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-white/80 backdrop-blur-md rounded-full border border-slate-200/80 shadow-2xs">
-              {[
-                { label: 'Identify', idx: 0 },
-                { label: 'Verify', idx: 1 },
-                { label: 'Profile', idx: 2 },
-                { label: 'Department', idx: 3 },
-              ].map((s, i, arr) => {
-                const currentIdx = ['LANDING', 'ABHA_IDENTIFY', 'PHONE'].includes(step)
-                  ? 0
-                  : ['ABHA_OTP', 'MOBILE_OTP_VERIFY'].includes(step)
-                  ? 1
-                  : ['ABHA_PROFILE_CONFIRM', 'SELECT_MEMBER', 'REGISTER'].includes(step)
-                  ? 2
-                  : 3;
-                const isCurrent = currentIdx === s.idx;
-                const isDone = currentIdx > s.idx;
-
-                return (
-                  <div key={s.idx} className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <div
-                        className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center transition-all duration-200 ${
-                          isCurrent
-                            ? 'bg-blue-600 text-white shadow-xs scale-105'
-                            : isDone
-                            ? 'bg-emerald-500 text-white'
-                            : 'bg-slate-100 text-slate-400'
-                        }`}
-                      >
-                        {isDone ? '✓' : s.idx + 1}
-                      </div>
-                      <span
-                        className={`text-[11px] font-bold hidden sm:inline transition-colors duration-200 ${
-                          isCurrent ? 'text-blue-700' : isDone ? 'text-slate-700' : 'text-slate-400'
-                        }`}
-                      >
-                        {s.label}
-                      </span>
-                    </div>
-                    {i < arr.length - 1 && (
-                      <div
-                        className={`w-3 sm:w-4 h-0.5 rounded-full transition-colors duration-200 ${
-                          isDone ? 'bg-emerald-400' : 'bg-slate-200'
-                        }`}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
+          <div className="w-full flex justify-center mb-6">
+            <KioskStepper current={kioskStepIndex(step)} />
+          </div>
         )}
 
         <AnimatePresence mode="wait">
 
           {/* ────────────────────────────────────────────────────────
               STEP: WELCOME_LANGUAGE
+              One decision on this screen: the language. Three large tiles,
+              native script first. Below, what the visit involves, in plain words.
           ──────────────────────────────────────────────────────── */}
           {step === 'WELCOME_LANGUAGE' && (
             <motion.div
               key="WELCOME_LANGUAGE"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="w-full h-full flex flex-col lg:flex-row min-h-0"
+              exit={{ opacity: 0 }}
+              className="w-full flex flex-col items-center px-4 sm:px-8 py-8 sm:py-12"
             >
-              {/* ════════════════════════════════════════════════════════
-                  LEFT PANEL — System Capabilities & Feature Showcase (~60%)
-                  (On mobile, renders below language selection)
-              ════════════════════════════════════════════════════════ */}
-              <div className="lg:w-[58%] xl:w-[60%] w-full bg-transparent text-slate-900 px-4 py-3 sm:px-8 sm:py-3 lg:px-10 lg:py-3 flex flex-col justify-start relative overflow-hidden order-2 lg:order-1">
-                {/* Decorative orbs */}
-                <div className="absolute top-0 right-0 w-80 h-80 bg-blue-100/60 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-50/70 rounded-full blur-3xl pointer-events-none" />
-
-                {/* Hospital branding & Header */}
-                <div className="relative z-10 mb-3">
-                  <div className="flex items-center gap-3 mb-1">
-                    <div className="w-10 h-10 rounded-xl bg-white shadow-xs border border-slate-200/80 flex items-center justify-center p-1.5 shrink-0">
-                      <img src={logoPNG} alt="SwasthyaSync Logo" className="w-full h-full object-contain" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-blue-700 font-bold uppercase tracking-wider bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-md">
-                          National Health Mission Ready
-                        </span>
-                        <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
-                          Smart OPD Kiosk
-                        </span>
-                      </div>
-                      <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-tight">
-                        SwasthyaSync
-                      </h1>
-                    </div>
-                  </div>
-                  <p className="text-slate-600 text-xs sm:text-sm font-medium">
-                    AI Clinical Triage, Multilingual Patient Intake & Doctor EMR Synchronization.
+              <div className="w-full max-w-5xl flex flex-col items-center">
+                <div className="text-center">
+                  <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 text-balance">
+                    Namaste. Please choose your language
+                  </h1>
+                  <p className="mt-3 text-lg sm:text-xl font-medium text-slate-600">
+                    अपनी भाषा चुनें <span className="text-slate-300 px-1" aria-hidden="true">·</span> আপনার ভাষা বেছে নিন
                   </p>
                 </div>
 
-                {/* Features Grid Header */}
-                <div className="relative z-10 flex items-center justify-between mb-2">
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                    SYSTEM FEATURES & CAPABILITIES · मुख्य विशेषताएं
-                  </p>
-                  <span className="text-[10px] text-blue-600 font-semibold flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-blue-500" />
-                    Powered by Medical AI
+                {/* Audio guide: one plain status line with a single control */}
+                <div className="mt-5 flex items-center gap-3 text-base text-slate-600" aria-live="polite">
+                  <span className={`flex h-9 w-9 items-center justify-center rounded-full ${isMuted ? 'bg-slate-100 text-slate-500' : activeSpeakingLang ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700'}`}>
+                    {isMuted ? <VolumeX className="h-4 w-4" aria-hidden="true" /> : <Volume2 className={`h-4 w-4 ${activeSpeakingLang ? 'animate-pulse' : ''}`} aria-hidden="true" />}
                   </span>
-                </div>
-
-                {/* Feature Bento Grid */}
-                <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 mb-3">
-                  {SYSTEM_FEATURES.map((feat, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-white/80 backdrop-blur-md rounded-xl p-2.5 sm:p-3 border border-slate-200/80 shadow-2xs hover:shadow-xs hover:border-blue-300 transition-all duration-150 flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shadow-2xs ${feat.iconBg}`}>
-                            {feat.icon}
-                          </div>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${feat.badgeColor}`}>
-                            {feat.badge}
-                          </span>
-                        </div>
-                        <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 leading-tight mb-0.5">
-                          {feat.title}
-                        </h3>
-                        <p className="text-[11px] text-slate-500 leading-snug">
-                          {feat.desc}
-                        </p>
-                      </div>
-                      <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center gap-1.5 text-[9px] font-semibold text-slate-400">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
-                        <span className="truncate">{feat.tag}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Trust and Compliance Footer */}
-                <div className="relative z-10 flex flex-wrap items-center gap-4 text-[11px] font-semibold text-slate-500 pt-2 border-t border-slate-200/70">
-                  <div className="flex items-center gap-1.5 text-slate-600">
-                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                    <span>DPDP Act 2023 Compliant</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-slate-600">
-                    <Fingerprint className="w-3.5 h-3.5 text-purple-600" />
-                    <span>ABDM / ABHA Integrated</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-slate-600">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Sarvam AI Speech</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* ════════════════════════════════════════════════════════
-                  RIGHT PANEL — Language Selection & Rotating Audio Loop (~40%)
-                  (On mobile, renders first at the very top of screen)
-              ════════════════════════════════════════════════════════ */}
-              <div className="lg:w-[42%] xl:w-[40%] w-full bg-transparent px-3 py-2 sm:px-6 sm:py-3 lg:px-8 lg:py-3 flex flex-col justify-start items-center order-1 lg:order-2">
-                <div className="max-w-md w-full bg-white/85 backdrop-blur-xl border border-white p-4 sm:p-5 rounded-2xl shadow-xl shadow-slate-200/50 flex flex-col">
-                  {/* Heading */}
-                  <div className="mb-3 text-center">
-                    <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20 mb-1.5 relative">
-                      <Languages className="w-5 h-5" />
-                      <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-                      </span>
-                    </div>
-                    <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight leading-tight">
-                      Select Kiosk Language
-                    </h2>
-                    <p className="text-[11px] font-semibold text-blue-600 mt-0.5">
-                      अपनी भाषा चुनें · আপনার ভাষা নির্বাচন করুন
-                    </p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
-                      Touch your language to begin your registration & intake
-                    </p>
-                  </div>
-
-                  {/* Voice Announcement Status Banner */}
-                  <div className="mb-2.5 p-2 rounded-xl bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border border-blue-100 flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isMuted ? 'bg-amber-100 text-amber-600' : activeSpeakingLang ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-200 text-slate-500'}`}>
-                        {isMuted ? <VolumeX className="w-3.5 h-3.5 text-amber-600" /> : <Volume2 className={`w-3.5 h-3.5 ${activeSpeakingLang ? 'animate-pulse' : ''}`} />}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-bold text-slate-800 leading-tight truncate">
-                          {isMuted && 'Audio Guide Muted (Unmute in top bar)'}
-                          {!isMuted && activeSpeakingLang === 'en' && 'English Audio Announcement'}
-                          {!isMuted && activeSpeakingLang === 'hi' && 'हिन्दी ऑडियो घोषणा जारी'}
-                          {!isMuted && activeSpeakingLang === 'bn' && 'বাংলা অডিও নির্দেশিকা চলছে'}
-                          {!isMuted && !activeSpeakingLang && 'Kiosk Audio Guide Active'}
-                        </p>
-                        <p className="text-[9px] text-slate-500 truncate">
-                          {isMuted ? 'Audio prompts are turned off' : 'Dictating in 3 languages · Loop auto-rotates'}
-                        </p>
-                      </div>
-                    </div>
-
+                  <span>
+                    {isMuted && 'Audio guide is off. Turn it on with the speaker button at the top.'}
+                    {!isMuted && activeSpeakingLang === 'en' && 'Speaking in English…'}
+                    {!isMuted && activeSpeakingLang === 'hi' && 'हिन्दी में बोल रहे हैं…'}
+                    {!isMuted && activeSpeakingLang === 'bn' && 'বাংলায় বলা হচ্ছে…'}
+                    {!isMuted && !activeSpeakingLang && 'The kiosk reads each step aloud.'}
+                  </span>
+                  {!isMuted && (
                     <button
                       type="button"
-                      disabled={isMuted}
                       onClick={() => {
-                        if (isMuted) return;
-                        if (activeSpeakingLang) {
-                          stopWelcomeLoop();
-                        } else {
-                          playSingleWelcome(KIOSK_LANGUAGES[0]);
-                        }
+                        if (activeSpeakingLang) stopWelcomeLoop();
+                        else playSingleWelcome(KIOSK_LANGUAGES[0]);
                       }}
-                      className="px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:text-blue-700 bg-white/90 border border-slate-200/80 rounded-md shrink-0 shadow-2xs hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="tap rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50 cursor-pointer"
                     >
-                      {isMuted ? 'Muted' : activeSpeakingLang ? 'Pause Audio' : 'Play Audio'}
+                      {activeSpeakingLang ? 'Pause' : 'Play welcome'}
                     </button>
-                  </div>
-
-                  {/* Language Cards */}
-                  <div className="space-y-2 mb-2.5">
-                    {KIOSK_LANGUAGES.map((lang) => {
-                      const isSpeakingThis = activeSpeakingLang === lang.id;
-                      return (
-                        <div
-                          key={lang.id}
-                          onClick={() => handleSelectLanguage(lang.id)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSelectLanguage(lang.id); }}
-                          className={`
-                            relative group p-2.5 sm:p-3 rounded-xl border-2 cursor-pointer transition-all duration-150 select-none
-                            ${isSpeakingThis
-                              ? `${lang.borderActive} bg-white shadow-md scale-[1.01]`
-                              : 'border-slate-200/80 bg-white/90 hover:border-blue-400 hover:shadow-xs'
-                            }
-                          `}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${lang.accent} text-white font-black flex items-center justify-center text-sm shadow-xs shrink-0`}>
-                                {lang.id === 'en' ? 'En' : lang.id === 'hi' ? 'अ' : 'অ'}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-1.5">
-                                  <h3 className="text-sm font-bold text-slate-900">{lang.native}</h3>
-                                  <span className="text-[11px] text-slate-500 font-medium">({lang.label})</span>
-                                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                                    {lang.badge}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-slate-500 mt-0.5">{lang.sub}</p>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  playSingleWelcome(lang);
-                                }}
-                                className={`p-1.5 rounded-lg transition-all ${
-                                  isSpeakingThis
-                                    ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-300'
-                                    : 'bg-slate-100 text-slate-400 hover:text-blue-600 hover:bg-blue-50'
-                                }`}
-                                title={`Listen in ${lang.label}`}
-                              >
-                                <Volume2 className="w-3.5 h-3.5" />
-                              </button>
-
-                              <div className="w-6 h-6 rounded-full bg-slate-100 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center transition-all">
-                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-colors" />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Active speaking indicator */}
-                          {isSpeakingThis && (
-                            <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-blue-700 font-medium">
-                              <span className="flex items-center gap-1">
-                                <span className="flex gap-0.5 items-end h-2.5">
-                                  <span className="w-0.5 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s] h-2.5" />
-                                  <span className="w-0.5 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.15s] h-1" />
-                                  <span className="w-0.5 bg-blue-600 rounded-full animate-bounce h-2" />
-                                </span>
-                                Speaking now · Touch to select
-                              </span>
-                              <span className="text-[9px] text-blue-500 font-bold">START →</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Footer Instructions */}
-                  <div className="text-center pt-2 border-t border-slate-100 text-[10px] text-slate-400 leading-tight">
-                    <p>Touch any box above to proceed to Patient Consent.</p>
-                    <p className="text-[9px] text-slate-400 mt-0.5">Audio guidance will match your selected language throughout the kiosk.</p>
-                  </div>
+                  )}
                 </div>
+
+                {/* Language tiles */}
+                <div className="mt-8 grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
+                  {KIOSK_LANGUAGES.map((lang) => {
+                    const isSpeakingThis = activeSpeakingLang === lang.id;
+                    const mono = { en: 'bg-blue-600', hi: 'bg-emerald-600', bn: 'bg-amber-600' }[lang.id];
+                    return (
+                      <div key={lang.id} className="relative h-full">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectLanguage(lang.id)}
+                          lang={lang.ttsLang}
+                          className={`group flex h-full w-full flex-col items-start gap-4 rounded-2xl border-2 bg-white p-6 text-left shadow-card transition-[border-color,box-shadow] duration-150 hover:border-blue-600 hover:shadow-card-hover cursor-pointer min-h-[176px] ${
+                            isSpeakingThis ? 'border-blue-600 shadow-card-hover' : 'border-slate-200'
+                          }`}
+                        >
+                          <span className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl font-bold text-white ${mono}`} aria-hidden="true">
+                            {lang.id === 'en' ? 'En' : lang.id === 'hi' ? 'अ' : 'অ'}
+                          </span>
+                          <span className="flex flex-col">
+                            <span className="text-3xl font-bold text-slate-900 leading-tight">{lang.native}</span>
+                            <span className="mt-1 text-base text-slate-600">
+                              {lang.id === 'en' ? 'Tap to start' : lang.label}
+                            </span>
+                          </span>
+                          <span className="mt-auto inline-flex items-center gap-1.5 text-base font-semibold text-blue-700">
+                            {isSpeakingThis ? 'Speaking now · tap to choose' : 'Continue'}
+                            <ArrowRight className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => playSingleWelcome(lang)}
+                          aria-label={`Listen in ${lang.label}`}
+                          title={`Listen in ${lang.label}`}
+                          className={`absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-xl border cursor-pointer ${
+                            isSpeakingThis ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:text-blue-700 hover:border-blue-300'
+                          }`}
+                        >
+                          <Volume2 className="h-5 w-5" aria-hidden="true" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* What happens at the kiosk */}
+                <div className="mt-10 w-full border-t border-slate-200 pt-8">
+                  <p className="text-center text-base font-semibold text-slate-700">What happens next</p>
+                  <ol className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    {[
+                      { icon: <Mic className="h-5 w-5" aria-hidden="true" />, title: 'Talk', hi: 'बोलें', desc: 'Answer a few questions about how you feel, by voice or by touch.' },
+                      { icon: <Scan className="h-5 w-5" aria-hidden="true" />, title: 'Scan', hi: 'स्कैन करें', desc: 'Show old prescriptions or reports to the camera, if you have them.' },
+                      { icon: <Ticket className="h-5 w-5" aria-hidden="true" />, title: 'Get your token', hi: 'टोकन लें', desc: 'The doctor receives your summary before you walk in.' },
+                    ].map((s, i) => (
+                      <li key={s.title} className="flex items-start gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">{s.icon}</span>
+                        <span>
+                          <span className="block text-base font-semibold text-slate-900">
+                            {i + 1}. {s.title} <span className="font-medium text-slate-500">· {s.hi}</span>
+                          </span>
+                          <span className="block text-sm text-slate-600">{s.desc}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+
+                <p className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-sm text-slate-500">
+                  <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-blue-600" aria-hidden="true" />DPDP Act 2023</span>
+                  <span className="inline-flex items-center gap-1.5"><BadgeCheck className="h-4 w-4 text-emerald-600" aria-hidden="true" />ABDM / ABHA linked</span>
+                </p>
               </div>
             </motion.div>
           )}
@@ -1276,35 +1079,22 @@ export function Login({ onSessionStarted }: Props) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, y: -24 }}
-              className="w-full h-full flex flex-col lg:flex-row"
-              style={{ minHeight: 'calc(100vh - 120px)' }}
+              className="w-full flex flex-col items-center px-4 sm:px-8 py-6 sm:py-10"
             >
+              <div className="mb-6 sm:mb-8">
+                <KioskStepper current={0} />
+              </div>
+              <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-8 lg:gap-12">
               {/* ════════════════════════════════════════════════════════
                   LEFT PANEL — Brand + Workflow Overview (~60%)
                   (On mobile, renders below the interactive consent card)
               ════════════════════════════════════════════════════════ */}
-              <div className="lg:w-[62%] w-full bg-transparent text-slate-900 p-4 sm:p-12 lg:p-16 flex flex-col justify-center relative overflow-hidden order-2 lg:order-1">
-                {/* Decorative orbs */}
-                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-100 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-72 h-72 bg-emerald-50 rounded-full blur-3xl pointer-events-none" />
-
-                {/* Hospital branding */}
-                <div className="relative z-10 mb-6 sm:mb-10">
-                  <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white shadow-sm border border-slate-100 flex items-center justify-center shrink-0">
-                      <img src={logoPNG} alt="SwasthyaSync" className="w-8 h-8 sm:w-9 sm:h-9 object-contain" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-widest">{t('workflow.gov_kiosk')}</p>
-                      <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight leading-tight text-slate-900">SwasthyaSync</h2>
-                    </div>
-                  </div>
-                  <p className="text-slate-600 text-sm sm:text-lg font-medium">{t('workflow.tagline')}</p>
-                </div>
+              <div className="lg:w-[55%] w-full text-slate-900 flex flex-col justify-start lg:pt-4 order-2 lg:order-1">
+                <p className="text-lg text-slate-600 mb-6">{t('workflow.tagline')}</p>
 
                 {/* ── Workflow Steps (vertical connector style) ── */}
-                <div className="relative z-10 space-y-0">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 sm:mb-6">{t('workflow.how_it_works')}</p>
+                <div className="space-y-0">
+                  <h2 className="text-xl font-bold text-slate-900 mb-5">{t('workflow.how_it_works')}</h2>
 
                   {[
                     {
@@ -1344,8 +1134,8 @@ export function Login({ onSessionStarted }: Props) {
                       </div>
                       {/* Text */}
                       <div className={`pb-4 sm:pb-6 ${i === arr.length - 1 ? 'pb-0' : ''}`}>
-                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 mb-0.5">{step.label}</h4>
-                        <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">{step.desc}</p>
+                        <h3 className="text-base font-semibold text-slate-900 mb-0.5">{step.label}</h3>
+                        <p className="text-base text-slate-600 leading-relaxed">{step.desc}</p>
                       </div>
                     </div>
                   ))}
@@ -1356,8 +1146,8 @@ export function Login({ onSessionStarted }: Props) {
                   RIGHT PANEL — Consent + Action (~38%)
                   (On mobile, renders first at top of screen)
               ════════════════════════════════════════════════════════ */}
-              <div className="lg:w-[38%] w-full bg-transparent p-4 sm:p-10 lg:p-12 flex flex-col justify-center items-center order-1 lg:order-2">
-                <div className="max-w-md w-full bg-white/70 backdrop-blur-xl border border-white p-8 rounded-3xl shadow-xl shadow-slate-200/50">
+              <div className="lg:w-[45%] w-full flex flex-col items-center order-1 lg:order-2">
+                <div className="w-full max-w-lg bg-white border border-slate-200 p-6 sm:p-8 rounded-2xl shadow-card">
                   {/* Change Language Navigation */}
                   <div className="flex items-center justify-between mb-4">
                     <button
@@ -1368,25 +1158,24 @@ export function Login({ onSessionStarted }: Props) {
                         wasSpeakingRef.current = false;
                         setStep('WELCOME_LANGUAGE');
                       }}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 border border-slate-200/80"
+                      className="tap inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-blue-700 px-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 cursor-pointer"
                     >
-                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                       <span>Change Language / भाषा बदलें</span>
                     </button>
-                    <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider bg-blue-50 border border-blue-100 px-2.5 py-0.5 rounded-full">
+                    <span className="text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg">
                       {language === 'hi-IN' ? 'हिन्दी' : language === 'bn-IN' ? 'বাংলা' : 'English'}
                     </span>
                   </div>
 
-                  {/* Small heading */}
-                  <div className="mb-8">
-                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-100 mb-4">
-                      <Shield className="w-6 h-6 text-blue-600" />
+                  <div className="mb-6 flex items-start gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                      <Shield className="w-5 h-5" aria-hidden="true" />
+                    </span>
+                    <div>
+                      <h1 className="text-2xl font-bold text-slate-900">{t('consent.title')}</h1>
+                      <p className="text-sm text-slate-500">Tick all three to continue · DPDP Act 2023</p>
                     </div>
-                    <h3 className="text-xl font-extrabold text-slate-900 mb-1">{t('consent.title')}</h3>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      DPDP Act 2023 · National Digital Health Mission
-                    </p>
                   </div>
 
                   {/* Consent checkboxes */}
@@ -1397,19 +1186,19 @@ export function Login({ onSessionStarted }: Props) {
                         <div
                           key={item.key}
                           className={`
-                            flex items-center justify-between gap-3 p-3.5 rounded-xl border-2 transition-all duration-200
+                            tap-kiosk flex items-center justify-between gap-3 p-4 rounded-xl border-2 transition-[border-color,background-color] duration-150
                             ${consented[item.key]
-                              ? 'border-blue-400 bg-blue-50/70 shadow-sm'
-                              : 'border-slate-200 bg-white hover:border-slate-300'
+                              ? 'border-blue-600 bg-blue-50'
+                              : 'border-slate-200 bg-white hover:border-slate-400'
                             }
                           `}
                         >
-                          <label className="flex items-start gap-3 flex-1 min-w-0 cursor-pointer select-none">
+                          <label className="flex items-start gap-4 flex-1 min-w-0 cursor-pointer select-none self-stretch py-1">
                             {/* Custom checkbox */}
                             <div className="mt-0.5 shrink-0">
                               <div
                                 className={`
-                                  w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200
+                                  w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-colors duration-150
                                   ${consented[item.key]
                                     ? 'border-blue-600 bg-blue-600'
                                     : 'border-slate-300 bg-white'
@@ -1423,7 +1212,7 @@ export function Login({ onSessionStarted }: Props) {
                                       animate={{ scale: 1, opacity: 1 }}
                                       exit={{ scale: 0.4, opacity: 0 }}
                                       transition={{ type: "spring", stiffness: 450, damping: 25 }}
-                                      className="w-3 h-3 text-white"
+                                      className="w-4 h-4 text-white"
                                       fill="none"
                                       viewBox="0 0 24 24"
                                       stroke="currentColor"
@@ -1442,8 +1231,8 @@ export function Login({ onSessionStarted }: Props) {
                               onChange={e => setConsented(prev => ({ ...prev, [item.key]: e.target.checked }))}
                             />
                             <div className="min-w-0 pr-1">
-                              <p className="text-xs font-semibold text-slate-800 leading-snug">{t(`consent.${item.key}`)}</p>
-                              <p className="text-[10px] text-slate-400 mt-0.5">{t(`consent.${item.key}_sub`)}</p>
+                              <p className="text-base font-semibold text-slate-900 leading-snug">{t(`consent.${item.key}`)}</p>
+                              <p className="text-sm text-slate-600 mt-1">{t(`consent.${item.key}_sub`)}</p>
                             </div>
                           </label>
 
@@ -1456,10 +1245,10 @@ export function Login({ onSessionStarted }: Props) {
                               handleToggleConsentAudio(item.key, item.audioKey);
                             }}
                             className={`
-                              p-2 rounded-xl shrink-0 transition-all duration-200 flex items-center justify-center relative
+                              h-11 w-11 rounded-xl shrink-0 flex items-center justify-center cursor-pointer border
                               ${isItemSpeaking
-                                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/40 ring-2 ring-blue-400 ring-offset-1 animate-pulse'
-                                : 'bg-slate-100/90 text-slate-500 hover:bg-blue-100 hover:text-blue-600 hover:scale-105 active:scale-95'
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-white text-slate-600 border-slate-200 hover:text-blue-700 hover:border-blue-300'
                               }
                             `}
                             title={isItemSpeaking ? "Click to stop explanation" : "Click to hear explanation in current language"}
@@ -1477,8 +1266,8 @@ export function Login({ onSessionStarted }: Props) {
                   </div>
 
                   {/* Notice */}
-                  <p className="text-[10px] text-slate-400 text-center mb-6 leading-relaxed">
-                    <ShieldCheck className="w-3 h-3 inline mr-1 text-blue-400" />
+                  <p className="text-sm text-slate-500 text-center mb-5 leading-relaxed">
+                    <ShieldCheck className="w-4 h-4 inline mr-1 -mt-0.5 text-blue-600" aria-hidden="true" />
                     {t('consent.encrypted_notice')}
                   </p>
 
@@ -1495,10 +1284,10 @@ export function Login({ onSessionStarted }: Props) {
                     disabled={!allConsented}
                     whileTap={allConsented ? { scale: 0.97 } : {}}
                     className={`
-                      w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base transition-all duration-300
+                      tap-kiosk w-full flex items-center justify-center gap-2 px-6 rounded-xl font-semibold text-lg transition-colors duration-150
                       ${allConsented
-                        ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/35'
-                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-card cursor-pointer'
+                        : 'bg-slate-100 text-slate-500 cursor-not-allowed'
                       }
                     `}
                   >
@@ -1510,111 +1299,104 @@ export function Login({ onSessionStarted }: Props) {
                   </motion.button>
                 </div>
               </div>
+              </div>
             </motion.div>
           )}
 
           {/* ────────────────────────────────────────────────────────
               STEP: LANDING
+              Three equal ways to sign in. ABHA is marked recommended,
+              not made the biggest block.
           ──────────────────────────────────────────────────────── */}
           {step === 'LANDING' && (
             <motion.div
               key="LANDING"
-              initial={{ opacity: 0, y: 14 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full max-w-2xl"
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full max-w-5xl"
             >
-              {/* Back to Consent */}
-              <button
-                onClick={() => setStep('CONSENT')}
-                className="flex items-center gap-1 text-slate-400 hover:text-slate-700 transition-colors mb-6 text-sm font-medium"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                {t('landing.back_consent')}
-              </button>
-
-              <p className="text-center text-xs text-slate-400 mb-6 leading-relaxed">
+              <h1 className="text-center text-3xl font-bold tracking-tight text-slate-900">How would you like to sign in?</h1>
+              <p className="mx-auto mt-2 max-w-2xl text-center text-base text-slate-600">
                 {t('landing.dpdp_notice')}
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Card A — ABHA */}
-                <motion.button
-                  whileHover={{ y: -2, scale: 1.005 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setStep('ABHA_IDENTIFY')}
-                  className="flex flex-col items-start p-6 rounded-3xl bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-xl shadow-blue-600/25 text-left transition-[transform,box-shadow] cursor-pointer"
-                >
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-xs font-bold tracking-wide">{t('landing.abha_tag')}</div>
-                    <div className="bg-green-400/30 backdrop-blur px-2 py-0.5 rounded-full text-xs font-semibold text-green-200 flex items-center gap-1">
-                      <BadgeCheck className="w-3 h-3" /> {t('landing.abha_verified')}
-                    </div>
-                  </div>
-                  <Fingerprint className="w-10 h-10 mb-3 text-white/80" />
-                  <h3 className="text-xl font-extrabold mb-1">{t('landing.abha_title')}</h3>
-                  <p className="text-blue-100 text-sm leading-snug mb-4">
-                    {t('landing.abha_desc')}
-                  </p>
-                  <div className="flex items-center gap-1 text-white/70 text-sm font-semibold mt-auto">
-                    {t('landing.continue')} <ChevronRight className="w-4 h-4" />
-                  </div>
-                </motion.button>
-
-                {/* Card B — Mobile */}
-                <motion.button
-                  whileHover={{ y: -2, scale: 1.005 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setStep('PHONE')}
-                  className="flex flex-col items-start p-6 rounded-3xl bg-white border-2 border-slate-100 text-left shadow-lg hover:border-slate-200 hover:shadow-card-hover transition-[transform,box-shadow,border-color] cursor-pointer"
-                >
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="bg-slate-100 px-3 py-1 rounded-full text-xs font-bold tracking-wide text-slate-600">{t('landing.walkin_tag')}</div>
-                    <div className="bg-slate-100 px-2 py-0.5 rounded-full text-xs font-medium text-slate-500">
-                      {t('landing.walkin_no_abha')}
-                    </div>
-                  </div>
-                  <Smartphone className="w-10 h-10 mb-3 text-slate-500" />
-                  <h3 className="text-xl font-extrabold text-slate-900 mb-1">{t('landing.walkin_title')}</h3>
-                  <p className="text-slate-500 text-sm leading-snug mb-4">
-                    {t('landing.walkin_desc')}
-                  </p>
-                  <div className="flex items-center gap-1 text-blue-600 text-sm font-semibold mt-auto">
-                    {t('landing.continue')} <ChevronRight className="w-4 h-4" />
-                  </div>
-                </motion.button>
+              <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+                {[
+                  {
+                    key: 'abha',
+                    onClick: () => setStep('ABHA_IDENTIFY'),
+                    icon: <Fingerprint className="h-6 w-6" aria-hidden="true" />,
+                    iconBg: 'bg-blue-50 text-blue-700',
+                    tag: <span className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2 py-0.5 text-sm font-semibold text-white"><BadgeCheck className="h-4 w-4" aria-hidden="true" />Recommended</span>,
+                    title: t('landing.abha_title'),
+                    desc: t('landing.abha_desc'),
+                    recommended: true,
+                  },
+                  {
+                    key: 'mobile',
+                    onClick: () => setStep('PHONE'),
+                    icon: <Smartphone className="h-6 w-6" aria-hidden="true" />,
+                    iconBg: 'bg-slate-100 text-slate-700',
+                    tag: <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-sm font-medium text-slate-600">{t('landing.walkin_no_abha')}</span>,
+                    title: t('landing.walkin_title'),
+                    desc: t('landing.walkin_desc'),
+                    recommended: false,
+                  },
+                  {
+                    key: 'guest',
+                    onClick: () => {
+                      setIsGuestMode(true);
+                      setPhone('');
+                      setRegData({});
+                      setAbhaSourceProfile(null);
+                      setSelectedPatient(null);
+                      setStep('REGISTER');
+                    },
+                    icon: <UserCircle className="h-6 w-6" aria-hidden="true" />,
+                    iconBg: 'bg-emerald-50 text-emerald-700',
+                    tag: <span className="rounded-lg bg-emerald-50 px-2 py-0.5 text-sm font-medium text-emerald-700">{t('landing.guest_no_login')}</span>,
+                    title: t('landing.guest_title'),
+                    desc: t('landing.guest_desc'),
+                    recommended: false,
+                  },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={opt.onClick}
+                    className={`group flex h-full min-h-[240px] flex-col items-start gap-4 rounded-2xl border-2 bg-white p-6 text-left shadow-card transition-[border-color,box-shadow] duration-150 hover:shadow-card-hover cursor-pointer ${
+                      opt.recommended ? 'border-blue-600' : 'border-slate-200 hover:border-slate-400'
+                    }`}
+                  >
+                    <span className="flex w-full items-start justify-between gap-2">
+                      <span className={`flex h-12 w-12 items-center justify-center rounded-xl ${opt.iconBg}`}>{opt.icon}</span>
+                      {opt.tag}
+                    </span>
+                    <span>
+                      <span className="block text-xl font-bold text-slate-900">{opt.title}</span>
+                      <span className="mt-1 block text-base leading-snug text-slate-600">{opt.desc}</span>
+                    </span>
+                    <span className={`tap-kiosk mt-auto flex w-full items-center justify-center gap-2 rounded-xl text-lg font-semibold ${
+                      opt.recommended ? 'bg-blue-600 text-white group-hover:bg-blue-700' : 'border border-slate-300 text-slate-800 group-hover:bg-slate-50'
+                    }`}>
+                      {t('landing.continue')} <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                  </button>
+                ))}
               </div>
 
-              {/* Card C — Guest (no phone, no ABHA) */}
-              <motion.button
-                whileHover={{ y: -2, scale: 1.005 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => {
-                  setIsGuestMode(true);
-                  setPhone('');
-                  setRegData({});
-                  setAbhaSourceProfile(null);
-                  setSelectedPatient(null);
-                  setStep('REGISTER');
-                }}
-                className="mt-4 w-full flex flex-col items-start p-6 rounded-3xl bg-gradient-to-br from-emerald-600 to-green-700 text-white shadow-xl shadow-emerald-600/25 text-left transition-[transform,box-shadow] cursor-pointer"
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-xs font-bold tracking-wide">{t('landing.guest_tag')}</div>
-                  <div className="bg-emerald-400/30 backdrop-blur px-2 py-0.5 rounded-full text-xs font-semibold text-emerald-200 flex items-center gap-1">
-                    {t('landing.guest_no_login')}
-                  </div>
-                </div>
-                <UserCircle className="w-10 h-10 mb-3 text-white/80" />
-                <h3 className="text-xl font-extrabold mb-1">{t('landing.guest_title')}</h3>
-                <p className="text-emerald-100 text-sm leading-snug mb-4">
-                  {t('landing.guest_desc')}
-                </p>
-                <div className="flex items-center gap-1 text-white/70 text-sm font-semibold mt-auto">
-                  {t('landing.continue')} <ChevronRight className="w-4 h-4" />
-                </div>
-              </motion.button>
+              <div className="mt-8 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setStep('CONSENT')}
+                  className="tap inline-flex items-center gap-2 rounded-xl px-4 text-base font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                >
+                  <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+                  {t('landing.back_consent')}
+                </button>
+              </div>
             </motion.div>
           )}
 
@@ -1629,22 +1411,22 @@ export function Login({ onSessionStarted }: Props) {
               exit={{ opacity: 0, x: -40 }}
               className="w-full max-w-md"
             >
-              <button onClick={() => setStep('LANDING')} className="flex items-center gap-1 text-slate-400 hover:text-slate-700 transition-colors mb-6 text-sm font-medium">
+              <button onClick={() => setStep('LANDING')} className="tap inline-flex items-center gap-2 rounded-xl px-3 -ml-3 mb-4 text-base font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer">
                 <ArrowLeft className="w-4 h-4" /> {t('abha.back')}
               </button>
 
-              <div className="bg-white p-6 rounded-3xl shadow-soft-1 border border-slate-100">
+              <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-card border border-slate-200">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="bg-blue-100 p-2.5 rounded-2xl">
                     <Fingerprint className="w-6 h-6 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-extrabold text-slate-900">{t('abha.title')}</h3>
-                    <p className="text-xs text-slate-400">Ayushman Bharat Health Account</p>
+                    <h1 className="text-2xl font-bold text-slate-900">{t('abha.title')}</h1>
+                    <p className="text-sm text-slate-500">Ayushman Bharat Health Account</p>
                   </div>
                 </div>
 
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">
                   {t('abha.enter_address')}
                 </label>
                 <div className="relative mb-6">
@@ -1656,24 +1438,31 @@ export function Login({ onSessionStarted }: Props) {
                     onKeyDown={e => e.key === 'Enter' && handleAbhaInit()}
                     placeholder={t('abha.placeholder')}
                     autoFocus
-                    className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 text-lg font-semibold text-slate-900 placeholder:text-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all tracking-wider"
+                    className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl p-4 text-xl font-semibold text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all tracking-wider"
                   />
                   {abhaNumber.replace(/\D/g, '').length === 14 && (
-                    <CheckCircle2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-green-500" />
+                    <CheckCircle2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-600" aria-hidden="true" />
                   )}
                 </div>
+                <NumericKeypad
+                  className="mb-6"
+                  disabled={isLoading}
+                  onDigit={(d) => { stop(); setAbhaNumber(v => formatAbhaNumber(v.replace(/\D/g, '') + d)); }}
+                  onBackspace={() => setAbhaNumber(v => formatAbhaNumber(v.replace(/\D/g, '').slice(0, -1)))}
+                  onClear={() => setAbhaNumber('')}
+                />
 
                 <LiquidButton
                   onClick={handleAbhaInit}
                   disabled={isLoading || abhaNumber.replace(/\D/g, '').length !== 14}
-                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition-all disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg tap-kiosk rounded-xl transition-colors disabled:opacity-50"
                 >
                   {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</> : <>{t('phone.send_otp')} <ArrowRight className="w-4 h-4" /></>}
                 </LiquidButton>
 
                 <button
                   onClick={() => setStep('PHONE')}
-                  className="w-full mt-4 text-center text-sm text-slate-400 hover:text-blue-600 transition-colors font-medium"
+                  className="w-full mt-4 text-center text-sm text-slate-500 hover:text-blue-600 transition-colors font-medium"
                 >
                   {t('abha.or_mobile')} →
                 </button>
@@ -1692,18 +1481,18 @@ export function Login({ onSessionStarted }: Props) {
               exit={{ opacity: 0, x: -40 }}
               className="w-full max-w-md"
             >
-              <button onClick={() => { setStep('ABHA_IDENTIFY'); setOtp(''); setOtpHasError(false); }} className="flex items-center gap-1 text-slate-400 hover:text-slate-700 transition-colors mb-6 text-sm font-medium">
+              <button onClick={() => { setStep('ABHA_IDENTIFY'); setOtp(''); setOtpHasError(false); }} className="tap inline-flex items-center gap-2 rounded-xl px-3 -ml-3 mb-4 text-base font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer">
                 <ArrowLeft className="w-4 h-4" /> {t('abha.back')}
               </button>
 
-              <div className="bg-white p-6 rounded-3xl shadow-soft-1 border border-slate-100">
+              <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-card border border-slate-200">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="bg-blue-100 p-2.5 rounded-2xl">
                     <ShieldCheck className="w-6 h-6 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-extrabold text-slate-900">{t('abha.verify')}</h3>
-                    <p className="text-xs text-slate-400">ABHA Path — Step 2 of 3</p>
+                    <h1 className="text-2xl font-bold text-slate-900">{t('abha.verify')}</h1>
+                    <p className="text-sm text-slate-500">ABHA Path — Step 2 of 3</p>
                   </div>
                 </div>
 
@@ -1722,6 +1511,11 @@ export function Login({ onSessionStarted }: Props) {
 
                 <div className="mb-6">
                   <OtpInput length={6} value={otp} onChange={setOtp} onFocus={() => stop()} hasError={otpHasError} />
+                  <NumericKeypad
+                    className="mt-5"
+                    onDigit={(d) => setOtp(v => (v + d).slice(0, 6))}
+                    onBackspace={() => setOtp(v => v.slice(0, -1))}
+                  />
                   {otpHasError && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 mt-4 text-red-500 bg-red-50 px-4 py-3 rounded-lg text-sm font-medium">
                       <AlertCircle className="w-4 h-4 shrink-0" />
@@ -1733,7 +1527,7 @@ export function Login({ onSessionStarted }: Props) {
                 <LiquidButton
                   onClick={handleAbhaConfirm}
                   disabled={isLoading || otp.length < 6}
-                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition-all disabled:opacity-50 mb-4"
+                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg tap-kiosk rounded-xl transition-colors disabled:opacity-50 mb-4"
                 >
                   {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</> : <>{t('abha.verify')} <ArrowRight className="w-4 h-4" /></>}
                 </LiquidButton>
@@ -1741,7 +1535,7 @@ export function Login({ onSessionStarted }: Props) {
                 <button
                   onClick={handleAbhaResend}
                   disabled={abhaResend.isActive || isLoading}
-                  className="w-full flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-blue-600 transition-colors disabled:cursor-not-allowed disabled:opacity-60 font-medium"
+                  className="w-full flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition-colors disabled:cursor-not-allowed disabled:opacity-60 font-medium"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   {abhaResend.isActive ? `Resend in ${abhaResend.cooldown}s` : t('abha.resend')}
@@ -1762,7 +1556,7 @@ export function Login({ onSessionStarted }: Props) {
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
               className="w-full max-w-md"
             >
-              <div className="bg-white rounded-3xl shadow-card-hover border border-slate-100 border-l-4 border-l-blue-600 overflow-hidden">
+              <div className="bg-white rounded-2xl shadow-card-hover border border-slate-100 border-l-4 border-l-blue-600 overflow-hidden">
                 {/* Profile header */}
                 <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 text-white">
                   <div className="flex items-start gap-4">
@@ -1792,21 +1586,21 @@ export function Login({ onSessionStarted }: Props) {
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-slate-50 rounded-2xl p-3 text-center">
                       <p className="text-xl font-extrabold text-slate-900">{abhaProfile.age}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Age (yrs)</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Age (yrs)</p>
                     </div>
                     <div className="bg-slate-50 rounded-2xl p-3 text-center">
                       <p className="text-sm font-bold text-slate-900">{abhaProfile.gender_display}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Gender</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Gender</p>
                     </div>
                     <div className="bg-red-50 rounded-2xl p-3 text-center">
                       <p className="text-sm font-bold text-red-700">{abhaProfile.blood_group || '—'}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Blood</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Blood</p>
                     </div>
                   </div>
 
                   {abhaProfile.address && (
                     <div className="flex items-start gap-2.5 bg-slate-50 rounded-2xl p-3">
-                      <MapPin className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                      <MapPin className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
                       <p className="text-sm text-slate-700 font-medium leading-snug">{abhaProfile.address}</p>
                     </div>
                   )}
@@ -1820,7 +1614,7 @@ export function Login({ onSessionStarted }: Props) {
 
                   <button
                     onClick={() => { setStep('ABHA_IDENTIFY'); setAbhaProfile(null); }}
-                    className="w-full text-center text-sm text-slate-400 hover:text-slate-700 transition-colors"
+                    className="w-full text-center text-sm text-slate-500 hover:text-slate-700 transition-colors"
                   >
                     {t('abha.not_me')}
                   </button>
@@ -1840,22 +1634,22 @@ export function Login({ onSessionStarted }: Props) {
               exit={{ opacity: 0, x: -40 }}
               className="w-full max-w-md"
             >
-              <button onClick={() => setStep('LANDING')} className="flex items-center gap-1 text-slate-400 hover:text-slate-700 transition-colors mb-6 text-sm font-medium">
+              <button onClick={() => setStep('LANDING')} className="tap inline-flex items-center gap-2 rounded-xl px-3 -ml-3 mb-4 text-base font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer">
                 <ArrowLeft className="w-4 h-4" /> {t('phone.back')}
               </button>
 
-              <div className="bg-white p-6 rounded-3xl shadow-soft-1 border border-slate-100">
+              <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-card border border-slate-200">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="bg-slate-100 p-2.5 rounded-2xl">
                     <Phone className="w-6 h-6 text-slate-600" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-extrabold text-slate-900">{t('phone.title')}</h3>
-                    <p className="text-xs text-slate-400">{t('phone.enter_number')}</p>
+                    <h1 className="text-2xl font-bold text-slate-900">{t('phone.title')}</h1>
+                    <p className="text-sm text-slate-500">{t('phone.enter_number')}</p>
                   </div>
                 </div>
 
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">{t('phone.enter_number')}</label>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">{t('phone.enter_number')}</label>
                 <div className="flex gap-2 mb-6">
                   <div className="flex items-center bg-slate-50 border-2 border-slate-200 rounded-2xl px-3 py-3 font-bold text-slate-600 shrink-0">
                     +91
@@ -1868,14 +1662,21 @@ export function Login({ onSessionStarted }: Props) {
                     onKeyDown={e => e.key === 'Enter' && handleMobileInit()}
                     placeholder={t('phone.placeholder')}
                     autoFocus
-                    className="flex-1 bg-slate-50 border-2 border-slate-200 rounded-2xl p-3 text-2xl font-semibold text-slate-900 placeholder:text-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all tracking-wider"
+                    className="flex-1 min-w-0 bg-slate-50 border-2 border-slate-200 rounded-xl p-3 text-2xl font-semibold text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 outline-none transition-[border-color,box-shadow] tracking-wider"
                   />
                 </div>
+                <NumericKeypad
+                  className="mb-6"
+                  disabled={isLoading}
+                  onDigit={(d) => { stop(); setPhone(v => (v + d).slice(0, 10)); }}
+                  onBackspace={() => setPhone(v => v.slice(0, -1))}
+                  onClear={() => setPhone('')}
+                />
 
                 <LiquidButton
                   onClick={handleMobileInit}
                   disabled={isLoading || phone.length < 10}
-                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition-all disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg tap-kiosk rounded-xl transition-colors disabled:opacity-50"
                 >
                   {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</> : <>{t('phone.send_otp')} <ArrowRight className="w-4 h-4" /></>}
                 </LiquidButton>
@@ -1894,18 +1695,18 @@ export function Login({ onSessionStarted }: Props) {
               exit={{ opacity: 0, x: -40 }}
               className="w-full max-w-md"
             >
-              <button onClick={() => { setStep('PHONE'); setMobileOtp(''); setMobileOtpHasError(false); }} className="flex items-center gap-1 text-slate-400 hover:text-slate-700 transition-colors mb-6 text-sm font-medium">
+              <button onClick={() => { setStep('PHONE'); setMobileOtp(''); setMobileOtpHasError(false); }} className="tap inline-flex items-center gap-2 rounded-xl px-3 -ml-3 mb-4 text-base font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer">
                 <ArrowLeft className="w-4 h-4" /> {t('phone.back')}
               </button>
 
-              <div className="bg-white p-6 rounded-3xl shadow-soft-1 border border-slate-100">
+              <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-card border border-slate-200">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="bg-slate-100 p-2.5 rounded-2xl">
                     <ShieldCheck className="w-6 h-6 text-slate-600" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-extrabold text-slate-900">{t('phone.verify_otp')}</h3>
-                    <p className="text-xs text-slate-400">Mobile Path — Step 2</p>
+                    <h1 className="text-2xl font-bold text-slate-900">{t('phone.verify_otp')}</h1>
+                    <p className="text-sm text-slate-500">Mobile Path — Step 2</p>
                   </div>
                 </div>
 
@@ -1924,6 +1725,11 @@ export function Login({ onSessionStarted }: Props) {
 
                 <div className="mb-6">
                   <OtpInput length={6} value={mobileOtp} onChange={setMobileOtp} onFocus={() => stop()} hasError={mobileOtpHasError} />
+                  <NumericKeypad
+                    className="mt-5"
+                    onDigit={(d) => setMobileOtp(v => (v + d).slice(0, 6))}
+                    onBackspace={() => setMobileOtp(v => v.slice(0, -1))}
+                  />
                   {mobileOtpHasError && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 mt-4 text-red-500 bg-red-50 px-4 py-3 rounded-lg text-sm font-medium">
                       <AlertCircle className="w-4 h-4 shrink-0" />
@@ -1935,7 +1741,7 @@ export function Login({ onSessionStarted }: Props) {
                 <LiquidButton
                   onClick={handleMobileOtpConfirm}
                   disabled={isLoading || mobileOtp.length < 6}
-                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition-all disabled:opacity-50 mb-4"
+                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg tap-kiosk rounded-xl transition-colors disabled:opacity-50 mb-4"
                 >
                   {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</> : <>{t('phone.verify_otp')} <ArrowRight className="w-4 h-4" /></>}
                 </LiquidButton>
@@ -1943,7 +1749,7 @@ export function Login({ onSessionStarted }: Props) {
                 <button
                   onClick={handleMobileResend}
                   disabled={mobileResend.isActive || isLoading}
-                  className="w-full flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-blue-600 transition-colors disabled:cursor-not-allowed disabled:opacity-60 font-medium"
+                  className="w-full flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition-colors disabled:cursor-not-allowed disabled:opacity-60 font-medium"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   {mobileResend.isActive ? `Resend in ${mobileResend.cooldown}s` : t('abha.resend')}
@@ -1961,7 +1767,7 @@ export function Login({ onSessionStarted }: Props) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-2xl bg-white p-6 sm:p-8 rounded-3xl shadow-soft-1 border border-slate-100"
+              className="w-full max-w-2xl bg-white p-6 sm:p-8 rounded-2xl shadow-soft-1 border border-slate-100"
             >
               <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-6">
                 <Users className="w-6 h-6 text-blue-500" /> {t('member.title')}
@@ -1987,7 +1793,7 @@ export function Login({ onSessionStarted }: Props) {
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-slate-900 truncate">{p.full_name}</span>
                           {p.abha_id && (
-                            <div className="shrink-0 bg-blue-50 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                            <div className="shrink-0 bg-blue-50 text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                               <BadgeCheck className="w-2.5 h-2.5" /> ABDM
                             </div>
                           )}
@@ -1999,7 +1805,7 @@ export function Login({ onSessionStarted }: Props) {
                           </div>
                         )}
                       </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all shrink-0" />
+                      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all shrink-0" />
                     </LiquidButton>
                   );
                 })}
@@ -2013,7 +1819,7 @@ export function Login({ onSessionStarted }: Props) {
                 </LiquidButton>
               </div>
 
-              <button onClick={() => handleGoBack('PHONE')} className="text-slate-400 hover:text-slate-700 font-medium text-sm flex items-center gap-1">
+              <button onClick={() => handleGoBack('PHONE')} className="text-slate-500 hover:text-slate-700 font-medium text-sm flex items-center gap-1">
                 <ArrowLeft className="w-4 h-4" /> {t('phone.back')}
               </button>
             </motion.div>
@@ -2021,188 +1827,233 @@ export function Login({ onSessionStarted }: Props) {
 
           {/* ────────────────────────────────────────────────────────
               STEP: REGISTER
+              Required details first; vitals are optional and folded away.
+              Tap controls (gender buttons, age stepper, BP boxes) instead of typing.
           ──────────────────────────────────────────────────────── */}
-          {step === 'REGISTER' && (
+          {step === 'REGISTER' && (() => {
+            const locked = !!abhaSourceProfile;
+            // Either side may be empty while typing ("120/ mmHg"), so both groups are optional
+            const bp = (regData.vitals || '').match(/(\d{0,3})\s*\/\s*(\d{0,3})/);
+            const sys = bp?.[1] || '';
+            const dia = bp?.[2] || '';
+            const setBp = (nextSys: string, nextDia: string) =>
+              setRegData({ ...regData, vitals: nextSys || nextDia ? `${nextSys}/${nextDia} mmHg` : '' });
+            const vitalsOpen = showVitals || !!(regData.weight || regData.height || regData.vitals);
+            const setAge = (n: number) => setRegData({ ...regData, age: Math.max(0, Math.min(120, n)) || undefined });
+            return (
             <motion.div
               key="REGISTER"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-2xl bg-white p-6 sm:p-8 rounded-3xl shadow-soft-1 border border-slate-100"
+              exit={{ opacity: 0 }}
+              className="w-full max-w-2xl bg-white p-6 sm:p-8 rounded-2xl shadow-card border border-slate-200"
             >
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <UserPlus className="w-6 h-6 text-blue-500" /> {t('form.title')}
-                </h3>
-                {/* Profile picture if came from ABHA */}
+              <div className="flex items-start justify-between gap-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                    <UserPlus className="w-5 h-5" aria-hidden="true" />
+                  </span>
+                  <h1 className="text-2xl font-bold text-slate-900">{t('form.title')}</h1>
+                </div>
                 {abhaSourceProfile && (
                   <div className="relative shrink-0">
                     <img
                       src={PFP_MAP[abhaSourceProfile.pfp_index]}
                       alt={abhaSourceProfile.name}
-                      className="w-14 h-14 rounded-2xl object-cover border-2 border-blue-200 shadow"
+                      className="w-14 h-14 rounded-xl object-cover border-2 border-blue-200"
                     />
-                    <div className="absolute -bottom-1 -right-1 bg-green-400 rounded-full p-0.5">
-                      <CheckCircle2 className="w-3 h-3 text-white" />
-                    </div>
+                    <span className="absolute -bottom-1 -right-1 bg-emerald-600 rounded-full p-0.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-white" aria-hidden="true" />
+                    </span>
                   </div>
                 )}
               </div>
 
-              {/* Pre-fill banner */}
               {abhaSourceProfile && (
-                <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-2xl p-3 mb-5 text-sm">
-                  <BadgeCheck className="w-4 h-4 text-green-600 shrink-0" />
-                  <span className="text-green-800 font-medium">Pre-filled from your ABHA profile. Please verify and correct if needed.</span>
+                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-6 text-base">
+                  <BadgeCheck className="w-5 h-5 text-emerald-700 shrink-0" aria-hidden="true" />
+                  <span className="text-emerald-800 font-medium">Filled in from your ABHA profile. Please check it.</span>
                 </div>
               )}
 
-              <div className="space-y-4 mb-8">
-                {/* Full Name */}
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 mb-1">
-                    <User className="w-3 h-3" /> {t('form.full_name')} *
-                  </label>
+              {/* About you */}
+              <fieldset className="space-y-5">
+                <legend className="sr-only">About you</legend>
+                <Field id="reg-name" label={t('form.full_name')} required>
                   <input
+                    id="reg-name"
                     type="text"
                     value={regData.full_name || ''}
                     placeholder={t('form.name_placeholder')}
-                    onChange={e => setRegData({...regData, full_name: e.target.value})}
+                    onChange={e => setRegData({ ...regData, full_name: e.target.value })}
                     onFocus={() => stop()}
-                    disabled={!!abhaSourceProfile}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none transition-colors"
+                    disabled={locked}
+                    autoComplete="off"
+                    className={`${inputClass} h-14 text-lg`}
                   />
-                </div>
+                </Field>
 
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Age */}
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 mb-1">
-                      <Calendar className="w-3 h-3" /> {t('form.age')} *
-                    </label>
-                    <input
-                      type="number"
-                      value={regData.age || ''}
-                      placeholder={t('form.age_placeholder')}
-                      onChange={e => setRegData({...regData, age: parseInt(e.target.value) || undefined})}
-                      onFocus={() => stop()}
-                      disabled={!!abhaSourceProfile}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none transition-colors"
-                    />
-                  </div>
-                  {/* Gender */}
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 mb-1">
-                      <User className="w-3 h-3" /> {t('form.gender')} *
-                    </label>
-                    <select
-                      value={regData.gender || ''}
-                      onChange={e => setRegData({...regData, gender: e.target.value})}
-                      onFocus={() => stop()}
-                      disabled={!!abhaSourceProfile}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none transition-colors"
-                    >
-                      <option value="">Select...</option>
-                      <option value="male">{t('form.male')}</option>
-                      <option value="female">{t('form.female')}</option>
-                      <option value="other">{t('form.other')}</option>
-                    </select>
-                  </div>
-                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <Field id="reg-age" label={t('form.age')} required>
+                    <div className="flex items-stretch gap-2">
+                      <button type="button" disabled={locked} onClick={() => setAge((regData.age || 0) - 1)} aria-label="Decrease age"
+                        className="tap-kiosk w-14 shrink-0 flex items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer">
+                        <Minus className="w-5 h-5" aria-hidden="true" />
+                      </button>
+                      <input
+                        id="reg-age"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        max={120}
+                        value={regData.age || ''}
+                        placeholder={t('form.age_placeholder')}
+                        onChange={e => setRegData({ ...regData, age: parseInt(e.target.value) || undefined })}
+                        onFocus={() => stop()}
+                        disabled={locked}
+                        className={`${inputClass} h-14 text-center text-xl font-semibold tabular-nums`}
+                      />
+                      <button type="button" disabled={locked} onClick={() => setAge((regData.age || 0) + 1)} aria-label="Increase age"
+                        className="tap-kiosk w-14 shrink-0 flex items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer">
+                        <Plus className="w-5 h-5" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </Field>
 
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Weight */}
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 mb-1">
-                      <Activity className="w-3 h-3" /> {t('form.weight')}
-                    </label>
-                    <input
-                      type="number"
-                      value={regData.weight || ''}
-                      placeholder={t('form.weight_placeholder')}
-                      onFocus={() => stop()}
-                      onChange={e => setRegData({ ...regData, weight: parseFloat(e.target.value) || undefined })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none transition-colors"
-                    />
-                  </div>
-                  {/* Height */}
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 mb-1">
-                      <Activity className="w-3 h-3" /> {t('form.height')}
-                    </label>
-                    <input
-                      type="text"
-                      value={regData.height || ''}
-                      placeholder={t('form.height_placeholder')}
-                      onFocus={() => stop()}
-                      onChange={e => setRegData({ ...regData, height: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none transition-colors"
-                    />
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    <span id="reg-gender-label" className="text-sm font-semibold text-slate-700">
+                      {t('form.gender')}<span className="text-red-600" aria-hidden="true"> *</span>
+                    </span>
+                    <div role="radiogroup" aria-labelledby="reg-gender-label" className="grid grid-cols-3 gap-2">
+                      {[
+                        { value: 'male', label: t('form.male') },
+                        { value: 'female', label: t('form.female') },
+                        { value: 'other', label: t('form.other') },
+                      ].map(g => {
+                        const on = regData.gender === g.value;
+                        return (
+                          <button
+                            key={g.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={on}
+                            disabled={locked}
+                            onClick={() => { stop(); setRegData({ ...regData, gender: g.value }); }}
+                            className={`tap-kiosk rounded-lg border-2 px-2 text-base font-semibold cursor-pointer disabled:cursor-not-allowed ${
+                              on ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'
+                            } ${locked && !on ? 'opacity-50' : ''}`}
+                          >
+                            {g.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  {/* BMI auto */}
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 mb-1">
-                      <Activity className="w-3 h-3" /> BMI (Auto)
-                    </label>
-                    <input
-                      type="text"
-                      value={calculatedBmi}
-                      disabled
-                      placeholder="Calculated automatically"
-                      className="w-full bg-slate-100 border border-slate-200 rounded-xl p-3 text-slate-500 outline-none"
-                    />
-                  </div>
-                  {/* Vitals */}
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 mb-1">
-                      <Activity className="w-3 h-3" /> {t('form.vitals')}
-                    </label>
-                    <input
-                      type="text"
-                      value={regData.vitals || ''}
-                      onChange={e => setRegData({ ...regData, vitals: e.target.value })}
-                      placeholder="e.g. 120/80 mmHg"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none transition-colors"
-                    />
-                  </div>
-                </div>
-
-                {/* Address */}
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 mb-1">
-                    <MapPin className="w-3 h-3" /> {t('form.address')}
-                  </label>
+                <Field id="reg-address" label={t('form.address')}>
                   <input
+                    id="reg-address"
                     type="text"
                     value={regData.address || ''}
                     placeholder={t('form.address_placeholder')}
                     onFocus={() => stop()}
                     onChange={e => setRegData({ ...regData, address: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none transition-colors"
+                    className={`${inputClass} h-14`}
                   />
-                </div>
+                </Field>
 
-                {/* ABHA ID (pre-filled and read-only if from ABHA path) */}
                 {abhaSourceProfile && (
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 mb-1">
-                      <Fingerprint className="w-3 h-3" /> ABHA ID
-                    </label>
+                  <Field id="reg-abha" label="ABHA ID">
                     <input
+                      id="reg-abha"
                       type="text"
                       value={regData.abha_id || ''}
                       readOnly
-                      className="w-full bg-blue-50 border border-blue-200 rounded-xl p-3 text-blue-700 font-semibold outline-none cursor-not-allowed"
+                      className={`${inputClass} bg-blue-50 border-blue-200 text-blue-800 font-semibold cursor-not-allowed`}
                     />
+                  </Field>
+                )}
+              </fieldset>
+
+              {/* Vitals — optional */}
+              <div className="mt-6 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowVitals(v => !v)}
+                  aria-expanded={vitalsOpen}
+                  className="tap-kiosk flex w-full items-center justify-between gap-3 px-4 text-left cursor-pointer"
+                >
+                  <span>
+                    <span className="block text-base font-semibold text-slate-900">Vitals <span className="font-normal text-slate-500">(optional)</span></span>
+                    <span className="block text-sm text-slate-500">Weight, height and blood pressure, if you know them</span>
+                  </span>
+                  <ChevronDown className={`h-5 w-5 shrink-0 text-slate-500 transition-transform duration-150 ${vitalsOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                </button>
+                {vitalsOpen && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 border-t border-slate-200 p-4">
+                    <Field id="reg-weight" label={`${t('form.weight')}`}>
+                      <input
+                        id="reg-weight"
+                        type="number"
+                        inputMode="decimal"
+                        value={regData.weight || ''}
+                        placeholder={t('form.weight_placeholder')}
+                        onFocus={() => stop()}
+                        onChange={e => setRegData({ ...regData, weight: parseFloat(e.target.value) || undefined })}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field id="reg-height" label={`${t('form.height')}`}>
+                      <input
+                        id="reg-height"
+                        type="text"
+                        inputMode="decimal"
+                        value={regData.height || ''}
+                        placeholder={t('form.height_placeholder')}
+                        onFocus={() => stop()}
+                        onChange={e => setRegData({ ...regData, height: e.target.value })}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <div className="flex flex-col gap-1.5">
+                      <span id="reg-bp-label" className="text-sm font-semibold text-slate-700">{t('form.vitals')}</span>
+                      <div className="flex items-center gap-2" role="group" aria-labelledby="reg-bp-label">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          aria-label="Systolic (top number)"
+                          placeholder="120"
+                          value={sys}
+                          onChange={e => setBp(e.target.value.replace(/\D/g, '').slice(0, 3), dia)}
+                          className={`${inputClass} text-center tabular-nums`}
+                        />
+                        <span className="text-2xl text-slate-400" aria-hidden="true">/</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          aria-label="Diastolic (bottom number)"
+                          placeholder="80"
+                          value={dia}
+                          onChange={e => setBp(sys, e.target.value.replace(/\D/g, '').slice(0, 3))}
+                          className={`${inputClass} text-center tabular-nums`}
+                        />
+                        <span className="text-sm text-slate-500 shrink-0">mmHg</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-sm font-semibold text-slate-700">BMI</span>
+                      <p className="flex h-12 items-center text-2xl font-bold tabular-nums text-slate-900" aria-live="polite">
+                        {calculatedBmi || <span className="text-base font-normal text-slate-500">Worked out from weight and height</span>}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
 
-              <div className="flex justify-between items-center">
+              <div className="mt-8 flex items-center justify-between gap-3">
                 <button
+                  type="button"
                   onClick={() => {
                     if (isGuestMode) {
                       setIsGuestMode(false);
@@ -2211,125 +2062,174 @@ export function Login({ onSessionStarted }: Props) {
                       handleGoBack(abhaSourceProfile ? 'ABHA_PROFILE_CONFIRM' : (patients.length ? 'SELECT_MEMBER' : 'PHONE'));
                     }
                   }}
-                  className="flex items-center gap-1 text-slate-400 hover:text-slate-700 font-medium text-sm transition-colors"
+                  className="tap-kiosk inline-flex items-center gap-2 rounded-xl px-4 text-base font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
                 >
-                  <ArrowLeft className="w-4 h-4" /> {t('phone.back')}
+                  <ArrowLeft className="w-5 h-5" aria-hidden="true" /> {t('phone.back')}
                 </button>
-                <LiquidButton
+                <button
+                  type="button"
                   onClick={() => setStep('DEPARTMENT')}
                   disabled={!regData.full_name || !regData.age || !regData.gender}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all disabled:opacity-50"
+                  className="tap-kiosk inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 text-lg font-semibold text-white shadow-card hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  {t('form.submit')} <ArrowRight className="w-4 h-4" />
-                </LiquidButton>
+                  {t('form.submit')} <ArrowRight className="w-5 h-5" aria-hidden="true" />
+                </button>
               </div>
             </motion.div>
-          )}
+            );
+          })()}
 
           {/* ────────────────────────────────────────────────────────
               STEP: DEPARTMENT
+              Department tiles, doctor cards, language shown as a summary
+              (already chosen on the first screen) with a Change link.
           ──────────────────────────────────────────────────────── */}
-          {step === 'DEPARTMENT' && (
+          {step === 'DEPARTMENT' && (() => {
+            const deptIcon = (name: string) => {
+              const n = name.toLowerCase();
+              if (n.includes('cardio')) return <HeartPulse className="w-6 h-6" aria-hidden="true" />;
+              if (n.includes('ayush') || n.includes('ayurved')) return <Leaf className="w-6 h-6" aria-hidden="true" />;
+              if (n.includes('pediat') || n.includes('paediat') || n.includes('child')) return <Baby className="w-6 h-6" aria-hidden="true" />;
+              if (n.includes('ortho') || n.includes('bone')) return <Bone className="w-6 h-6" aria-hidden="true" />;
+              if (n.includes('emerg') || n.includes('casualty')) return <Siren className="w-6 h-6" aria-hidden="true" />;
+              if (n.includes('general') || n.includes('medicine')) return <Stethoscope className="w-6 h-6" aria-hidden="true" />;
+              return <Building2 className="w-6 h-6" aria-hidden="true" />;
+            };
+            const deptDoctors = doctors.filter(d => d.department === department);
+            const langLabel: Record<string, string> = { 'en-IN': 'English', 'hi-IN': 'हिन्दी (Hindi)', 'ta-IN': 'Tamil', 'te-IN': 'Telugu', 'kn-IN': 'Kannada', 'bn-IN': 'বাংলা (Bengali)', 'mr-IN': 'Marathi', 'gu-IN': 'Gujarati', 'ml-IN': 'Malayalam', 'pa-IN': 'Punjabi' };
+            return (
             <motion.div
               key="DEPARTMENT"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-2xl bg-white p-6 sm:p-8 rounded-3xl shadow-soft-1 border border-slate-100"
+              exit={{ opacity: 0 }}
+              className="w-full max-w-3xl bg-white p-6 sm:p-8 rounded-2xl shadow-card border border-slate-200"
             >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <Building2 className="w-6 h-6 text-blue-500" /> {t('dept.title')}
-                </h3>
-                {/* Show profile pic if ABHA path */}
+              <div className="flex items-center justify-between gap-4 mb-6">
+                <h1 className="text-2xl font-bold text-slate-900">{t('dept.title')}</h1>
                 {abhaProfile && (
-                  <img
-                    src={PFP_MAP[abhaProfile.pfp_index]}
-                    alt={abhaProfile.name}
-                    className="w-12 h-12 rounded-xl object-cover border-2 border-blue-100"
-                  />
+                  <img src={PFP_MAP[abhaProfile.pfp_index]} alt={abhaProfile.name} className="w-12 h-12 rounded-xl object-cover border-2 border-blue-100" />
                 )}
               </div>
 
-              <div className="mb-6">
-                <label className="text-sm font-bold text-slate-700 uppercase mb-3 block">{t('dept.select_dept')}</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {departments.map(dept => (
-                    <LiquidButton
-                      key={dept.dept_id || dept.name}
-                      onClick={() => { setDepartment(dept.name); setSelectedDoctor(''); }}
-                      className={`py-3 px-4 rounded-xl border-2 font-semibold transition-[transform,border-color,background-color,box-shadow] duration-150 capitalize text-sm hover:-translate-y-0.5 active:scale-[0.97] cursor-pointer ${
-                        department === dept.name
-                          ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-xs ring-1 ring-blue-500/20'
-                          : 'border-slate-100 hover:border-slate-300 hover:bg-slate-50/80 text-slate-600 hover:shadow-2xs'
-                      }`}
-                    >
-                      {dept.name}
-                    </LiquidButton>
-                  ))}
+              {/* Departments */}
+              <section aria-labelledby="dept-heading">
+                <h2 id="dept-heading" className="text-base font-semibold text-slate-700 mb-3">{t('dept.select_dept')}</h2>
+                {directoryStatus === 'error' ? (
+                  <ErrorState
+                    title="Couldn't load departments"
+                    description="The hospital server didn't respond. Check the connection, then try again."
+                    onRetry={() => setDirectoryReload(n => n + 1)}
+                  />
+                ) : directoryStatus === 'loading' && departments.length === 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" aria-busy="true" aria-label="Loading departments">
+                    {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+                  </div>
+                ) : (
+                  <div role="radiogroup" aria-labelledby="dept-heading" className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {departments.map(dept => {
+                      const on = department === dept.name;
+                      return (
+                        <button
+                          key={dept.dept_id || dept.name}
+                          type="button"
+                          role="radio"
+                          aria-checked={on}
+                          onClick={() => { setDepartment(dept.name); setSelectedDoctor(''); }}
+                          className={`flex min-h-20 items-center gap-3 rounded-xl border-2 p-3 text-left text-base font-semibold capitalize cursor-pointer transition-[border-color,background-color] duration-150 ${
+                            on ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-800 hover:border-slate-400'
+                          }`}
+                        >
+                          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${on ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                            {deptIcon(dept.name)}
+                          </span>
+                          <span className="min-w-0 leading-snug">{dept.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              {/* Doctors */}
+              <section aria-labelledby="doc-heading" className="mt-8">
+                <h2 id="doc-heading" className="text-base font-semibold text-slate-700 mb-3">{t('dept.select_doctor')}</h2>
+                <div role="radiogroup" aria-labelledby="doc-heading" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[{ doctor_id: '', full_name: '', room_number: '', current_status: '' }, ...deptDoctors].map((doc: any) => {
+                    const on = selectedDoctor === doc.doctor_id;
+                    const isAny = doc.doctor_id === '';
+                    return (
+                      <button
+                        key={doc.doctor_id || 'any'}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        onClick={() => setSelectedDoctor(doc.doctor_id)}
+                        className={`tap-kiosk flex items-center gap-3 rounded-xl border-2 p-3 text-left cursor-pointer transition-[border-color,background-color] duration-150 ${
+                          on ? 'border-blue-600 bg-blue-50' : 'border-slate-200 bg-white hover:border-slate-400'
+                        }`}
+                      >
+                        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${on ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                          {isAny ? <Users className="w-5 h-5" aria-hidden="true" /> : <User className="w-5 h-5" aria-hidden="true" />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-base font-semibold text-slate-900 truncate">{isAny ? 'Any available doctor' : (/^(dr\.?|vaidya)\s/i.test(doc.full_name || '') ? doc.full_name : `Dr. ${doc.full_name}`)}</span>
+                          <span className="block text-sm text-slate-500">
+                            {isAny
+                              ? 'First free doctor in this department'
+                              : [doc.room_number && (/^room/i.test(String(doc.room_number)) ? doc.room_number : `${t('dept.room')} ${doc.room_number}`), doc.current_status].filter(Boolean).join(' · ')}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
+              </section>
 
-              <div className="mb-6">
-                <label className="text-sm font-bold text-slate-700 uppercase flex items-center gap-2 mb-3">
-                  <User className="w-4 h-4 text-blue-500" /> {t('dept.select_doctor')}
-                </label>
-                <select
-                  value={selectedDoctor}
-                  onChange={e => setSelectedDoctor(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-lg font-medium focus:border-blue-500 outline-none"
-                >
-                  <option value="">Any Available Doctor</option>
-                  {doctors.filter(d => d.department === department).map(doc => (
-                    <option key={doc.doctor_id} value={doc.doctor_id}>
-                      Dr. {doc.full_name} ({t('dept.room')} {doc.room_number})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Interview language — chosen on the first screen */}
+              <section className="mt-8 rounded-xl bg-slate-50 border border-slate-200 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="flex items-center gap-2 text-base text-slate-700">
+                    <Globe className="w-5 h-5 text-blue-600" aria-hidden="true" />
+                    Interview language: <span className="font-semibold text-slate-900">{langLabel[language] || language}</span>
+                  </p>
+                  <button type="button" onClick={() => setShowLangPicker(v => !v)} aria-expanded={showLangPicker}
+                    className="tap inline-flex items-center rounded-lg px-3 text-base font-semibold text-blue-700 hover:bg-blue-50 cursor-pointer">
+                    {showLangPicker ? 'Done' : 'Change'}
+                  </button>
+                </div>
+                {showLangPicker && (
+                  <label className="mt-3 block">
+                    <span className="sr-only">Interview language</span>
+                    <select value={language} onChange={e => setLanguage(e.target.value)} className={inputClass}>
+                      {Object.entries(langLabel).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+                    </select>
+                  </label>
+                )}
+              </section>
 
-              <div className="mb-8">
-                <label className="text-sm font-bold text-slate-700 uppercase flex items-center gap-2 mb-3">
-                  <Globe className="w-4 h-4 text-blue-500" /> Preferred Language
-                </label>
-                <select
-                  value={language}
-                  onChange={e => setLanguage(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-lg font-medium focus:border-blue-500 outline-none"
-                >
-                  <option value="en-IN">English</option>
-                  <option value="hi-IN">Hindi</option>
-                  <option value="ta-IN">Tamil</option>
-                  <option value="te-IN">Telugu</option>
-                  <option value="kn-IN">Kannada</option>
-                  <option value="bn-IN">Bengali</option>
-                  <option value="mr-IN">Marathi</option>
-                  <option value="gu-IN">Gujarati</option>
-                  <option value="ml-IN">Malayalam</option>
-                  <option value="pa-IN">Punjabi</option>
-                </select>
-              </div>
-
-              <div className="flex justify-between items-center">
+              <div className="mt-8 flex items-center justify-between gap-3">
                 <button
+                  type="button"
                   onClick={() => handleGoBack(selectedPatient ? 'SELECT_MEMBER' : 'REGISTER')}
-                  className="flex items-center gap-1 text-slate-400 hover:text-slate-700 font-medium text-sm transition-colors"
+                  className="tap-kiosk inline-flex items-center gap-2 rounded-xl px-4 text-base font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
                 >
-                  <ArrowLeft className="w-4 h-4" /> {t('phone.back')}
+                  <ArrowLeft className="w-5 h-5" aria-hidden="true" /> {t('phone.back')}
                 </button>
-                <LiquidButton
+                <button
+                  type="button"
                   onClick={handleStartSession}
-                  disabled={isLoading}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-xl transition-all shadow-lg shadow-green-600/20"
+                  disabled={isLoading || directoryStatus !== 'ready'}
+                  className="tap-kiosk inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-8 text-lg font-semibold text-white shadow-card hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {isLoading
-                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
-                    : <>{t('dept.start_session')} <ArrowRight className="w-5 h-5" /></>
-                  }
-                </LiquidButton>
+                    ? <><Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" /> Starting…</>
+                    : <>{t('dept.start_session')} <ArrowRight className="w-5 h-5" aria-hidden="true" /></>}
+                </button>
               </div>
             </motion.div>
-          )}
+            );
+          })()}
 
         </AnimatePresence>
       </div>
@@ -2342,14 +2242,14 @@ export function Login({ onSessionStarted }: Props) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/50 p-4"
           >
             <motion.div
               initial={{ scale: 0.85, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.85, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-              className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 text-center"
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center"
             >
               <div className="mx-auto w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-5">
                 <AlertCircle className="w-8 h-8 text-amber-600" />

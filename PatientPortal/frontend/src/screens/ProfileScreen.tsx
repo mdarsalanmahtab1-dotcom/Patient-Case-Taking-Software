@@ -66,7 +66,7 @@ export const ProfileScreen: React.FC = () => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-        className="bg-white rounded-3xl p-5 shadow-[0_8px_24px_rgba(15,23,42,0.06)] border border-slate-200/80 flex items-center gap-4"
+        className="bg-white rounded-2xl p-5 shadow-[0_8px_24px_rgba(15,23,42,0.06)] border border-slate-200/80 flex items-center gap-4"
       >
         <div className="w-14 h-14 bg-gradient-to-br from-blue-50 to-blue-100/80 border border-blue-200/80 rounded-2xl flex items-center justify-center shrink-0 shadow-xs">
           <User className="w-7 h-7 text-blue-600" />
@@ -78,7 +78,7 @@ export const ProfileScreen: React.FC = () => {
       </motion.div>
 
       {/* Grouped Action Items */}
-      <div className="bg-white rounded-3xl shadow-xs border border-slate-200/80 divide-y divide-slate-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 divide-y divide-slate-100 overflow-hidden">
         <motion.button
           whileTap={{ scale: 0.98 }}
           onClick={handleExport}
@@ -96,7 +96,7 @@ export const ProfileScreen: React.FC = () => {
             <p className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{t.profile.exportTitle}</p>
             <p className="text-xs text-slate-500 truncate mt-0.5">{exporting ? t.profile.exporting : t.profile.exportDesc}</p>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+          <ChevronRight className="w-4 h-4 text-slate-500 shrink-0 group-hover:translate-x-0.5 transition-transform" />
         </motion.button>
 
         <motion.button
@@ -111,7 +111,7 @@ export const ProfileScreen: React.FC = () => {
             <p className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{t.profile.languageTitle}</p>
             <p className="text-xs text-slate-500 mt-0.5">{languageNames[language].native} ({languageNames[language].label})</p>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+          <ChevronRight className="w-4 h-4 text-slate-500 shrink-0 group-hover:translate-x-0.5 transition-transform" />
         </motion.button>
 
         <div className="w-full p-4 flex items-center gap-3.5">
@@ -143,9 +143,9 @@ export const ProfileScreen: React.FC = () => {
           <span className="text-xs font-black tracking-tight text-slate-700">
             Swasthya<span className="text-blue-600">Sync</span>
           </span>
-          <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">v2.0</span>
+          <span className="text-xs font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">v2.0</span>
         </div>
-        <p className="text-[10px] text-slate-400 font-semibold max-w-[280px] leading-relaxed">
+        <p className="text-xs text-slate-500 font-semibold max-w-[280px] leading-relaxed">
           Compliant with DPDP Act 2023 & Ayushman Bharat Digital Mission (ABDM). All medical records are encrypted.
         </p>
       </div>
@@ -159,20 +159,20 @@ export const ProfileScreen: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowLanguageModal(false)}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm -z-10"
+              className="fixed inset-0 bg-slate-900/40 -z-10"
             />
             <motion.div
               initial={{ opacity: 0, y: 50, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 50, scale: 0.97 }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-[0_20px_50px_rgba(15,23,42,0.25)] border border-slate-100"
+              className="bg-white w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-6 shadow-[0_20px_50px_rgba(15,23,42,0.25)] border border-slate-100"
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base font-extrabold text-slate-900">{t.profile.selectLanguage}</h3>
                 <button
                   onClick={() => setShowLanguageModal(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+                  className="p-1.5 text-slate-500 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>

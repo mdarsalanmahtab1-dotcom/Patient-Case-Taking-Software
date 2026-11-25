@@ -1,4 +1,4 @@
-﻿"""
+"""
 SwasthyaSync — Conversation ↔ Document Contradiction Checker
 
 Runs at the Screen 6 confirmation step — the FIRST moment both the filled_state

@@ -1,11 +1,14 @@
 import { LiquidButton } from '../components/ui/button';
+import { StaffSignIn } from '../components/StaffSignIn';
+import { StatTile, EmptyState } from '../components/ui/states';
+import { toast } from '../components/Toast';
 import { LogoutDialog } from '../components/LogoutDialog';
 import { AnalyticsDashboard, RedFlagFeed } from './AnalyticsDashboard';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  ShieldCheck, Lock, Mail, Key, ArrowRight, Plus, LogOut, Calendar, UploadCloud, FileText,
-  Activity, Users, LayoutList, Stethoscope, Settings, List, AlertTriangle, X, Search, DownloadCloud, TrendingUp, ShieldAlert
+  ShieldCheck, Lock, Plus, LogOut, Calendar, UploadCloud, FileText,
+  Activity, Users, LayoutList, Stethoscope, Settings, List, AlertTriangle, X, Search, DownloadCloud, TrendingUp, ShieldAlert, Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getApiBaseUrl } from '../config';
@@ -25,8 +28,6 @@ export const AdminPanel: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('swasthya_admin_auth') === 'true';
   });
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
 
   // UI State
@@ -57,15 +58,14 @@ export const AdminPanel: React.FC = () => {
   const [selectedDeptFilter, setSelectedDeptFilter] = useState<string>('ALL');
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email === ADMIN_EMAIL && password === ADMIN_PASS) {
+  const handleLogin = (email: string, password: string) => {
+    if (email.trim() === ADMIN_EMAIL && password === ADMIN_PASS) {
       setIsAuthenticated(true);
       localStorage.setItem('swasthya_admin_auth', 'true');
       setAuthError('');
       fetchAllData();
     } else {
-      setAuthError('Invalid admin credentials. Access denied.');
+      setAuthError("That email and password don't match an admin account.");
     }
   };
 
@@ -160,14 +160,14 @@ export const AdminPanel: React.FC = () => {
       });
       if (!res.ok) {
         const errorData = await res.json();
-        alert(`Failed to add doctor: ${errorData.detail || res.statusText}`);
+        toast.error(`Failed to add doctor: ${errorData.detail || res.statusText}`);
         return;
       }
       setNewDoc({ full_name: '', dept_id: '', license_number: '', profile_image_url: '', max_daily_patients: 40, room_number: '', username: '', password: '' });
       setShowAddDocModal(false);
       fetchAllData();
     } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      toast.error(`Error: ${err.message}`);
     }
   };
 
@@ -186,13 +186,13 @@ export const AdminPanel: React.FC = () => {
       });
       if (!res.ok) {
         const errorData = await res.json();
-        alert(`Failed to update doctor: ${errorData.detail || res.statusText}`);
+        toast.error(`Failed to update doctor: ${errorData.detail || res.statusText}`);
         return;
       }
       setShowEditDocModal(false);
       fetchAllData();
     } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      toast.error(`Error: ${err.message}`);
     }
   };
 
@@ -239,35 +239,18 @@ export const AdminPanel: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="h-screen w-full bg-slate-50 flex items-center justify-center p-4 font-sans">
-        <motion.div 
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-md bg-white border border-slate-200 rounded-3xl shadow-elevated overflow-hidden"
-        >
-          <div className="bg-purple-50 p-6 border-b border-purple-100 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-100 mb-3 shadow-sm">
-              <Lock className="w-8 h-8 text-purple-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900">System Administration</h2>
-            <p className="text-slate-500 text-xs font-medium mt-1">Sign in with administrative privileges</p>
-          </div>
-          <form onSubmit={handleLogin} className="p-6 space-y-5">
-            {authError && <div className="p-3 bg-red-100 border border-red-200 rounded-xl text-red-600 text-xs font-bold text-center">{authError}</div>}
-            <div className="relative">
-              <Mail className="absolute inset-y-3.5 left-4 h-4 w-4 text-slate-400" />
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all text-sm font-medium" placeholder="Admin Email" />
-            </div>
-            <div className="relative">
-              <Key className="absolute inset-y-3.5 left-4 h-4 w-4 text-slate-400" />
-              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all text-sm font-medium" placeholder="Password" />
-            </div>
-            <LiquidButton type="submit" className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl flex justify-center items-center text-sm shadow-md active:scale-[0.97]">Authenticate <ArrowRight className="ml-2 w-4 h-4" /></LiquidButton>
-            <LiquidButton type="button" onClick={() => navigate('/')} className="w-full py-3 bg-white hover:bg-slate-100 text-slate-700 font-bold border border-slate-200 rounded-xl text-sm active:scale-[0.97]">Cancel & Return</LiquidButton>
-          </form>
-        </motion.div>
-      </div>
+      <StaffSignIn
+        title="Admin sign in"
+        subtitle="Hospital operations and settings"
+        icon={<Lock className="h-6 w-6" aria-hidden="true" />}
+        accent="purple"
+        idLabel="Admin email"
+        idType="email"
+        idAutoComplete="email"
+        error={authError}
+        onSubmit={handleLogin}
+        onBack={() => navigate('/')}
+      />
     );
   }
 
@@ -279,15 +262,15 @@ export const AdminPanel: React.FC = () => {
   const normalQueues = filteredQueues.filter(q => !q.priority_flag);
 
   const tabs = [
-    { id: 'analytics', icon: TrendingUp, label: 'Analytics Dashboard', color: 'text-blue-600' },
-    { id: 'red_flags', icon: ShieldAlert, label: 'Live Red Flags', color: 'text-red-500' },
-    { id: 'live_queue', icon: Activity, label: 'Live Queue Control', color: 'text-blue-600' },
-    { id: 'departments', icon: LayoutList, label: 'Department Manager', color: 'text-emerald-600' },
-    { id: 'doctors', icon: Stethoscope, label: 'Doctor Roster', color: 'text-blue-600' },
-    { id: 'patients', icon: Users, label: 'Patient Master View', color: 'text-emerald-600' },
-    { id: 'rules', icon: Settings, label: 'Clinical Rules', color: 'text-purple-600' },
-    { id: 'logs', icon: List, label: 'Audit Ledger', color: 'text-slate-500' },
-    { id: 'reset', icon: AlertTriangle, label: 'End of Day Reset', color: 'text-red-600' },
+    { id: 'analytics', icon: TrendingUp, label: 'Overview', group: 'Monitor' },
+    { id: 'red_flags', icon: ShieldAlert, label: 'Red flags', group: 'Monitor' },
+    { id: 'live_queue', icon: Activity, label: 'Live queue', group: 'Monitor' },
+    { id: 'departments', icon: LayoutList, label: 'Departments', group: 'Manage' },
+    { id: 'doctors', icon: Stethoscope, label: 'Doctors', group: 'Manage' },
+    { id: 'patients', icon: Users, label: 'Patients', group: 'Manage' },
+    { id: 'rules', icon: Settings, label: 'Clinical rules', group: 'Manage' },
+    { id: 'logs', icon: List, label: 'Audit log', group: 'System' },
+    { id: 'reset', icon: AlertTriangle, label: 'End-of-day reset', group: 'System' },
   ];
 
   const handleExportDB = async () => {
@@ -304,132 +287,107 @@ export const AdminPanel: React.FC = () => {
       window.URL.revokeObjectURL(url);
       a.remove();
     } catch (err) {
-      alert('Failed to download DB');
+      toast.error('Database download failed. Check the server is running and try again.');
       console.error(err);
     }
   };
 
+  const activeLabel = tabs.find(t => t.id === activeTab)?.label || '';
   return (
-    <div className="min-h-[100dvh] md:h-screen w-full bg-slate-50 text-slate-900 font-sans p-3 sm:p-6 flex flex-col overflow-x-hidden">
-      <header className="flex-none flex flex-col md:flex-row items-start md:items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-slate-200 gap-3 sm:gap-4">
-        <div className="flex items-center space-x-3">
-          <div className="p-2.5 sm:p-3 bg-purple-50 border border-purple-200/30 rounded-xl shrink-0">
-            <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">System Administration</h1>
-            <p className="text-[#8b949e] text-xs sm:text-sm flex items-center mt-0.5 sm:mt-1">
-              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 text-blue-600" /> {todayDate}
-            </p>
-          </div>
+    <div className="h-[100dvh] w-full bg-slate-50 text-slate-900 flex flex-col md:flex-row overflow-hidden">
+      {/* Sidebar */}
+      <nav aria-label="Admin sections" className="shrink-0 border-b border-slate-200 bg-white md:w-60 md:border-b-0 md:border-r flex md:flex-col">
+        <div className="hidden md:flex items-center gap-2.5 px-4 h-16 border-b border-slate-200">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50 text-purple-700"><ShieldCheck className="h-5 w-5" aria-hidden="true" /></span>
+          <span className="text-base font-bold text-slate-900">Admin</span>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full md:w-auto justify-between md:justify-end">
-          <div className="relative">
-            <LiquidButton 
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="p-2 bg-white hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-700 transition relative cursor-pointer"
-            >
-              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
-              {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  {notifications.length}
-                </span>
-              )}
-            </LiquidButton>
-            {showNotifications && (
-              <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white border border-slate-300 rounded-xl shadow-2xl z-50 overflow-hidden">
-                <div className="bg-slate-100 px-4 py-3 border-b border-slate-300">
-                  <h3 className="font-bold text-slate-900 text-sm">Doctor Notifications</h3>
-                </div>
-                <div className="max-h-64 overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <div className="p-4 text-center text-slate-500 text-sm">No new notifications</div>
-                  ) : (
-                    notifications.map(n => (
-                      <div key={n.notif_id} className="p-4 border-b border-slate-200 hover:bg-slate-100/50 transition">
-                        <div className="flex justify-between items-start mb-1">
-                          <span className="font-bold text-blue-600 text-sm">{n.doctor_name}</span>
-                          <span className="text-[10px] text-slate-500">{new Date(n.timestamp + 'Z').toLocaleTimeString()}</span>
-                        </div>
-                        <p className="text-slate-700 text-xs mb-2">{n.message}</p>
-                        <LiquidButton 
-                          onClick={() => handleMarkNotificationRead(n.notif_id)}
-                          className="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
-                        >
-                          Mark as read
-                        </LiquidButton>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-          <span className="text-xs sm:text-sm font-semibold text-purple-600 bg-purple-50 px-2.5 sm:px-3 py-1 rounded-full border border-purple-200/30 hidden xs:inline truncate max-w-[180px] sm:max-w-none">
-            Admin: {ADMIN_EMAIL}
-          </span>
-          <LiquidButton onClick={handleExportDB} className="px-3 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white text-xs sm:text-sm font-bold transition flex items-center shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer">
-            <DownloadCloud className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" /> Download DB
-          </LiquidButton>
-          <LiquidButton onClick={() => setShowLogoutDialog(true)} className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-700 text-xs sm:text-sm transition flex items-center cursor-pointer">
-            <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-slate-500" /> Logout
-          </LiquidButton>
-        </div>
-      </header>
-
-      {/* Analytics Row */}
-      <div className="flex-none grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 mb-4 sm:mb-6">
-        <div className="bg-white border border-slate-200/80 p-4 sm:p-5 rounded-2xl flex items-center justify-between shadow-card hover:shadow-card-hover transition-shadow">
-          <div>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Footfall</p>
-            <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 sm:mt-1">{analytics.total_footfall}</h3>
-          </div>
-          <div className="p-2.5 sm:p-3 bg-blue-50 rounded-xl text-blue-600">
-            <Users className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-        </div>
-        <div className="bg-white border border-slate-200/80 p-4 sm:p-5 rounded-2xl flex items-center justify-between shadow-card hover:shadow-card-hover transition-shadow">
-          <div>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Avg Wait Time</p>
-            <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 sm:mt-1">{analytics.avg_wait_time}</h3>
-          </div>
-          <div className="p-2.5 sm:p-3 bg-emerald-50 rounded-xl text-emerald-600">
-            <Activity className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-        </div>
-        <div className="bg-white border border-slate-200/80 p-4 sm:p-5 rounded-2xl flex items-center justify-between shadow-card hover:shadow-card-hover transition-shadow">
-          <div>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Active Emergencies</p>
-            <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 sm:mt-1">{analytics.emergency_active}</h3>
-          </div>
-          <div className={`p-2.5 sm:p-3 rounded-xl ${analytics.emergency_active > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-400'}`}>
-            <AlertTriangle className={`w-5 h-5 sm:w-6 sm:h-6 ${analytics.emergency_active > 0 ? 'animate-pulse' : ''}`} />
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 flex flex-col md:flex-row gap-4 sm:gap-6 overflow-hidden">
-        {/* Sidebar Tabs (Horizontal scroll on mobile, vertical on desktop) */}
-        <div className="w-full md:w-64 bg-white shadow-card border border-slate-200/80 rounded-2xl sm:rounded-3xl p-2 sm:p-3 flex md:flex-col overflow-x-auto md:overflow-y-auto shrink-0 gap-1 md:h-[calc(100vh-140px)] scrollbar-none">
-          {tabs.map(tab => (
-            <button 
-              key={tab.id} 
-              onClick={() => setActiveTab(tab.id)} 
-              className={`flex items-center px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-left transition-all duration-150 cursor-pointer active:scale-[0.97] whitespace-nowrap shrink-0 md:shrink md:w-full ${
-                activeTab === tab.id 
-                  ? 'bg-blue-50/80 text-blue-700 font-bold border border-blue-200/60 shadow-sm' 
-                  : 'hover:bg-slate-50 text-slate-600 font-medium border border-transparent'
-              }`}
-            >
-              <tab.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2 sm:mr-2.5 shrink-0 ${activeTab === tab.id ? 'text-blue-600' : tab.color}`} />
-              <span className="text-xs truncate">{tab.label}</span>
-            </button>
+        <div className="flex md:flex-col gap-1 overflow-x-auto md:overflow-y-auto p-2 md:p-3 flex-1">
+          {['Monitor', 'Manage', 'System'].map(group => (
+            <div key={group} className="flex md:flex-col gap-1 md:mb-3">
+              <p className="hidden md:block px-3 pt-1 pb-1 text-xs font-semibold text-slate-500">{group}</p>
+              {tabs.filter(t => t.group === group).map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  aria-current={activeTab === tab.id ? 'page' : undefined}
+                  className={`tap flex shrink-0 items-center gap-2.5 rounded-lg px-3 text-left text-sm whitespace-nowrap cursor-pointer ${
+                    activeTab === tab.id ? 'bg-purple-50 font-semibold text-purple-800' : 'font-medium text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <tab.icon className={`h-4 w-4 shrink-0 ${activeTab === tab.id ? 'text-purple-700' : tab.id === 'reset' || tab.id === 'red_flags' ? 'text-red-600' : 'text-slate-500'}`} aria-hidden="true" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           ))}
         </div>
+      </nav>
 
-        {/* Main Content Area */}
-        <div className="flex-1 bg-white border border-slate-200/80 rounded-2xl sm:rounded-3xl overflow-hidden flex flex-col shadow-card">
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="shrink-0 border-b border-slate-200 bg-white">
+          <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
+            <div className="min-w-0">
+              <h1 className="truncate text-xl font-bold text-slate-900">{activeLabel}</h1>
+              <p className="flex items-center gap-1.5 text-sm text-slate-500"><Calendar className="h-4 w-4" aria-hidden="true" /> {todayDate}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  aria-label={`Doctor notifications${notifications.length ? `: ${notifications.length} new` : ''}`}
+                  aria-expanded={showNotifications}
+                  className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  <Bell className="h-5 w-5" aria-hidden="true" />
+                  {notifications.length > 0 && (
+                    <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-600 px-1.5 text-center text-xs font-bold leading-5 text-white tabular-nums">{notifications.length}</span>
+                  )}
+                </button>
+                {showNotifications && (
+                  <div className="absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-elevated">
+                    <p className="border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-900">Doctor notifications</p>
+                    <div className="max-h-72 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <p className="p-4 text-center text-sm text-slate-500">No new notifications</p>
+                      ) : (
+                        notifications.map(n => (
+                          <div key={n.notif_id} className="border-b border-slate-100 p-4">
+                            <div className="mb-1 flex items-start justify-between gap-2">
+                              <span className="text-sm font-semibold text-slate-900">{n.doctor_name}</span>
+                              <span className="text-xs text-slate-500 tabular-nums">{new Date(n.timestamp + 'Z').toLocaleTimeString()}</span>
+                            </div>
+                            <p className="mb-2 text-sm text-slate-700">{n.message}</p>
+                            <button type="button" onClick={() => handleMarkNotificationRead(n.notif_id)} className="text-sm font-semibold text-blue-700 hover:underline cursor-pointer">
+                              Mark as read
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button type="button" onClick={handleExportDB} className="tap hidden sm:inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer">
+                <DownloadCloud className="h-4 w-4" aria-hidden="true" /> Export data
+              </button>
+              <button type="button" onClick={() => setShowLogoutDialog(true)} className="tap inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer">
+                <LogOut className="h-4 w-4" aria-hidden="true" /> <span className="hidden sm:inline">Sign out</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <StatTile label="Patients today" value={analytics.total_footfall} />
+              <StatTile label="Average wait" value={analytics.avg_wait_time} />
+              <StatTile label="Active emergencies" value={analytics.emergency_active} tone={analytics.emergency_active > 0 ? 'danger' : 'neutral'} />
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-card sm:p-6">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}
@@ -515,7 +473,7 @@ export const AdminPanel: React.FC = () => {
                 <h2 className="text-xl font-bold text-slate-900 flex items-center"><LayoutList className="w-5 h-5 mr-2 text-emerald-600" /> Department Manager</h2>
                 <form onSubmit={handleAddDept} className="flex space-x-3 mb-6 bg-white p-4 rounded-lg border border-slate-200">
                   <input type="text" required value={newDept} onChange={e => setNewDept(e.target.value)} placeholder="New Department Name" className="flex-1 bg-slate-50 border border-slate-300 rounded px-4 py-2 text-slate-900 focus:border-emerald-200" />
-                  <LiquidButton type="submit" className="bg-[#00d084] hover:bg-[#00b070] text-black font-bold px-6 py-2 rounded">Add Dept</LiquidButton>
+                  <LiquidButton type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2 rounded">Add Dept</LiquidButton>
                 </form>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {departments.map(d => (
@@ -530,7 +488,7 @@ export const AdminPanel: React.FC = () => {
                         className={`w-full py-2 rounded font-bold text-xs transition ${
                           d.is_default 
                             ? 'bg-emerald-50 text-emerald-600 cursor-default border border-emerald-200/30' 
-                            : 'bg-slate-100 hover:bg-slate-700 text-slate-700'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                         }`}
                       >
                         {d.is_default ? 'Default Registration Dept' : 'Set as Default'}
@@ -542,97 +500,78 @@ export const AdminPanel: React.FC = () => {
             )}
 
             {activeTab === 'doctors' && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                
-                {/* Header & Action Bar */}
-                <div className="flex justify-between items-center bg-white p-5 rounded-2xl border border-slate-200/60 shadow-lg">
-                  <h2 className="text-xl font-bold text-slate-900 flex items-center">
-                    <Stethoscope className="w-6 h-6 mr-3 text-blue-600" />
-                    Active Physician Directory
-                  </h2>
-                  <LiquidButton 
-                    onClick={() => setShowAddDocModal(true)}
-                    className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/30 rounded-xl transition flex items-center font-semibold text-sm"
-                  >
-                    <Plus className="w-4 h-4 mr-2" /> Register Provider
-                  </LiquidButton>
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-slate-600"><span className="font-semibold text-slate-900 tabular-nums">{doctors.length}</span> doctors registered</p>
+                  <button type="button" onClick={() => setShowAddDocModal(true)} className="tap inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 text-sm font-semibold text-white hover:bg-purple-700 cursor-pointer">
+                    <Plus className="h-4 w-4" aria-hidden="true" /> Add doctor
+                  </button>
                 </div>
-
-                {/* Dynamic Database Card Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {doctors.length === 0 ? (
-                    <div className="col-span-full p-12 text-center text-[#8b949e] bg-white border border-slate-200/60 rounded-2xl">
-                      No physicians found in the database. Add one to begin.
-                    </div>
-                  ) : (
-                    doctors.map((doc) => (
-                      <div 
-                        key={doc.doctor_id} 
-                        className="bg-white border border-slate-200 hover:border-blue-200/40 rounded-2xl p-6 transition-all duration-300 group shadow-lg"
-                      >
-                        <div className="flex items-start space-x-4 mb-4">
-                          <div className="flex-shrink-0 relative">
-                            {doc.profile_image_url ? (
-                              <img 
-                                src={doc.profile_image_url} 
-                                alt={doc.full_name} 
-                                className="w-16 h-16 rounded-full object-cover border-2 border-blue-200/30 group-hover:border-blue-200/80 transition-colors" 
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                }}
-                              />
-                            ) : null}
-                            <div className={`w-16 h-16 rounded-full bg-blue-50 border-2 border-blue-200/30 flex items-center justify-center ${doc.profile_image_url ? 'hidden' : 'flex'}`}>
-                              <Stethoscope className="w-7 h-7 text-blue-600" />
-                            </div>
-                          </div>
-                          <div className="flex-1 min-w-0 pt-1">
-                            <h3 className="text-lg font-bold text-slate-900 truncate flex items-center gap-2">
-                              {doc.full_name}
-                              <span className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold border ${doc.current_status === 'Available' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-amber-500/20 text-amber-400 border-amber-500/30'}`}>
-                                {doc.current_status || 'Available'}
-                              </span>
-                            </h3>
-                            <p className="text-sm text-blue-600 font-medium mt-0.5 truncate">{doc.dept_name || `Dept ID: ${doc.dept_id}`}</p>
-                            <p className="text-xs text-[#8b949e] mt-1.5 flex items-center">
-                              <ShieldCheck className="w-3 h-3 mr-1.5 text-slate-500" /> {doc.license_number}
-                              <span className="mx-2">•</span>
-                              Room {doc.room_number || 'TBD'}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-slate-200/60">
-                          <div className="flex justify-between items-end mb-2">
-                            <div className="text-xs">
-                              <span className="block text-[#8b949e] mb-0.5">Patients Consulted Today</span>
-                              <span className="font-bold text-slate-200 text-sm">
-                                {doc.total_seen_today || 0} <span className="text-slate-500 font-normal">/ {doc.max_daily_patients}</span>
-                              </span>
-                            </div>
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold border ${doc.status === 'Active' ? 'bg-[#00d084]/10 text-emerald-600 border-emerald-200/30' : 'bg-red-50 text-red-600 border-red-200/30'}`}>
-                              {doc.status || 'Active'}
-                            </span>
-                          </div>
-                          {/* Visual Capacity Bar */}
-                          <div className="w-full bg-slate-50 rounded-full h-1.5 overflow-hidden mb-3">
-                            <div 
-                              className="bg-gradient-to-r from-[#00e5ff] to-[#00d084] h-1.5 rounded-full" 
-                              style={{ width: `${Math.min(100, ((doc.total_seen_today || 0) / doc.max_daily_patients) * 100)}%` }}
-                            ></div>
-                          </div>
-                          <LiquidButton 
-                            onClick={() => { setEditingDoctor(doc); setShowEditDocModal(true); }}
-                            className="w-full text-xs font-semibold py-1.5 bg-slate-100 hover:bg-slate-700 text-blue-600 rounded transition"
-                          >
-                            Edit Details
-                          </LiquidButton>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                {doctors.length === 0 ? (
+                  <EmptyState icon={<Stethoscope />} title="No doctors yet" description="Add a doctor so patients can choose them at the kiosk." />
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full min-w-[720px] text-left text-sm">
+                      <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
+                        <tr>
+                          <th scope="col" className="px-4 py-3 font-semibold">Doctor</th>
+                          <th scope="col" className="px-4 py-3 font-semibold">Department</th>
+                          <th scope="col" className="px-4 py-3 font-semibold">Room</th>
+                          <th scope="col" className="px-4 py-3 font-semibold">Status</th>
+                          <th scope="col" className="px-4 py-3 font-semibold">Seen today</th>
+                          <th scope="col" className="px-4 py-3 text-right font-semibold"><span className="sr-only">Actions</span></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {doctors.map(doc => {
+                          const seen = doc.total_seen_today || 0;
+                          const cap = doc.max_daily_patients || 0;
+                          const pct = cap ? Math.min(100, (seen / cap) * 100) : 0;
+                          const available = (doc.current_status || 'Available') === 'Available';
+                          return (
+                            <tr key={doc.doctor_id} className="hover:bg-slate-50">
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-3">
+                                  {doc.profile_image_url ? (
+                                    <img src={doc.profile_image_url} alt="" className="h-9 w-9 rounded-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} />
+                                  ) : (
+                                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-700"><Stethoscope className="h-4 w-4" aria-hidden="true" /></span>
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="truncate font-semibold text-slate-900">{doc.full_name}</p>
+                                    <p className="text-xs text-slate-500">{doc.license_number || 'No licence number'}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-slate-700">{doc.dept_name || doc.department || doc.dept_id}</td>
+                              <td className="px-4 py-3 text-slate-700">{doc.room_number || '–'}</td>
+                              <td className="px-4 py-3">
+                                <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-xs font-semibold ${available ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                                  <span className={`h-1.5 w-1.5 rounded-full ${available ? 'bg-emerald-500' : 'bg-amber-500'}`} aria-hidden="true" />
+                                  {available ? 'Available' : 'On break'}
+                                </span>
+                                {doc.status && doc.status !== 'Active' && <span className="ml-2 text-xs font-semibold text-red-700">{doc.status}</span>}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="tabular-nums text-slate-900">{seen}<span className="text-slate-500"> / {cap || '–'}</span></span>
+                                  <span className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                                    <span className={`block h-full rounded-full ${pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-blue-600'}`} style={{ width: `${pct}%` }} />
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button type="button" onClick={() => { setEditingDoctor(doc); setShowEditDocModal(true); }} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 cursor-pointer">
+                                  Edit
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
@@ -647,13 +586,13 @@ export const AdminPanel: React.FC = () => {
                       placeholder="Search patients..." 
                       value={patientSearchQuery}
                       onChange={(e) => setPatientSearchQuery(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-slate-900 focus:border-emerald-200 focus:ring-1 focus:ring-[#00d084]"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-slate-900 focus:border-emerald-200 focus:ring-1 focus:ring-emerald-600"
                     />
                   </div>
                 </div>
                 <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 text-slate-500 text-xs uppercase border-b border-slate-200">
+                    <thead className="bg-slate-50 text-slate-600 text-sm border-b border-slate-200">
                       <tr>
                         <th className="px-4 py-3">ID</th>
                         <th className="px-4 py-3">Phone (Family)</th>
@@ -662,7 +601,7 @@ export const AdminPanel: React.FC = () => {
                         <th className="px-4 py-3 text-right">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800">
+                    <tbody className="divide-y divide-slate-200">
                       {patients.filter(p => 
                         p.full_name?.toLowerCase().includes(patientSearchQuery.toLowerCase()) || 
                         p.phone_number?.includes(patientSearchQuery) || 
@@ -683,7 +622,7 @@ export const AdminPanel: React.FC = () => {
                                   <FileText className="w-3 h-3 mr-1" /> Summary
                                 </LiquidButton>
                               )}
-                              <LiquidButton onClick={() => { setEditingPatient(p); setShowEditModal(true); }} className="text-xs bg-slate-100 hover:bg-slate-700 px-3 py-1.5 rounded text-blue-600 font-medium transition">Edit Details</LiquidButton>
+                              <LiquidButton onClick={() => { setEditingPatient(p); setShowEditModal(true); }} className="text-xs bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded text-blue-600 font-medium transition">Edit Details</LiquidButton>
                             </div>
                           </td>
                         </tr>
@@ -751,7 +690,7 @@ export const AdminPanel: React.FC = () => {
                 
                 <div className="bg-white rounded-2xl border border-slate-200/60 overflow-hidden shadow-lg">
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200/60">
+                    <thead className="bg-slate-50 text-slate-500 text-xs border-b border-slate-200/60">
                       <tr>
                         <th className="px-6 py-4 font-semibold">Timestamp</th>
                         <th className="px-6 py-4 font-semibold">Admin Identity</th>
@@ -759,10 +698,10 @@ export const AdminPanel: React.FC = () => {
                         <th className="px-6 py-4 font-semibold">Target Object ID</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/40">
+                    <tbody className="divide-y divide-slate-200/40">
                       {logs.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="px-6 py-12 text-center text-[#8b949e]">
+                          <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
                             No audit trails found in the database.
                           </td>
                         </tr>
@@ -809,12 +748,13 @@ export const AdminPanel: React.FC = () => {
                 </div>
                 <h2 className="text-3xl font-bold text-slate-900 mb-4">Danger Zone</h2>
                 <p className="text-slate-500 max-w-lg mb-8">This action will archive all IN_PROGRESS queues. It should only be used at the end of the day or in case of a system-wide reset. Active patient records will be preserved.</p>
-                <LiquidButton onClick={() => setShowDangerModal(true)} className="bg-[#ff4d4f] hover:bg-red-500 text-white font-bold py-4 px-8 rounded-xl shadow-[0_0_20px_rgba(255,77,79,0.4)] transition transform hover:scale-105 active:scale-[0.97]">Initialize EOD Reset</LiquidButton>
+                <LiquidButton onClick={() => setShowDangerModal(true)} className="bg-red-600 hover:bg-red-500 text-white font-bold py-4 px-8 rounded-xl shadow-[0_0_20px_rgba(255,77,79,0.4)] transition transform hover:scale-105 active:scale-[0.97]">Initialize EOD Reset</LiquidButton>
               </div>
             )}
 
               </motion.div>
             </AnimatePresence>
+            </div>
           </div>
         </div>
       </div>
@@ -822,19 +762,19 @@ export const AdminPanel: React.FC = () => {
       {/* Danger Modal */}
       <AnimatePresence>
         {showDangerModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
             <motion.div 
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white border border-red-200/50 p-8 rounded-3xl max-w-md w-full shadow-elevated"
+              className="bg-white border border-red-200/50 p-8 rounded-2xl max-w-md w-full shadow-elevated"
             >
               <h3 className="text-2xl font-bold text-slate-900 mb-4">Confirm Reset</h3>
               <p className="text-slate-700 mb-6">Are you absolutely sure? This will archive {normalQueues.length + priorityQueues.length} active queues.</p>
               <div className="flex space-x-4">
                 <LiquidButton onClick={() => setShowDangerModal(false)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold rounded-xl">Cancel</LiquidButton>
-                <LiquidButton onClick={handleResetClinic} className="flex-1 py-3 bg-[#ff4d4f] hover:bg-red-500 text-white font-bold rounded-xl">Yes, Reset Now</LiquidButton>
+                <LiquidButton onClick={handleResetClinic} className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl">Yes, Reset Now</LiquidButton>
               </div>
             </motion.div>
           </div>
@@ -844,13 +784,13 @@ export const AdminPanel: React.FC = () => {
       {/* Edit Patient Modal */}
       <AnimatePresence>
         {showEditModal && editingPatient && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
             <motion.div 
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white border border-slate-200 rounded-3xl max-w-md w-full overflow-hidden shadow-elevated"
+              className="bg-white border border-slate-200 rounded-2xl max-w-md w-full overflow-hidden shadow-elevated"
             >
               <div className="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
                 <h3 className="text-lg font-bold text-slate-900">Edit Patient Record</h3>
@@ -869,7 +809,7 @@ export const AdminPanel: React.FC = () => {
                   <p className="text-xs text-slate-500 mb-1">Patient ID (Read-Only)</p>
                   <p className="text-sm font-mono text-slate-700 truncate">{editingPatient.patient_id}</p>
                 </div>
-                <LiquidButton type="submit" className="w-full py-3 mt-4 bg-[#00d084] hover:bg-[#00b070] text-black font-bold rounded-xl">Save Changes</LiquidButton>
+                <LiquidButton type="submit" className="w-full py-3 mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl">Save Changes</LiquidButton>
               </form>
             </motion.div>
           </div>
@@ -879,13 +819,13 @@ export const AdminPanel: React.FC = () => {
       {/* Add Doctor Modal */}
       <AnimatePresence>
         {showAddDocModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
             <motion.div 
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white border border-slate-200 rounded-3xl max-w-md w-full overflow-hidden shadow-elevated"
+              className="bg-white border border-slate-200 rounded-2xl max-w-md w-full overflow-hidden shadow-elevated"
             >
               <div className="bg-white p-4 border-b border-slate-200 flex justify-between items-center">
                 <h3 className="text-lg font-bold text-slate-900 flex items-center"><Stethoscope className="w-5 h-5 mr-2 text-blue-600" /> Register Provider</h3>
@@ -914,11 +854,11 @@ export const AdminPanel: React.FC = () => {
                   <label className="text-xs text-slate-500 mb-2 block">Profile Image (Drag & Drop or Select File)</label>
                   <div 
                     className="border-2 border-dashed border-slate-300 hover:border-blue-200/50 rounded-xl p-4 flex flex-col items-center justify-center text-center bg-slate-50 transition-colors relative group"
-                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-blue-200', 'bg-[#00e5ff]/5'); }}
-                    onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-blue-200', 'bg-[#00e5ff]/5'); }}
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-blue-200', 'bg-blue-50'); }}
+                    onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-blue-200', 'bg-blue-50'); }}
                     onDrop={(e) => {
                       e.preventDefault();
-                      e.currentTarget.classList.remove('border-blue-200', 'bg-[#00e5ff]/5');
+                      e.currentTarget.classList.remove('border-blue-200', 'bg-blue-50');
                       const file = e.dataTransfer.files[0];
                       if (file && file.type.startsWith('image/')) {
                         const reader = new FileReader();
@@ -937,7 +877,7 @@ export const AdminPanel: React.FC = () => {
                         <LiquidButton 
                           type="button"
                           onClick={(e: React.MouseEvent) => { e.preventDefault(); setNewDoc({ ...newDoc, profile_image_url: '' }); }}
-                          className="absolute -top-2 -right-2 md:right-1/4 bg-[#ff4d4f] text-slate-900 rounded-full p-1 hover:bg-red-500 shadow-lg"
+                          className="absolute -top-2 -right-2 md:right-1/4 bg-red-600 text-white rounded-full p-1 hover:bg-red-500 shadow-lg"
                         >
                           <X className="w-3 h-3" />
                         </LiquidButton>
@@ -971,7 +911,7 @@ export const AdminPanel: React.FC = () => {
                   </div>
                 </div>
 
-                <LiquidButton type="submit" className="w-full mt-4 bg-[#00e5ff] hover:bg-[#00c5dd] text-black font-bold py-3 rounded-xl">Register Doctor</LiquidButton>
+                <LiquidButton type="submit" className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl">Register Doctor</LiquidButton>
               </form>
             </motion.div>
           </div>
@@ -981,13 +921,13 @@ export const AdminPanel: React.FC = () => {
       {/* Edit Doctor Modal */}
       <AnimatePresence>
         {showEditDocModal && editingDoctor && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
             <motion.div 
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white border border-slate-200 rounded-3xl max-w-md w-full overflow-hidden shadow-elevated"
+              className="bg-white border border-slate-200 rounded-2xl max-w-md w-full overflow-hidden shadow-elevated"
             >
               <div className="bg-white p-4 border-b border-slate-200 flex justify-between items-center">
                 <h3 className="text-lg font-bold text-slate-900 flex items-center"><Stethoscope className="w-5 h-5 mr-2 text-blue-600" /> Edit Provider</h3>
@@ -1025,11 +965,11 @@ export const AdminPanel: React.FC = () => {
                   <label className="text-xs text-slate-500 mb-2 block">Update Profile Image (Optional)</label>
                   <div 
                     className="border-2 border-dashed border-slate-300 hover:border-blue-200/50 rounded-xl p-4 flex flex-col items-center justify-center text-center bg-slate-50 transition-colors relative group"
-                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-blue-200', 'bg-[#00e5ff]/5'); }}
-                    onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-blue-200', 'bg-[#00e5ff]/5'); }}
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-blue-200', 'bg-blue-50'); }}
+                    onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-blue-200', 'bg-blue-50'); }}
                     onDrop={(e) => {
                       e.preventDefault();
-                      e.currentTarget.classList.remove('border-blue-200', 'bg-[#00e5ff]/5');
+                      e.currentTarget.classList.remove('border-blue-200', 'bg-blue-50');
                       if (e.dataTransfer.files && e.dataTransfer.files[0]) {
                         const file = e.dataTransfer.files[0];
                         if (file.type.startsWith('image/')) {
@@ -1046,7 +986,7 @@ export const AdminPanel: React.FC = () => {
                         <LiquidButton 
                           type="button" 
                           onClick={() => setEditingDoctor({...editingDoctor, profile_image_url: ''})} 
-                          className="absolute -top-2 -right-2 md:right-1/4 bg-[#ff4d4f] text-slate-900 rounded-full p-1 hover:bg-red-500 shadow-lg"
+                          className="absolute -top-2 -right-2 md:right-1/4 bg-red-600 text-white rounded-full p-1 hover:bg-red-500 shadow-lg"
                         >
                           <X className="w-3 h-3" />
                         </LiquidButton>
@@ -1068,7 +1008,7 @@ export const AdminPanel: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <LiquidButton type="submit" className="w-full mt-4 bg-[#00e5ff] hover:bg-[#00c5dd] text-black font-bold py-3 rounded-xl">Save Changes</LiquidButton>
+                <LiquidButton type="submit" className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl">Save Changes</LiquidButton>
               </form>
             </motion.div>
           </div>

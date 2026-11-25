@@ -47,7 +47,7 @@ export const HospitalInfoScreen: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center h-72 gap-3">
         <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-        <p className="text-xs font-semibold text-slate-400">Loading hospital information...</p>
+        <p className="text-xs font-semibold text-slate-500">Loading hospital information...</p>
       </div>
     );
   }
@@ -63,9 +63,8 @@ export const HospitalInfoScreen: React.FC = () => {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-        className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-3xl p-6 text-white shadow-[0_12px_32px_rgba(37,99,235,0.25)] border border-blue-500/40 relative overflow-hidden"
+        className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-2xl p-6 text-white shadow-[0_12px_32px_rgba(37,99,235,0.25)] border border-blue-500/40 relative overflow-hidden"
       >
-        <div className="absolute top-0 right-0 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none" />
         <div className="relative z-10">
           <div className="flex items-center gap-3.5 mb-4">
             <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center p-2 border border-white/30 shadow-sm shrink-0">
@@ -74,7 +73,7 @@ export const HospitalInfoScreen: React.FC = () => {
             <div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h1 className="text-lg font-extrabold tracking-tight">{info.hospital_name || t.hospital.subtitle}</h1>
-                <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-white/20 text-white rounded-md uppercase backdrop-blur-sm border border-white/20">
+                <span className="px-1.5 py-0.5 text-xs font-extrabold bg-white/20 text-white rounded-md uppercase border border-white/20">
                   SwasthyaSync
                 </span>
               </div>
@@ -83,13 +82,13 @@ export const HospitalInfoScreen: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-3 mt-4">
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 text-center border border-white/15">
+            <div className="bg-white/10 rounded-2xl p-3.5 text-center border border-white/15">
               <p className="text-2xl font-black font-mono tabular-nums">{info.departments.length}</p>
-              <p className="text-[10px] font-bold text-blue-100 uppercase tracking-wider mt-0.5">{t.hospital.departmentsTitle}</p>
+              <p className="text-xs font-bold text-blue-100 mt-0.5">{t.hospital.departmentsTitle}</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 text-center border border-white/15">
+            <div className="bg-white/10 rounded-2xl p-3.5 text-center border border-white/15">
               <p className="text-2xl font-black font-mono tabular-nums">{info.active_patients_today}</p>
-              <p className="text-[10px] font-bold text-blue-100 uppercase tracking-wider mt-0.5">{t.hospital.activePatientsToday}</p>
+              <p className="text-xs font-bold text-blue-100 mt-0.5">{t.hospital.activePatientsToday}</p>
             </div>
           </div>
         </div>
@@ -97,13 +96,13 @@ export const HospitalInfoScreen: React.FC = () => {
 
       {/* Departments */}
       <div>
-        <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 ml-1">{t.hospital.departmentsTitle}</h2>
+        <h2 className="text-xs font-bold text-slate-500 mb-3 ml-1">{t.hospital.departmentsTitle}</h2>
         <div className="grid grid-cols-1 gap-2.5">
           {info.departments.map((dept) => (
             <motion.div
               key={dept.dept_id}
               whileHover={{ translateY: -1 }}
-              className="bg-white rounded-3xl p-4 shadow-xs border border-slate-200/80 flex items-center gap-4 hover:border-blue-200 transition-all"
+              className="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 flex items-center gap-4 hover:border-blue-200 transition-all"
             >
               <div className="w-12 h-12 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs">
                 {deptIcons[dept.name.toLowerCase()] || <Stethoscope className="w-5 h-5 text-slate-500" />}
@@ -111,7 +110,7 @@ export const HospitalInfoScreen: React.FC = () => {
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-extrabold text-slate-900 capitalize truncate">{dept.name}</h3>
                 <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
-                  <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                   <span className="font-medium">{dept.available_doctors} {t.hospital.doctorsAvailable}</span>
                 </div>
               </div>
@@ -128,7 +127,7 @@ export const HospitalInfoScreen: React.FC = () => {
       {/* Emergency Info */}
       <motion.div
         whileTap={{ scale: 0.98 }}
-        className="bg-red-50/80 border border-red-200/90 rounded-3xl p-5 shadow-xs"
+        className="bg-red-50/80 border border-red-200/90 rounded-2xl p-5 shadow-xs"
       >
         <div className="flex items-center gap-2 mb-1.5">
           <div className="w-7 h-7 rounded-xl bg-red-100/80 flex items-center justify-center">

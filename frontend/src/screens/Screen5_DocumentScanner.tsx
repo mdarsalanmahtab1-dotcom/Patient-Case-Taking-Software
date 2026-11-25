@@ -1,40 +1,28 @@
-import { LiquidButton } from '../components/ui/button';
-import { useState, useRef } from 'react';
-import { Camera, UploadCloud, X, ArrowRight, Loader2 } from 'lucide-react';
+import { toast } from '../components/Toast';
+import { useState, useRef, useEffect } from 'react';
+import { Camera, UploadCloud, X, ArrowRight, Loader2, FileText, Plus, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTranslation } from '../hooks/useTranslation';
-import { useEffect } from 'react';
 import { useAudioGuide } from '../hooks/useAudioGuide';
 
-function DynamicLoadingText() {
+const MAX_FILES = 5;
+
+/** Rotating status line while the batch OCR request runs (one request for all pages). */
+function ReadingStatus() {
   const [index, setIndex] = useState(0);
   const messages = [
-    "Encrypting secure upload...",
-    "Scanning document structure...",
-    "Extracting clinical entities...",
-    "Cross-referencing medical databases...",
-    "Finalizing digitization..."
+    'Uploading your pages securely…',
+    'Reading the text on each page…',
+    'Picking out medicines, tests and diagnoses…',
+    'Almost done…',
   ];
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setIndex((prev) => (prev + 1) % messages.length);
-    }, 1500);
+    const interval = setInterval(() => setIndex((prev) => Math.min(prev + 1, messages.length - 1)), 1800);
     return () => clearInterval(interval);
   }, [messages.length]);
 
-  return (
-    <motion.span 
-      key={index}
-      initial={{ opacity: 0, y: -4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 4 }}
-      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-      className="text-xs font-bold text-blue-900 uppercase tracking-wider"
-    >
-      {messages[index]}
-    </motion.span>
-  );
+  return <span className="text-base font-medium text-slate-700" aria-live="polite">{messages[index]}</span>;
 }
 
 interface Props {
@@ -43,228 +31,197 @@ interface Props {
   onSkip: () => void;
 }
 
+interface Page {
+  file: File;
+  /** Object URL for images; null for PDFs */
+  url: string | null;
+}
+
 export function Screen5_DocumentScanner({ onNext, onSkip }: Props) {
   const { t } = useTranslation();
-  const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const { speak, stop } = useAudioGuide();
-  
+
   useEffect(() => {
     speak('upload_docs', undefined, 1);
     return () => stop();
   }, [speak, stop]);
-  
+
+  // Release preview URLs when the screen unmounts
+  const pagesRef = useRef<Page[]>([]);
+  pagesRef.current = pages;
+  useEffect(() => () => pagesRef.current.forEach(p => p.url && URL.revokeObjectURL(p.url)), []);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const selectedFiles = Array.from(e.target.files);
-      if (selectedFiles.length + files.length > 5) {
-        alert("Maximum 5 images allowed.");
-        return;
-      }
-      
-      const newFiles = [...files, ...selectedFiles];
-      setFiles(newFiles);
-      
-      const newPreviews = [...previews];
-      selectedFiles.forEach((file) => {
-        if (file.type.startsWith('image/')) {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            newPreviews.push(reader.result as string);
-            setPreviews([...newPreviews]); // Trigger re-render with new array
-          };
-          reader.readAsDataURL(file);
-        }
-      });
+    const selected = e.target.files ? Array.from(e.target.files) : [];
+    e.target.value = '';
+    if (selected.length === 0) return;
+    if (selected.length + pages.length > MAX_FILES) {
+      toast.info(`You can add up to ${MAX_FILES} pages.`);
+      return;
     }
+    setErrorMsg(null);
+    setPages(prev => [
+      ...prev,
+      ...selected.map(file => ({ file, url: file.type.startsWith('image/') ? URL.createObjectURL(file) : null })),
+    ]);
   };
 
-  const handleClear = () => {
-    setFiles([]);
-    setPreviews([]);
+  const removeAt = (idx: number) => {
     setErrorMsg(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    setPages(prev => {
+      const p = prev[idx];
+      if (p?.url) URL.revokeObjectURL(p.url);
+      return prev.filter((_, i) => i !== idx);
+    });
   };
 
   const handleSubmit = async () => {
     stop();
-    if (files.length > 0) {
-      setIsProcessing(true);
-      setErrorMsg(null);
-      try {
-        await onNext(files);
-      } catch (err: any) {
-        setErrorMsg(err.message || "Document verification failed. Please check the document and re-upload.");
-        setIsProcessing(false);
-      }
+    if (pages.length === 0) return;
+    setIsProcessing(true);
+    setErrorMsg(null);
+    try {
+      await onNext(pages.map(p => p.file));
+    } catch (err: any) {
+      setErrorMsg(err.message || 'We could not read these pages. Check they are a clear photo of your own document and try again.');
+      setIsProcessing(false);
     }
   };
 
+  const tileBase =
+    'group flex h-full min-h-[220px] w-full flex-col items-center justify-center gap-4 rounded-2xl border-2 bg-white p-6 text-center shadow-card transition-[border-color,box-shadow] duration-150 hover:shadow-card-hover cursor-pointer';
+
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 16 }}
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -16 }}
-      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col flex-1 p-6 sm:p-12 items-center text-center h-full"
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+      className="flex flex-col flex-1 items-center h-full overflow-y-auto px-4 py-8 sm:px-8 sm:py-10"
     >
-      <div className="w-full max-w-3xl mb-8 sm:mb-12">
-        <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 mb-3 sm:mb-4 tracking-tight">{t('docs.title')}</h2>
-        <p className="text-base sm:text-xl text-slate-600 font-medium max-w-2xl mx-auto leading-relaxed">
-          {t('docs.subtitle')}
-        </p>
+      <div className="w-full max-w-3xl text-center">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">{t('docs.title')}</h1>
+        <p className="mx-auto mt-3 max-w-2xl text-lg text-slate-600">{t('docs.subtitle')}</p>
       </div>
 
-      <div className="flex-1 w-full max-w-3xl flex flex-col justify-center relative">
-        <input 
-          type="file" 
-          accept="image/*,.pdf" 
-          className="hidden" 
-          ref={fileInputRef} 
-          multiple
-          onChange={handleFileChange} 
-        />
-        <input 
-          type="file" 
-          accept="image/*" 
-          capture="environment" 
-          className="hidden" 
-          ref={cameraInputRef} 
-          multiple
-          onChange={handleFileChange} 
-        />
+      <input type="file" accept="image/*,.pdf" className="hidden" ref={fileInputRef} multiple onChange={handleFileChange} />
+      <input type="file" accept="image/*" capture="environment" className="hidden" ref={cameraInputRef} multiple onChange={handleFileChange} />
 
-        {files.length === 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 h-full max-h-[400px]">
-            {/* Camera Option — Slides from left */}
-            <motion.div
-              initial={{ opacity: 0, x: -16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <LiquidButton
-                onClick={() => cameraInputRef.current?.click()}
-                className="group w-full h-full flex flex-col items-center justify-center bg-white border border-slate-200/80 rounded-2xl sm:rounded-[2rem] p-5 sm:p-8 shadow-card hover:shadow-card-hover hover:-translate-y-1 active:scale-[0.97] transition-[transform,box-shadow,background-color] duration-150 cursor-pointer"
-              >
-                <div className="w-14 h-14 sm:w-20 sm:h-20 bg-blue-50 rounded-full flex items-center justify-center mb-3 sm:mb-6 group-hover:scale-105 transition-transform duration-200 shadow-inner">
-                  <Camera className="w-7 h-7 sm:w-10 sm:h-10 text-blue-600" />
-                </div>
-                <h3 className="text-lg sm:text-2xl font-bold text-slate-800 mb-1 sm:mb-2">{t('docs.take_photo')}</h3>
-                <p className="text-xs sm:text-base text-slate-500 font-medium">{t('docs.hold_document')}</p>
-              </LiquidButton>
-            </motion.div>
-
-            {/* Upload Option — Slides from right */}
-            <motion.div
-              initial={{ opacity: 0, x: 16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <LiquidButton
-                onClick={() => fileInputRef.current?.click()}
-                className="group w-full h-full flex flex-col items-center justify-center bg-white border border-slate-200/80 rounded-2xl sm:rounded-[2rem] p-5 sm:p-8 shadow-card hover:shadow-card-hover hover:-translate-y-1 active:scale-[0.97] transition-[transform,box-shadow,background-color] duration-150 cursor-pointer"
-              >
-                <div className="w-14 h-14 sm:w-20 sm:h-20 bg-emerald-50 rounded-full flex items-center justify-center mb-3 sm:mb-6 group-hover:scale-105 transition-transform duration-200 shadow-inner">
-                  <UploadCloud className="w-7 h-7 sm:w-10 sm:h-10 text-emerald-600" />
-                </div>
-                <h3 className="text-lg sm:text-2xl font-bold text-slate-800 mb-1 sm:mb-2">{t('docs.upload_file')}</h3>
-                <p className="text-xs sm:text-base text-slate-500 font-medium">{t('docs.pdf_or_image')} (Max 5)</p>
-              </LiquidButton>
-            </motion.div>
+      <div className="mt-8 w-full max-w-3xl flex-1">
+        {pages.length === 0 ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <button type="button" onClick={() => cameraInputRef.current?.click()} className={`${tileBase} border-blue-600`}>
+              <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+                <Camera className="h-8 w-8" aria-hidden="true" />
+              </span>
+              <span>
+                <span className="block text-2xl font-bold text-slate-900">{t('docs.take_photo')}</span>
+                <span className="mt-1 block text-base text-slate-600">{t('docs.hold_document')}</span>
+              </span>
+            </button>
+            <button type="button" onClick={() => fileInputRef.current?.click()} className={`${tileBase} border-slate-200 hover:border-slate-400`}>
+              <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                <UploadCloud className="h-8 w-8" aria-hidden="true" />
+              </span>
+              <span>
+                <span className="block text-2xl font-bold text-slate-900">{t('docs.upload_file')}</span>
+                <span className="mt-1 block text-base text-slate-600">{t('docs.pdf_or_image')} · up to {MAX_FILES}</span>
+              </span>
+            </button>
           </div>
         ) : (
-          <motion.div 
-            initial={{ scale: 0.98, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-col items-center justify-center bg-white rounded-[2.5rem] p-8 shadow-card-hover h-full max-h-[400px] relative overflow-hidden border border-slate-200/80"
-          >
-            <LiquidButton
-              onClick={handleClear}
-              disabled={isProcessing}
-              className="absolute top-4 right-4 p-2 bg-slate-100 hover:bg-red-100 hover:text-red-600 text-slate-600 rounded-full transition-colors active:scale-[0.97] disabled:opacity-50 cursor-pointer shadow-2xs"
-            >
-              <X className="w-6 h-6" />
-            </LiquidButton>
-
-            <div className="flex flex-wrap justify-center gap-4 w-full h-full overflow-y-auto pt-8">
-              {previews.map((prev, idx) => (
-                <motion.div 
-                  key={idx}
-                  initial={{ opacity: 0, scale: 0.92 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.2, delay: idx * 0.05, ease: [0.16, 1, 0.3, 1] }}
-                  className="w-32 h-32 sm:w-40 sm:h-40 rounded-xl overflow-hidden border-2 border-slate-200 relative shrink-0 shadow-card"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={prev} alt={`Preview ${idx+1}`} className="w-full h-full object-cover" />
-                </motion.div>
-              ))}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-card">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-slate-900">
+                {pages.length} {pages.length === 1 ? 'page' : 'pages'} added
+              </h2>
+              <span className="text-sm text-slate-500">{MAX_FILES - pages.length} more allowed</span>
             </div>
 
+            <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {pages.map((p, idx) => (
+                <li key={p.url || `${p.file.name}-${idx}`} className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                  {p.url ? (
+                    <img src={p.url} alt={`Page ${idx + 1}`} className="aspect-[3/4] w-full object-cover" />
+                  ) : (
+                    <div className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-2 p-3 text-center">
+                      <FileText className="h-10 w-10 text-slate-500" aria-hidden="true" />
+                      <span className="w-full truncate text-sm text-slate-600">{p.file.name}</span>
+                    </div>
+                  )}
+                  <span className="absolute left-2 top-2 rounded-lg bg-white/95 px-2 py-0.5 text-sm font-semibold text-slate-700 tabular-nums">{idx + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeAt(idx)}
+                    disabled={isProcessing}
+                    aria-label={`Remove page ${idx + 1}`}
+                    className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-xl bg-white text-slate-700 shadow-card hover:bg-red-50 hover:text-red-700 disabled:opacity-50 cursor-pointer"
+                  >
+                    <X className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                </li>
+              ))}
+              {pages.length < MAX_FILES && !isProcessing && (
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 text-slate-600 hover:border-blue-600 hover:text-blue-700 cursor-pointer"
+                  >
+                    <Plus className="h-8 w-8" aria-hidden="true" />
+                    <span className="text-base font-semibold">Add page</span>
+                  </button>
+                </li>
+              )}
+            </ul>
+
             {isProcessing && (
-              <div className="absolute inset-0 bg-white/80 backdrop-blur-md z-10 flex flex-col items-center justify-center p-4 text-center">
-                <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-3" />
-                <DynamicLoadingText />
+              <div className="mt-5 flex items-center gap-3 rounded-xl bg-blue-50 p-4">
+                <Loader2 className="h-6 w-6 shrink-0 animate-spin text-blue-600" aria-hidden="true" />
+                <ReadingStatus />
               </div>
             )}
-            
-            {errorMsg ? (
-              <div className="mt-4 text-center bg-red-50 border border-red-200 rounded-xl p-4 w-full">
-                <p className="text-red-600 font-bold text-sm sm:text-base">{errorMsg}</p>
-                <p className="text-red-500 text-xs mt-1">Please clear and try again.</p>
-              </div>
-            ) : (
-              <div className="mt-4 text-center">
-                <h3 className="text-lg font-bold text-slate-800">
-                  {files.length} document{files.length !== 1 ? 's' : ''} ready
-                </h3>
+
+            {errorMsg && (
+              <div role="alert" className="mt-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden="true" />
+                <div>
+                  <p className="text-base font-semibold text-red-800">{errorMsg}</p>
+                  <p className="mt-0.5 text-sm text-red-700">Remove the page that didn't work, or retake it, then try again.</p>
+                </div>
               </div>
             )}
-          </motion.div>
+          </div>
         )}
       </div>
 
-      <div className="mt-auto pt-4 sm:pt-10 w-full max-w-4xl flex gap-3 sm:gap-6">
-        <LiquidButton
-          onClick={() => {
-            stop();
-            onSkip();
-          }}
+      <div className="mt-8 w-full max-w-3xl flex gap-3">
+        <button
+          type="button"
+          onClick={() => { stop(); onSkip(); }}
           disabled={isProcessing}
-          className="group flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-8 py-3 sm:py-5 rounded-full font-extrabold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-[transform,background-color] duration-150 active:scale-[0.97] w-1/3 text-sm sm:text-lg disabled:opacity-50 cursor-pointer shadow-2xs"
+          className="tap-kiosk w-1/3 inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-lg font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
         >
           {t('docs.skip')}
-        </LiquidButton>
-        <LiquidButton
+        </button>
+        <button
+          type="button"
           onClick={handleSubmit}
-          disabled={files.length === 0 || isProcessing}
-          className={`group relative flex-1 overflow-hidden flex items-center justify-center gap-2 sm:gap-3 rounded-full py-3 sm:py-5 font-extrabold shadow-card-hover transition-[transform,background-color,box-shadow] duration-150 transform active:scale-[0.97] text-base sm:text-xl cursor-pointer ${
-            files.length > 0 && !isProcessing
-              ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20 hover:shadow-blue-600/30'
-              : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-          }`}
+          disabled={pages.length === 0 || isProcessing}
+          className="tap-kiosk flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 text-lg font-semibold text-white shadow-card hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none disabled:cursor-not-allowed cursor-pointer"
         >
           {isProcessing ? (
-             <span className="relative z-10 flex items-center gap-2 sm:gap-3 text-sm sm:text-base">
-                <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" />
-                {t('docs.analyzing_document')}
-             </span>
+            <><Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> {t('docs.analyzing_document')}</>
           ) : (
-            <>
-              <span className="relative z-10 flex items-center gap-2">
-                {t('docs.process_document')}
-                <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6 group-hover:translate-x-1.5 transition-transform" />
-              </span>
-            </>
+            <>{t('docs.process_document')} <ArrowRight className="h-5 w-5" aria-hidden="true" /></>
           )}
-        </LiquidButton>
+        </button>
       </div>
     </motion.div>
   );

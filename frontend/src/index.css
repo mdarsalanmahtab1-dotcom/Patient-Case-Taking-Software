@@ -12,10 +12,42 @@
   --color-surface-elevated: #f8fafc;
   --color-kiosk-bg: #0f172a;
   --color-kiosk-card: #1e293b;
-  
+
+  /* Semantic aliases of the colours above (no new colours) — used by components/ui */
+  --color-primary-foreground: #ffffff;
+  --color-destructive: #dc2626;
+  --color-ink: #0f172a;          /* slate-900: headings */
+  --color-ink-muted: #475569;    /* slate-600: body copy */
+  --color-ink-subtle: #64748b;   /* slate-500: captions; lowest grey allowed for text on white (4.6:1) */
+  --color-line: #e2e8f0;         /* slate-200: borders */
+
   --font-heading: 'Inter', 'Noto Sans', sans-serif;
   --font-body: 'Inter', 'Noto Sans', sans-serif;
   --font-sans: 'Inter', 'Noto Sans', sans-serif;
+
+  /*
+   * Type scale (Tailwind defaults, documented here as the only sizes to use):
+   *   text-xs 12 · text-sm 14 · text-base 16 · text-lg 18 · text-2xl 24 · text-3xl 30 · text-4xl 36
+   * Rules: nothing below 12px anywhere; patient-facing kiosk screens use 14px minimum
+   * for labels and 16px for body copy. No arbitrary text-[Npx] sizes.
+   *
+   * Radius scale — three steps only:
+   *   rounded-lg 8px  → inputs, chips, small buttons
+   *   rounded-xl 12px → cards, large buttons
+   *   rounded-2xl 16px → sheets, modals, page panels
+   */
+  --radius-control: 0.5rem;
+  --radius-card: 0.75rem;
+  --radius-sheet: 1rem;
+}
+
+/* Minimum tap heights: 56px on the patient kiosk, 44px elsewhere */
+@utility tap-kiosk {
+  min-height: 56px;
+}
+
+@utility tap {
+  min-height: 44px;
 }
 
 @utility shadow-soft-1 {
@@ -38,9 +70,10 @@
   box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.04);
 }
 
+/* Shadow scale: shadow-card for resting surfaces, shadow-elevated for modals/popovers. */
+
 @utility glass-panel {
-  background: rgba(30, 41, 59, 0.7);
-  backdrop-filter: blur(16px);
+  background: #1e293b;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -196,6 +229,18 @@ button, input, select, textarea {
 
 .animate-float {
   animation: gentle-float 3s ease-in-out infinite;
+}
+
+/* Loading placeholder used by components/ui/states Skeleton */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.skeleton {
+  background: #e2e8f0;
+  border-radius: 0.5rem;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
 }
 
 .shimmer-bg {

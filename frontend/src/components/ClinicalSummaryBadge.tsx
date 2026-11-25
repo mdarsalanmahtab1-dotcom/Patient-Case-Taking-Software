@@ -178,8 +178,8 @@ export function ClinicalSummaryBadge({ summary, clinicMode = 'allopathic', empty
 
   if (!summary || !parsedData) {
     return (
-      <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs text-slate-400 font-medium italic">
-        <AlertCircle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+      <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs text-slate-500 font-medium italic">
+        <AlertCircle className="w-3.5 h-3.5 text-slate-500 shrink-0" />
         <span>{emptyText}</span>
       </div>
     );
@@ -195,7 +195,7 @@ export function ClinicalSummaryBadge({ summary, clinicMode = 'allopathic', empty
           <div className="col-span-2 flex items-center gap-2 p-2 bg-gradient-to-r from-blue-50 to-indigo-50/70 border border-blue-200/70 rounded-xl shadow-2xs">
             <span className="text-base shrink-0">🌡️</span>
             <div className="min-w-0">
-              <span className="block text-[9px] font-extrabold uppercase tracking-wider text-blue-600">Chief Complaint</span>
+              <span className="block text-xs font-extrabold uppercase tracking-wider text-blue-600">Chief Complaint</span>
               <span className="block text-xs font-bold text-slate-800 truncate capitalize">{complaint}</span>
             </div>
           </div>
@@ -205,8 +205,8 @@ export function ClinicalSummaryBadge({ summary, clinicMode = 'allopathic', empty
           <div className="flex items-center gap-1.5 p-1.5 bg-slate-50 border border-slate-200/80 rounded-lg">
             <User className="w-3 h-3 text-slate-500 shrink-0" />
             <div className="min-w-0">
-              <span className="block text-[8px] font-bold uppercase tracking-wider text-slate-400">Patient</span>
-              <span className="block text-[11px] font-bold text-slate-700 truncate">{patient}</span>
+              <span className="block text-[8px] font-bold uppercase tracking-wider text-slate-500">Patient</span>
+              <span className="block text-xs font-bold text-slate-700 truncate">{patient}</span>
             </div>
           </div>
         )}
@@ -216,7 +216,7 @@ export function ClinicalSummaryBadge({ summary, clinicMode = 'allopathic', empty
             <Heart className="w-3 h-3 text-emerald-600 shrink-0" />
             <div className="min-w-0">
               <span className="block text-[8px] font-bold uppercase tracking-wider text-emerald-600">BP / Vitals</span>
-              <span className="block text-[11px] font-bold text-emerald-900 truncate">{vitals}</span>
+              <span className="block text-xs font-bold text-emerald-900 truncate">{vitals}</span>
             </div>
           </div>
         )}
@@ -226,7 +226,7 @@ export function ClinicalSummaryBadge({ summary, clinicMode = 'allopathic', empty
             <Activity className="w-3 h-3 text-teal-600 shrink-0" />
             <div className="min-w-0">
               <span className="block text-[8px] font-bold uppercase tracking-wider text-teal-600">BMI</span>
-              <span className="block text-[11px] font-bold text-teal-900 truncate">{bmi} {weight ? `(${weight}kg)` : ''}</span>
+              <span className="block text-xs font-bold text-teal-900 truncate">{bmi} {weight ? `(${weight}kg)` : ''}</span>
             </div>
           </div>
         )}
@@ -238,19 +238,19 @@ export function ClinicalSummaryBadge({ summary, clinicMode = 'allopathic', empty
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-1.5">
               <span className="text-xs">🌿</span>
-              <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider">
+              <span className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider">
                 CCRAS Prakriti Assessment
               </span>
             </div>
-            <span className="text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 rounded-sm">
+            <span className="text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 rounded-sm">
               GOVT SOP
             </span>
           </div>
 
           {/* Dominant Prediction */}
-          <div className="flex items-center justify-between text-[11px] font-extrabold text-slate-800 mb-1.5">
-            <span className="text-slate-500 font-semibold text-[10px]">Dominant:</span>
-            <span className="text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full text-[10px] border border-emerald-200">
+          <div className="flex items-center justify-between text-xs font-extrabold text-slate-800 mb-1.5">
+            <span className="text-slate-500 font-semibold text-xs">Dominant:</span>
+            <span className="text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full text-xs border border-emerald-200">
               {doshaStats.dominantPrakriti}
             </span>
           </div>
@@ -275,7 +275,7 @@ export function ClinicalSummaryBadge({ summary, clinicMode = 'allopathic', empty
           </div>
 
           {/* Mini Legend */}
-          <div className="flex items-center justify-between text-[9px] font-bold text-slate-600 px-0.5">
+          <div className="flex items-center justify-between text-xs font-bold text-slate-600 px-0.5">
             <span className="flex items-center gap-1 text-indigo-700">
               <Wind className="w-2.5 h-2.5" /> Vata {doshaStats.vataPct}%
             </span>
@@ -293,11 +293,11 @@ export function ClinicalSummaryBadge({ summary, clinicMode = 'allopathic', empty
       {collectedFields.length > 0 && (
         <div className="mt-2 border-t border-slate-100 pt-2">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3 text-emerald-600" />
               <span>Collected Fields ({collectedFields.length})</span>
             </span>
-            <span className="text-[9px] font-bold text-slate-400">
+            <span className="text-xs font-bold text-slate-500">
               DB SYNCED 100%
             </span>
           </div>
@@ -309,7 +309,7 @@ export function ClinicalSummaryBadge({ summary, clinicMode = 'allopathic', empty
                 className="p-1.5 bg-slate-50/90 hover:bg-white border border-slate-200/80 rounded-lg transition-colors text-left"
               >
                 <div className="flex items-center justify-between gap-1 mb-0.5">
-                  <span className="text-[10px] font-bold text-slate-700 truncate flex items-center gap-1">
+                  <span className="text-xs font-bold text-slate-700 truncate flex items-center gap-1">
                     <span>{field.icon}</span>
                     <span>{field.label}</span>
                   </span>
@@ -323,7 +323,7 @@ export function ClinicalSummaryBadge({ summary, clinicMode = 'allopathic', empty
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] text-slate-600 font-medium line-clamp-2 pl-4">
+                <p className="text-xs text-slate-600 font-medium line-clamp-2 pl-4">
                   {field.value}
                 </p>
               </div>
